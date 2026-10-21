@@ -1,6 +1,7 @@
 """Dedicated editing tab. Import the GPU backend only when a job is requested."""
 
 import html
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from PIL import Image
@@ -121,6 +122,8 @@ def run_edit(task_id, *args):
 def cancel_edit():
     if _active:
         shared.state.interrupt()
+        return "<p>Cancelling… waiting for the current operation to finish.</p>"
+    return gr.update()
 
 
 def reuse_result(image, saved_path=None):
@@ -130,6 +133,26 @@ def reuse_result(image, saved_path=None):
         with Image.open(saved_path) as saved:
             return saved.copy()
     return image
+
+
+def curves_request(payload, saved_path, keep_metadata):
+    from .adjustments import describe_result, save_adjustment
+    request_id = ""
+    try:
+        if not isinstance(payload, str) or len(payload) > 24000:
+            raise ValueError("Invalid curves request.")
+        request = json.loads(payload)
+        if not isinstance(request, dict) or request.get("version") != 1:
+            raise ValueError("Invalid curves request.")
+        request_id = request.get("id", "")
+        if request.get("op") == "context":
+            return gr.update(), gr.update(), gr.update(), json.dumps(describe_result(saved_path, payload))
+        if _active:
+            raise ValueError("Wait for the current edit to finish before applying curves.")
+        output, path, request_id = save_adjustment(saved_path, payload, keep_metadata)
+        return output, path, f"<p>Saved {html.escape(Path(path).name)} · curves applied · previous file kept</p>", json.dumps({"id": request_id, "ok": True})
+    except (ValueError, TypeError, KeyError, OSError) as error:
+        return gr.update(), gr.update(), gr.update(), json.dumps({"id": request_id, "ok": False, "error": str(error)})
 
 
 def create_tab():
@@ -159,6 +182,10 @@ def create_tab():
                     with gr.Row(elem_id="qwen_edit_result_actions"):
                         reuse = gr.Button("Use result as source", size="sm")
                         download = gr.File(label="Download PNG with recipe", interactive=False, height=72, elem_id="qwen_edit_download")
+            with gr.Row():
+                generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
+                cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
+            status = gr.HTML(elem_id="qwen_edit_status")
             instruction = gr.Textbox(label="Edit instruction", placeholder="Remove the stray object and reconstruct the background. Or: give this person a subtle, natural smile while keeping their identity.", lines=3, elem_id="qwen_edit_instruction")
             result_description = gr.Textbox(label="Describe the finished image (optional, Fibo)",
                 placeholder="Example: The woman remains beside an empty bed with an uninterrupted green bedspread and white pillows.",
@@ -170,10 +197,6 @@ def create_tab():
             profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
             preserve_tone = gr.Checkbox(value=False, label="Match source brightness / contrast", elem_id="image_edit_preserve_tone",
                 info="Reduce global tone drift after an object edit. Does not prevent texture changes; paint an edit area to keep the rest exact. Leave off for lighting or contrast changes.")
-            with gr.Row():
-                generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
-                cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
-            status = gr.HTML(elem_id="qwen_edit_status")
             with gr.Accordion("Additional reference images", open=False):
                 reference_help = gr.Markdown("Optional. Refer to the source as **image 1**, then **image 2** and **image 3** in your instruction. More references use more memory.")
                 with gr.Row():
@@ -200,8 +223,14 @@ def create_tab():
                 import_button = gr.Button("Import recipe", size="sm")
                 import_status = gr.Markdown()
             handoff = MetadataImage(visible=False, numpy=False, elem_id="image_edit_handoff")
+            curves_payload = gr.Textbox(visible=False, elem_id="image_edit_curves_request")
+            curves_receipt = gr.Textbox(visible=False)
+            curves_payload.change(curves_request, [curves_payload, download, keep_metadata],
+                [result, download, status, curves_receipt], show_progress="hidden", api_name="image_edit_curves").then(
+                    fn=None, inputs=[curves_receipt], outputs=[],
+                    js="receipt => { window.imageEditCurvesSaved?.(receipt); }", api_name=False)
             task_id = gr.Textbox(visible=False)
-            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather):
+            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt):
                 component.do_not_save_to_config = True
             for component in (steps, sampler, schedule, guidance, prefix_cache):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
@@ -217,7 +246,7 @@ def create_tab():
                     show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])
             reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed])
-            cancel.click(cancel_edit, queue=False)
+            cancel.click(cancel_edit, outputs=[status], queue=False)
     model_bar.workspace = SimpleNamespace(**locals())
     # Retain the tab ID for existing canvas and image-browser handoffs.
     return [(tab, "Image Edit", "qwen_edit")]

@@ -21,6 +21,7 @@ from .masking import canonical_image, composite_patch, context_box, extract_mask
 from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
 from .tone import match_source_tone
+from .adjustments import MASK_KEY, encode_selection, remember_selection
 
 
 class EditCancelled(Exception):
@@ -87,15 +88,19 @@ class EditProcessing(processing.StableDiffusionProcessingTxt2Img):
                 if tensor.shape[-1] == 4:
                     rgb = rgb * tensor[..., 3:] + (1.0 - tensor[..., 3:])
                 latent = vae.first_stage_model.process_in(vae.encode(rgb if adapter.key == "fibo2" else tensor))
+                check_cancelled()
                 latents.append(latent)
                 vision.append(rgb)
+            check_cancelled()
             memory_management.load_model_gpu(self.sd_model.forge_objects.clip.patcher)
+            check_cancelled()
             if adapter.key == "fibo2":
                 encoder = self.sd_model.text_processing_engine_fibo
             else:
                 original = self.sd_model.text_processing_engine_qwen
                 encoder = EditTextEncoder(original.text_encoder, original.tokenizer)
             self.edit_conditioning = encoder([self.prompt], images=vision)[0]
+            check_cancelled()
             if self.cfg_scale > 1:
                 # Dev's negative branch is text-only; both branches share VAE refs.
                 self.edit_unconditional = encoder([self.negative_prompt], images=[])[0]
@@ -318,6 +323,10 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             output = composite_patch(original, output, mask, crop, feather)
         recipe["output_size"] = list(output.size)
         metadata, binary = build_metadata(original, recipe, result.infotexts[0], keep_original_metadata)
+        selection = encode_selection(mask, feather) if area_only else None
+        metadata.pop(MASK_KEY, None)
+        if selection is not None and len(selection["png"]) < 500_000:
+            metadata[MASK_KEY] = json.dumps(selection)
         # A composite inherits source.info; do not let Pillow or save hooks leak
         # those fields when preservation (or all metadata) is disabled.
         output.info.clear()
@@ -329,5 +338,6 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             output.info.update(metadata)
             output.info.update(binary)
         path = Path(path)
+        remember_selection(path, selection)
         note = " · outside painted area preserved" if area_only else ""
         return output, str(path), str(seed), f"Saved {path.name} · {output.width} × {output.height} · seed {seed}{note}"

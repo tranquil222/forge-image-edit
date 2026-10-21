@@ -158,7 +158,9 @@ def import_recipe(file, current_checkpoint, modules):
         raise gr.Error(str(error)) from error
     note = "Edit recipe loaded. The displayed source is used for the next edit."
     if recipe.get("area_only"):
-        note += " Repaint the selection; saved masks are not embedded."
+        note += " Repaint the selection for a new model edit."
+    if recipe.get("postprocessing"):
+        note += " Manual curves are already in the pixels; they are not applied again."
     choice = checkpoint.short_title if shared.opts.sd_checkpoint_dropdown_use_short else checkpoint.name
     # Deliberate import changes the visible main model selection too.
     dtype = recipe.get("storage_dtype", "Automatic")

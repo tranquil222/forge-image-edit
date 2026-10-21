@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.4.2 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.0 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -115,6 +115,37 @@ fine-detail preservation. Whole-image edits can regenerate texture even when the
 instruction names only one object. For exact preservation elsewhere, **paint an
 edit area** and work from the original instead of repeatedly editing the output.
 
+### Live curves and levels
+
+Click the edited result to enlarge it, then **Curves**. The side panel provides
+a master RGB curve, separate red/green/blue curves, a histogram, precise point
+coordinates, and input black/midtone/white plus output-level controls. Click to
+add points, drag to adjust, or use the graph's arrow keys. Delete removes an
+interior point. Preview, Undo/Redo, Reset channel and Reset all are available.
+
+- **Painted area:** an edit generated with a mask keeps curves inside that exact
+  saved selection, including its inward-feathered edge. Outside pixels and alpha
+  stay unchanged. Repainting the source later does not change the result's mask.
+- **Whole image:** an edit without a mask applies curves to the entire result.
+- The scope is displayed in the panel. An older painted PNG without its selection
+  is not silently treated as a whole-image adjustment; generate a new painted edit.
+
+Preview runs locally without model inference and always starts from the unchanged
+result pixels. **Apply to result** saves a new full-resolution PNG through Forge's
+native img2img saver and updates the result, download, and **Use result as source**.
+The previous file is retained. Download PNG also applies an outstanding correction
+before downloading. The applied RGB lookup tables and controls are recorded in
+metadata when enabled; recipe import does not apply the already-baked curves again.
+Large-image previews use at most 2048 pixels on the long edge; saved output retains
+the original dimensions. This is an 8-bit RGB adjustment, not detail restoration.
+
+**Original / Edited share zoom and pan**, even when their native sizes differ.
+The 100% reference is the edited result's dimensions; comparisons stay aligned.
+The Generate / Cancel row sits directly under the images, above Edit instruction.
+Cancel shows its status immediately and checks between preparation stages as well
+as sampling steps. An in-flight GPU operation or model transfer must finish before
+Forge can stop; cancellation is not an instant hardware abort.
+
 ## Native saving and metadata
 
 Outputs use Forge's configured **img2img image output directory**, or its shared
@@ -135,8 +166,12 @@ output folder or machine-specific path is used.
 Turn it off to omit original metadata and keep only the new edit record.
 Forge's global **Write infotext to metadata** setting takes precedence: when
 it is off, neither original metadata nor an edit recipe is written.
-Reference pixels and painted masks are not embedded. Reproducing a masked edit
-requires its source and a newly painted selection. Metadata can identify the
+Reference pixels are not embedded. New painted outputs retain a compact,
+feathered selection in `image_edit_mask` for later local curves; selections too
+large for a compact PNG text field remain available only in the current session.
+Reproducing model inference still requires the source and a painted selection.
+Manual adjustments append to the history and retain an importable generation
+recipe; `image_edit_adjustment` records the latest curves and scope. Metadata can identify the
 original and subsequent edits; it is not a tamper-proof provenance system.
 
 ## Image browser and PNG import
@@ -162,7 +197,7 @@ From the extension directory:
 
 ```sh
 python -m unittest discover -s tests -v
-node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs
+node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs
 python -m compileall -q forge_qwen_edit tools
 ```
 

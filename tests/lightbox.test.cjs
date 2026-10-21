@@ -45,6 +45,17 @@ test("Gradio's button-wrapped result opens the viewer; compare and zoom use exis
     assert.equal(picture.style.width, "1200px");
     click("in");
     assert.equal(picture.style.width, "1500px");
+    // Different native dimensions must keep one frame and never refit/reset pan.
+    viewport.scrollTo(123, 77);
+    picture.naturalWidth = 1800; picture.naturalHeight = 1200;
+    click("original"); picture.events.load();
+    assert.equal(picture.style.width, "1500px");
+    assert.equal(picture.style.height, "1000px");
+    assert.equal(viewport.scrollLeft, 123); assert.equal(viewport.scrollTop, 77);
+    picture.naturalWidth = 1200; picture.naturalHeight = 800;
+    click("edited"); picture.events.load();
+    assert.equal(picture.style.width, "1500px");
+    assert.equal(viewport.scrollLeft, 123); assert.equal(viewport.scrollTop, 77);
     click("close");
     assert.equal(dialog.open, false);
 });

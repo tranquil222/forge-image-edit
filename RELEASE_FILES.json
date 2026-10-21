@@ -1,5 +1,5 @@
 {
-  "version": "0.4.2",
+  "version": "0.5.0",
   "files": [
     {
       "path": ".gitattributes",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".github/workflows/checks.yml",
-      "bytes": 1913,
-      "sha256": "4976134a57f92cf05f33565cc80072ea1795a48f6da644f9721f211c07ee4c79"
+      "bytes": 1935,
+      "sha256": "228b561bbd4e07ab3c46b3f8905b5416debadbdf4aa48c811e72f1b94189809d"
     },
     {
       "path": ".gitignore",
@@ -43,18 +43,18 @@
     },
     {
       "path": "NOTICE.md",
-      "bytes": 1020,
-      "sha256": "331602c7879918fc164740a060465a1d56fc641a827bbecea5223ffe406bf39a"
+      "bytes": 1393,
+      "sha256": "1b8d0941054aae770ad4ecf8bccd6123ff3817eda50e843c0c19654a1b2b105d"
     },
     {
       "path": "README.md",
-      "bytes": 9717,
-      "sha256": "93b1f25a869509eafa17b5b2b1fbb2c7c803c06ab6a4e50fee6defb7e78dfb72"
+      "bytes": 12114,
+      "sha256": "b45025cb864eb090ac381411a9dc1fa72b7e980685f53a5f6bb866eb815266e3"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 15579,
-      "sha256": "e6a5914afba03bf2b98f44578b1e86bba8ef2cd557b267230fd06d99a0328c70"
+      "bytes": 17224,
+      "sha256": "c6df4fcbe137e1d8e15eb6c0da20f427dfd5888f318bbad3aa97895eb1d91046"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,12 +79,17 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 77,
-      "sha256": "f86d8a6effcee85f2ddc7cf378febb30729959ddef6c6b43eb0dc7efb1cf50d8"
+      "sha256": "fe6f7773d5b978d97e8880b81e62e984400e8a03b7189886d5f84080d1ef64fc"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
       "bytes": 2900,
       "sha256": "1825220cd2347b41fc7a648cf2e080e82f30448526e4f1bc317027b2d09adf68"
+    },
+    {
+      "path": "forge_qwen_edit/adjustments.py",
+      "bytes": 8914,
+      "sha256": "090026ab9ab09bc7dd158f364a51b4540a05e3fcab9328b49c6c397f933a7ff0"
     },
     {
       "path": "forge_qwen_edit/canvas.py",
@@ -108,13 +113,13 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 13911,
-      "sha256": "17b009bccf24bc659420f7f6db9c32e935777ff30a2dbc11adb4d4c34cbc78e6"
+      "bytes": 14027,
+      "sha256": "5729ad6da767257ca195398a8078dbb745ea57245942fa96bf814b64e253c06b"
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 18662,
-      "sha256": "8cab454c60f86dd712eea4fc2acd1a11bc1b9711af153b7b99097bdd4802b965"
+      "bytes": 19139,
+      "sha256": "0b13afcdd77d443632b5bd3cec4f8140e0fa8d05cef051eba4cad438276db540"
     },
     {
       "path": "forge_qwen_edit/selection.py",
@@ -128,8 +133,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 17133,
-      "sha256": "dcc9e6f0f334348c0113cac670d74aaf90981c0da1c2a6ce9ae8edc3fe69d054"
+      "bytes": 18996,
+      "sha256": "5871491525b5844eb073ced0c6c452aaa15a248a3f5ffbc3673af6c4b3a7bde3"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -152,14 +157,29 @@
       "sha256": "8f300c0b8aaab3027da236215b3812bb4f17c1c2812f333c512a5dd474f76e6c"
     },
     {
+      "path": "javascript/image_edit_curves.js",
+      "bytes": 1995,
+      "sha256": "de31b15a207049750810d9379933cf8cbb1b338beff6c990ce8ba88af9956409"
+    },
+    {
+      "path": "javascript/image_edit_curves_ui.js",
+      "bytes": 19220,
+      "sha256": "7b27c77953cd8141eb7d67c6c8b33a44a3641ef3872e3e2561f40d7290074dd9"
+    },
+    {
+      "path": "javascript/image_edit_spline.js",
+      "bytes": 2571,
+      "sha256": "a1a08a4723d047ef4d4e79e421e5996efdb12cb91a59edbdfbb57f803a8e51f8"
+    },
+    {
       "path": "javascript/qwen_canvas.js",
       "bytes": 2839,
       "sha256": "e22e09949174f86d763f228ce4b25f378432d4d87a85de8a0864779b951a6119"
     },
     {
       "path": "javascript/qwen_edit.js",
-      "bytes": 9648,
-      "sha256": "0d44144cb467b968d9a75132fe8cd00dea67a0c4c122c01c73fd22c3b6219147"
+      "bytes": 11472,
+      "sha256": "42e724cf23aced4a41ddb7ac888a6d9bc2d17b4986915d8e8f3317508a95e072"
     },
     {
       "path": "licenses/ComfyUI-GPL-3.0.txt",
@@ -172,19 +192,29 @@
       "sha256": "af0c9c631529e8944099309d865a7c9980902f52614382029658fd4f471fc85c"
     },
     {
+      "path": "licenses/glfx-MIT.txt",
+      "bytes": 1059,
+      "sha256": "223d9247d30f9d8f842cca7de8e2454d104edb435674305ef3df473bae17d44b"
+    },
+    {
       "path": "models.json",
       "bytes": 5169,
       "sha256": "f20fae0e2d758a7f5000ce74ae78033ce0fe225d0c2fd20d55539e5b0cfa24ad"
     },
     {
       "path": "scripts/qwen_edit_tab.py",
-      "bytes": 504,
-      "sha256": "6d775c90a9dd4d8b4e15c8f11679d0c234827001aa959831b00d46774466ef24"
+      "bytes": 559,
+      "sha256": "9e0502325bdc3b261c41d9393f647d972f03fb8a406c5485d94715381e85bb37"
     },
     {
       "path": "style.css",
-      "bytes": 2742,
-      "sha256": "198a0cfb1751fbaaf7732c55de91c288d2c531968f00dfa57582d6d4d2f40670"
+      "bytes": 5841,
+      "sha256": "68b03dc47115a710825bd7f749afd9b1d0a20322ac7b7268db414abe110e3300"
+    },
+    {
+      "path": "tests/curves.test.cjs",
+      "bytes": 2203,
+      "sha256": "514e17f90f868088dbd27a3e06185b3ba53a6e35c2efc7b6c6d572b894b06b4a"
     },
     {
       "path": "tests/image_transfer.test.cjs",
@@ -193,8 +223,13 @@
     },
     {
       "path": "tests/lightbox.test.cjs",
-      "bytes": 2898,
-      "sha256": "9e2a15d48818bc62652fca8cb69deaf575ac63d361036abf80aa4a8a062ed7d8"
+      "bytes": 3539,
+      "sha256": "4f10696a7ec2f065628f2148284fe696e510b4fa1a157159ef6b6df6d5af604d"
+    },
+    {
+      "path": "tests/test_adjustments.py",
+      "bytes": 6740,
+      "sha256": "5feeccaf19800e61c5ec23470c6ef0f83c9d0e74087e4af917a4effa205bdb24"
     },
     {
       "path": "tests/test_cancellation.py",
@@ -218,8 +253,8 @@
     },
     {
       "path": "tests/test_memory_staging.py",
-      "bytes": 3413,
-      "sha256": "29e08495a93161f00029cd23b028900760ac76e4e49250cd39fadd8a4bed853a"
+      "bytes": 4129,
+      "sha256": "34689d77afc1e703facc0a8a12a91a24c58ad2a242316b8199221290b1495e1a"
     },
     {
       "path": "tests/test_model_downloads.py",
@@ -228,8 +263,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 7645,
-      "sha256": "17f3b5d9c05a858416d04f2514457e53c4dfee74cb839b7f8680c038f4083be8"
+      "bytes": 8060,
+      "sha256": "ef24f54f98717c28bfdef7a6ee5e9ba2203e41d23865684b963d77d3621b57b7"
     },
     {
       "path": "tests/test_portability.py",

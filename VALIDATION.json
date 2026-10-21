@@ -1,5 +1,5 @@
 {
-  "version": "0.4.2",
+  "version": "0.5.0",
   "status": "tested beta",
   "date": "2026-10-20",
   "environment": {
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 47,
-    "javascript_tests": 5,
+    "extension_python_tests": 54,
+    "javascript_tests": 9,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -321,12 +321,22 @@
       },
       "download": "Optional VAE pinned by publisher revision, byte count and SHA-256; installed-file verification passed. No weights redistributed.",
       "scope": "Tone matching does not remove grid patterns or restore generated detail. Qwen replacement VAE is not compatible with Fibo. No unverified Fibo texture filter is applied."
+    },
+    "curves_viewer_update": {
+      "version": "0.5.0",
+      "browser": "Headless Microsoft Edge through Playwright, isolated profile; actual Gradio UI on Windows.",
+      "whole_image": "Fibo Turbo real GPU edit of a benign cat; RGB and red-channel curves, midtone level, live preview, Apply/new PNG and linked framing across different source/result resolutions passed.",
+      "painted_area": "CPU inference stand-in in an isolated QA clone; production crop, mask/composite, native save, Gradio and browser paths unchanged. Scope badge, feathered live preview, Undo/Redo, Preview toggle, decimal-level entry, Download with pending changes, result reuse and linked zoom/pan passed. No GPU inference was used for this masked browser test.",
+      "pixel_checks": "1248x864 painted result: 862704 outside-mask pixels exactly preserved. Preview, exported PNG and reused source pixel-identical; alpha unchanged and saved selection retained.",
+      "metadata": "Curves controls/LUTs appended to edit history; latest generation recipe retained; import notes that curves are already baked. Whole-image and painted-area scope recorded. Metadata-off masks work in-session.",
+      "layout": "Generate / Cancel verified above Edit instruction. Curves sidebar visually inspected. No browser page errors in completed tests.",
+      "cancellation": "Checks after reference VAE encode, model transfer and positive encoding; unit tests verify cancelled loading never starts encoding and cancelled positive encoding skips the negative branch. Cancel status is immediate; running GPU kernels/transfers are not preempted."
     }
   },
   "limitations": [
     "Not tested on Linux, macOS, AMD or other GPUs; CI definitions do not imply those runs passed.",
     "Clean checkout used the same installed Python environment, not a fresh dependency installation.",
-    "Native browser automation was unavailable; UI wiring was checked through Gradio configuration/API and JavaScript unit tests, not an end-to-end browser session.",
+    "Earlier features were checked through Gradio API/configuration and unit tests. Version 0.5.0 additionally has end-to-end Edge browser checks for curves, comparison, saving and result reuse.",
     "IIB menu patch is optional and revision-dependent. Image Edit does not automatically modify another extension.",
     "Full numerical parity with upstream ComfyUI/diffusers is not established.",
     "Only supported named architectures and compatible components are validated; arbitrary edit checkpoints are not supported.",

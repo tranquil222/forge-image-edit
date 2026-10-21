@@ -1,4 +1,5 @@
 function qwenEditSubmit(...args) {
+    if (window.imageEditCurvesBusy) throw new Error("Wait for the curves adjustment to finish saving.");
     const id = randomId();
     window.qwenEditPendingOriginalUrl = gradioApp().querySelector("#qwen_edit_source img")?.src || "";
     const container = gradioApp().getElementById("qwen_edit_result_container");
@@ -50,12 +51,13 @@ window.qwenEditLoadImage = async function (imageUrl, filename = "source.png") {
 };
 window.imageEditLoadImage = window.qwenEditLoadImage;
 
-// Local full-resolution viewer. No generation, upload or model change occurs.
+// Local viewer and optional curves workspace. Viewing never runs a model.
 (() => {
     if (window.qwenEditLightboxInstalled) return;
     window.qwenEditLightboxInstalled = true;
-    let dialog, viewport, picture, caption, zoomLabel, originalButton, editedButton, download;
+    let dialog, viewport, picture, stage, preview, curves, caption, zoomLabel, originalButton, editedButton, download;
     let originalUrl = "", editedUrl = "", showingOriginal = false, scale = 1, fit = true;
+    let frameWidth = 0, frameHeight = 0;
     let drag = null;
     const originals = new Map();
 
@@ -67,17 +69,17 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
     }, true);
 
     function resize(nextScale) {
-        if (!picture.naturalWidth) return;
+        if (!frameWidth) return;
         scale = Math.max(0.05, Math.min(8, nextScale));
-        picture.style.width = `${Math.round(picture.naturalWidth * scale)}px`;
-        picture.style.height = `${Math.round(picture.naturalHeight * scale)}px`;
+        const width = `${Math.round(frameWidth * scale)}px`, height = `${Math.round(frameHeight * scale)}px`;
+        for (const element of [stage, picture, preview]) if (element) { element.style.width = width; element.style.height = height; }
         zoomLabel.textContent = `${Math.round(scale * 100)}%`;
         caption.textContent = `${showingOriginal ? "Original" : "Edited"} · ${picture.naturalWidth} × ${picture.naturalHeight}`;
     }
 
     function fitImage() {
         fit = true;
-        resize(Math.min(1, (viewport.clientWidth - 32) / picture.naturalWidth, (viewport.clientHeight - 32) / picture.naturalHeight));
+        resize(Math.min(1, (viewport.clientWidth - 32) / frameWidth, (viewport.clientHeight - 32) / frameHeight));
         viewport.scrollTo(0, 0);
     }
 
@@ -96,6 +98,7 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
         editedButton.setAttribute("aria-pressed", String(!value));
         picture.alt = value ? "Original source image" : "Edited result";
         picture.src = value ? originalUrl : editedUrl;
+        curves?.compare(value);
     }
 
     function createViewer() {
@@ -105,18 +108,32 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
         dialog.innerHTML = `<header class="qe-viewer-toolbar">
             <div class="qe-viewer-compare"><button type="button" data-action="original">Original</button><button type="button" data-action="edited">Edited</button></div>
             <span class="qe-viewer-caption"></span>
-            <div class="qe-viewer-tools"><button type="button" data-action="fit">Fit</button><button type="button" data-action="actual">100%</button><button type="button" data-action="out" aria-label="Zoom out">−</button><span class="qe-viewer-zoom"></span><button type="button" data-action="in" aria-label="Zoom in">+</button><a class="qe-viewer-download" download>Download PNG</a><button type="button" data-action="close" aria-label="Close image viewer">✕</button></div>
-            </header><div class="qe-viewer-viewport"><img draggable="false" alt="Edited result"></div>
-            <footer>Scroll to zoom · drag to pan · ← / → compare · Esc to close</footer>`;
+            <div class="qe-viewer-tools"><button type="button" data-action="curves" aria-pressed="false">Curves</button><button type="button" data-action="fit">Fit</button><button type="button" data-action="actual" title="100% of edited dimensions; comparison framing stays linked">100%</button><button type="button" data-action="out" aria-label="Zoom out">−</button><span class="qe-viewer-zoom"></span><button type="button" data-action="in" aria-label="Zoom in">+</button><a class="qe-viewer-download" download>Download PNG</a><button type="button" data-action="close" aria-label="Close image viewer">✕</button></div>
+            </header><div class="qe-viewer-body"><div class="qe-viewer-viewport"><div class="qe-viewer-stage"><img draggable="false" alt="Edited result"><canvas class="qe-viewer-preview" hidden></canvas></div></div><aside class="qe-curves-panel" hidden></aside></div>
+            <footer>Scroll to zoom · drag to pan · ← / → compare · linked zoom and pan · Esc to close</footer>`;
         document.body.appendChild(dialog);
         viewport = dialog.querySelector(".qe-viewer-viewport");
         picture = viewport.querySelector("img");
+        stage = dialog.querySelector(".qe-viewer-stage");
+        preview = dialog.querySelector(".qe-viewer-preview");
         caption = dialog.querySelector(".qe-viewer-caption");
         zoomLabel = dialog.querySelector(".qe-viewer-zoom");
         originalButton = dialog.querySelector('[data-action="original"]');
         editedButton = dialog.querySelector('[data-action="edited"]');
         download = dialog.querySelector(".qe-viewer-download");
-        picture.addEventListener("load", () => fit ? fitImage() : resize(scale));
+        picture.addEventListener("load", () => {
+            if (!frameWidth) { frameWidth = picture.naturalWidth; frameHeight = picture.naturalHeight; fitImage(); }
+            else resize(scale); // Comparing must never reset zoom or pan.
+        });
+        if (window.createImageEditCurves) curves = window.createImageEditCurves(dialog, picture, preview, {
+            selectEdited: () => selectOriginal(false),
+            layoutChanged: () => fit ? fitImage() : resize(scale),
+            applied: (url, savedUrl) => {
+                originals.set(url, originalUrl); editedUrl = url; download.href = savedUrl;
+                curves.open(url, savedUrl); selectOriginal(false); resize(scale);
+            }
+        });
+        download.addEventListener("click", event => curves?.download(event));
         dialog.addEventListener("click", event => {
             const action = event.target.closest("[data-action]")?.dataset.action;
             if (action === "close" || event.target === dialog) dialog.close();
@@ -126,8 +143,10 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
             if (action === "actual") { fit = false; resize(1); }
             if (action === "in") zoom(1.25);
             if (action === "out") zoom(0.8);
+            if (action === "curves") curves?.toggle();
         });
         dialog.addEventListener("keydown", event => {
+            if (event.target.closest?.("input, select, textarea, .qe-curves-graph")) return;
             if (event.key === "ArrowLeft") selectOriginal(true);
             else if (event.key === "ArrowRight") selectOriginal(false);
             else if (["+", "="].includes(event.key)) zoom(1.25);
@@ -164,14 +183,17 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
         if (!dialog) createViewer();
         const app = gradioApp();
         editedUrl = image.currentSrc || image.src;
+        frameWidth = image.naturalWidth || 0; frameHeight = image.naturalHeight || 0;
         const source = app.querySelector("#qwen_edit_source img");
         originalUrl = originals.get(editedUrl) || source?.currentSrc || source?.src || "";
         originalButton.disabled = !originalUrl;
         const link = app.querySelector("#qwen_edit_download a[href]");
         download.href = link?.href || editedUrl;
+        curves?.open(editedUrl, download.href);
         fit = true;
         dialog.showModal();
         selectOriginal(false);
-        if (picture.complete && picture.naturalWidth) fitImage();
+        if (!frameWidth && picture.complete && picture.naturalWidth) { frameWidth = picture.naturalWidth; frameHeight = picture.naturalHeight; }
+        if (frameWidth) fitImage();
     });
 })();

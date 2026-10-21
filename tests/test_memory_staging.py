@@ -25,6 +25,7 @@ class MemoryStagingTests(unittest.TestCase):
                     ComposableScheduledPromptConditioning=lambda args: args)
         namespace = dict(memory_management=self.memory, check_cancelled=lambda: None,
                          get_adapter=lambda _: NS(key='fibo2'), prompt_parser=parser, dynamic_args=NS())
+        self.namespace = namespace
         exec(compile(ast.fix_missing_locations(ast.Module(body=[helper, wrapper], type_ignores=[])), 'memory_staging', 'exec'), namespace)
         self.release = namespace['release_edit_encoder']
         self.processor = namespace['EditProcessing']()
@@ -54,6 +55,18 @@ class MemoryStagingTests(unittest.TestCase):
         self.patcher.load_device.type = 'cpu'
         self.release(self.patcher)
         self.memory.free_memory.assert_not_called()
+
+    def test_cancel_during_load_does_not_start_encoder(self):
+        self.namespace['check_cancelled'] = lambda: (_ for _ in ()).throw(InterruptedError()) if 'load' in self.events else None
+        with self.assertRaises(InterruptedError):
+            self.processor.setup_conds()
+        self.assertEqual(self.events, ['load'])
+
+    def test_cancel_after_positive_skips_negative_encoder(self):
+        self.namespace['check_cancelled'] = lambda: (_ for _ in ()).throw(InterruptedError()) if 'positive' in self.events else None
+        with self.assertRaises(InterruptedError):
+            self.processor.setup_conds()
+        self.assertEqual(self.events, ['load', 'positive'])
 
 
 if __name__ == '__main__':unittest.main()

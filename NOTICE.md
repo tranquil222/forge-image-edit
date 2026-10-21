@@ -9,6 +9,11 @@
   Forge's operations, attention and model-management interfaces.
 - CyberZiT schedule formula: Cyberdelia/ComfyUI-CyberZiT, MIT; see
   [license](licenses/CyberZiT.txt).
+- Curves spline interpolation: Evan Wallace's [glfx.js](https://github.com/evanw/glfx.js),
+  MIT, pinned at `86ae72acfffcd50774507eb7b69887ba2493dc35`, `src/core/spline.js`.
+  Its original Paint.NET attribution is retained. Only the spline is bundled,
+  wrapped under an extension-specific name; no CDN or WebGL dependency is added.
+  See [license](licenses/glfx-MIT.txt).
 
 Model weights are **not bundled** and have separate publisher licenses.
 See [Fibo](https://huggingface.co/Comfy-Org/Fibo-2.0),

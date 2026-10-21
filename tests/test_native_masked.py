@@ -21,6 +21,7 @@ from forge_qwen_edit.adapters import get_adapter
 from forge_qwen_edit.metadata import build_metadata, preserve_binary_metadata
 from forge_qwen_edit.selection import validate_components
 from forge_qwen_edit.tone import match_source_tone
+from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_selection, result_context
 
 
 class NativeMaskedTests(unittest.TestCase):
@@ -124,6 +125,10 @@ class NativeMaskedTests(unittest.TestCase):
                 if fibo:
                     self.assertEqual(recipe["masked_edit"]["mask_fill"], [128, 128, 128])
                 self.assertEqual(recipe["source_sha256"], image_digest(source))
+                _, saved_mask, _ = result_context(filename, __import__('hashlib').sha256(Path(filename).read_bytes()).hexdigest())
+                self.assertIsNotNone(saved_mask)
+                self.assertIn(MASK_KEY, saved.info)
+                np.testing.assert_array_equal(np.array(saved_mask)[outside], 0)
 
 
 if __name__ == "__main__":
