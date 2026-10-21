@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 from PIL import Image
 
 from . import __version__
@@ -14,6 +15,13 @@ GREY = (128, 128, 128, 255)
 
 def canvas_plan(size, edges):
     width, height = size
+    blend = edges.get("seam_blend", 32)
+    try:
+        if isinstance(blend, bool) or int(blend) != float(blend) or not 0 <= int(blend) <= 128:
+            raise ValueError()
+        blend = int(blend)
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("Seam blending must be a whole number from 0 to 128 pixels.") from None
     values = {}
     for key in EDGES:
         value = edges.get(key, 0)
@@ -33,12 +41,12 @@ def canvas_plan(size, edges):
         raise ValueError("The canvas must be 1–16384 pixels per side and at most 64 megapixels.")
     position = (max(0, left), max(0, top))
     retained_size = (source_box[2] - source_box[0], source_box[3] - source_box[1])
-    return {"version": 1, "edges": values, "source_size": list(size), "output_size": list(output),
+    return {"version": 1, "edges": values, "seam_blend": blend, "source_size": list(size), "output_size": list(output),
             "source_box": list(source_box), "position": list(position),
             "expand": retained_size != output, "changed": any(values.values())}
 
 
-def canvas_images(source, plan):
+def canvas_images(source, plan, painted_mask=None):
     source = canonical_image(source)
     if list(source.size) != plan["source_size"]:
         raise ValueError("The source changed. Set the canvas edges again.")
@@ -48,18 +56,52 @@ def canvas_images(source, plan):
     output.info = source.info.copy()
     mask = Image.new("L", output.size, 255)
     x, y = plan["position"]
-    mask.paste(0, (x, y, x + retained.width, y + retained.height))
+    if painted_mask is not None:
+        if painted_mask.size != source.size:
+            raise ValueError("The painted area does not match the source image.")
+        mask.paste(painted_mask.convert("L").crop(plan["source_box"]), (x, y))
+    else:
+        mask.paste(0, (x, y, x + retained.width, y + retained.height))
     return output, mask
 
 
-def outpaint_instruction(instruction, fibo):
+def canvas_blend_mask(mask, plan):
+    """Crossfade inside the retained photo only; never fade toward grey padding.
+
+    This alpha mask is for the final composite, not Fibo's hard grey reference.
+    No spatial blur/filter is applied to either image.
+    """
+    blend = plan.get("seam_blend", 0)
+    if not blend or not plan["expand"]:
+        return mask
+    alpha = np.array(mask.convert("L"))
+    x, y = plan["position"]
+    x1, y1, x2, y2 = plan["source_box"]
+    width, height = x2 - x1, y2 - y1
+    retained = alpha[y:y + height, x:x + width]
+    horizontal = np.rint(255 * (1 - np.arange(min(blend, width)) / blend)).astype(np.uint8)[None, :]
+    vertical = np.rint(255 * (1 - np.arange(min(blend, height)) / blend)).astype(np.uint8)[:, None]
+    for edge, region, ramp in (
+        ("left", retained[:, :horizontal.size], horizontal),
+        ("right", retained[:, -horizontal.size:], horizontal[:, ::-1]),
+        ("top", retained[:vertical.size, :], vertical),
+        ("bottom", retained[-vertical.size:, :], vertical[::-1, :]),
+    ):
+        if plan["edges"][edge] > 0:
+            np.maximum(region, ramp, out=region)
+    return Image.fromarray(alpha)
+
+
+def outpaint_instruction(instruction, fibo, painted=False):
     marker = "neutral-grey" if fibo else "bright green"
     ref = "<image_1>" if fibo else "<image1>"
     rules = (f"Extend the photograph in {ref} into the {marker} border outside its existing content. "
              "The border is missing canvas, not an object. Continue the scene naturally across the image edges, "
              "matching perspective, lighting, textures and scale. Fill every part of the border; leave no mask visible. "
              "Do not add a frame, duplicate the photograph, or shrink the original content. "
-             "Preserve the retained photograph.")
+             + ("Also replace the painted areas inside the original photograph with the requested content. "
+                "For object removal, reconstruct the surrounding background instead of continuing the covered object into the new border. "
+                "Preserve only the unpainted parts of the retained photograph." if painted else "Preserve the retained photograph."))
     instruction = (instruction or "").strip() or "Extend the surrounding scene naturally."
     if fibo:
         try:

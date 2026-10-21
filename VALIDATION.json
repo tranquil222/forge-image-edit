@@ -1,5 +1,5 @@
 {
-  "version": "0.5.7",
+  "version": "0.5.8",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 88,
+    "extension_python_tests": 93,
     "javascript_tests": 11,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -384,6 +384,13 @@
       "preview": "Persistent green outline, grey added area, no source-byte modification, compact wide/narrow controls hidden by default. Moving signed edges previews the computed dimensions.",
       "workflow": "Generate outpaint and crop-only save verified, local curves recognize border mask, global Fibo default excluded, strokes restored on toggle off, result reuse resets signed edges.",
       "browser_errors": 0
+    },
+    "painted_outpaint_058": {
+      "method": "Isolated current-base Forge with CPU-only inference fixture and real Edge browser. Production mask preparation, compositing, native save and metadata paths; no new GPU seam-quality benchmark.",
+      "unit_checks": "93 Python and 11 JavaScript tests passed. Fibo and Qwen dispatch cover painted expansion, painted crop, zero-edge painting, hard model references, overlap alpha and exact compositing.",
+      "browser_checks": "Painting enabled during outpaint; source-space alignment after crop, zoom and pan; Shift erase, undo/redo, clearing paint without clearing the border; combined curves scope; seam control; painted crop and zero-edge generation; pure crop without inference; wide/narrow layout; no page errors.",
+      "pixel_checks": "Four downloaded PNGs: combined selection exactly matches expected painted/border/overlap alpha. Unselected RGBA pixels are byte-exact. Cases cover 704x632 expansion with 32px overlap, 496x616 painted crop, 512x640 painted-only canvas and 704x632 border-only with blending disabled.",
+      "seam_blending": "Post-generation linear crossfade into retained original only. Fibo input remains hard neutral-grey masked; new border never crossfades against grey padding. Zero disables the overlap. No spatial image blur. Geometry/texture mismatch may remain or produce ghosting within the overlap."
     },
     "metadata_and_canvas_057": {
       "unit_checks": "88 Python and 11 JavaScript tests passed. Prompt extraction covers Forge/A1111, EXIF, original edit history, ComfyUI positive branches, linked strings, guiders, multiple prompts, negative/disconnected exclusion and malformed/cyclic graphs.",

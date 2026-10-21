@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.7 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.8 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -164,20 +164,31 @@ are shown automatically. **Reset edges** returns to the original bounds.
 The green outline is a persistent preview of the final canvas, not a green
 overlay. Fibo receives RGB **128, 128, 128** only in the added border; Qwen uses
 its own green replacement guide. The outline never enters either model input.
-The original image is not resized or overwritten by the controls. Existing
-brush strokes are ignored while crop/outpaint is enabled and remain available
-when it is turned off.
+The original image is not resized or overwritten by the controls. Painting stays
+available: cover edge objects you want replaced before the scene is extended.
+The added border and painted areas form one edit region. Strokes remain aligned
+with the source while cropping, expanding, zooming or panning. Erase, undo/redo
+and Clear painted area affect only the strokes, not the automatically selected border.
+
+**Seam blending (px)** crossfades the generated result into a narrow strip inside
+the original after generation (default 32 pixels, adjustable 0–128). Fibo still
+receives a hard grey mask; no spatial blur is applied to either image. Added pixels
+are fully generated, never blended with the grey padding. Pixels outside painting
+and this overlap stay exact. Set 0 for a hard boundary. Crossfading can soften tone
+seams, but mismatched geometry or texture may remain visible or look softer in the overlap.
 
 - **Added space:** describe what should continue beyond the photo, then
   **Generate outpaint**. A blank prompt uses a natural scene-extension instruction.
   For Fibo, also describe the complete scene in **Describe the finished image**;
   this can help when an instruction such as "fill the grey area" leaves the
   border unfilled. **Get prompt from metadata** can recover a starting description.
-  The whole canvas supplies context; only newly added pixels are composited in.
-  Retained source pixels remain exact. Resolution controls inference detail, not
+  The whole canvas supplies context; added pixels, painting and the seam overlap
+  are composited in. Other source pixels remain exact. Resolution controls inference detail, not
   the final canvas dimensions. Additional references and painted feathering are
   not used; default global Fibo curves do not apply.
-- **Crop only:** **Apply crop** saves the exact retained pixels without model
+- **Painting without expansion:** Generate edit applies the painting, optionally
+  with a crop. Setting all edges to zero still allows a painted edit.
+- **Crop only, without painting:** **Apply crop** saves the exact retained pixels without model
   inference, resampling, a prompt or a valid edit-model selection. Batch count
   does not produce duplicate crops.
 
@@ -185,7 +196,7 @@ Both use Forge's native img2img save path and metadata controls. Recipes record
 the signed edges, retained source rectangle and output dimensions. **Use result
 as source** resets only the edge values, so edges are not accidentally applied twice.
 Recipe imports likewise do not recrop or expand an already-edited image.
-Curves after outpainting stay within its saved added-border mask. The model
+Curves after outpainting stay within its saved border/painting/overlap selection. The model
 still determines the generated continuation; exact source preservation does not
 guarantee a seamless join. Large extensions are often easier in smaller stages.
 

@@ -14,7 +14,7 @@ from modules.ui_components import ToolButton
 from modules_forge import main_entry, main_thread
 
 from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_content_box
-from .masking import AREA_MODES, WHOLE_MODES, canonical_image, has_painted_area, edit_modes
+from .masking import AREA_MODES, WHOLE_MODES, canonical_image, has_painted_area, edit_modes, extract_mask
 from .canvas import EditCanvas, MetadataImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
@@ -132,30 +132,37 @@ def select_metadata_prompt(choices, selected, family):
     return gr.update(), gr.update()
 
 
-def canvas_feedback(size, enabled, left, right, top, bottom, family):
+def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=False):
     enabled = bool(enabled and size and min(size) > 0)
     crop = False
+    expanded = False
     message = "Load an image to set the canvas edges."
     if size and min(size) > 0:
         try:
             plan = canvas_plan(size, dict(zip(EDGES, (left, right, top, bottom))))
-            crop = plan["changed"] and not plan["expand"]
+            expanded = plan["expand"]
+            crop = plan["changed"] and not expanded and not painted
             width, height = plan["output_size"]
             message = f"**Canvas: {width} × {height}** · original: {size[0]} × {size[1]}. "
             message += ("Crop only · no model needed." if crop else
-                f"{'Fibo' if family.startswith('Fibo') else 'The edit model'} will fill the added area. Retained original pixels stay unchanged." if plan["expand"] else
+                f"{'Fibo' if family.startswith('Fibo') else 'The edit model'} will fill the added area{' and your painted areas' if painted else ''}. Original pixels outside painting and seam blending stay unchanged." if expanded else
+                "Painted areas will be edited; unpainted retained pixels stay unchanged." if painted else
                 "Positive adds space; negative crops that edge.")
         except ValueError as error:
             message = str(error)
     return (gr.update(visible=enabled), message,
-            gr.update(visible=not (enabled and crop), value="Generate outpaint" if enabled else "Generate edit"),
+            gr.update(visible=not (enabled and crop), value="Generate outpaint" if enabled and expanded else "Generate edit"),
             gr.update(visible=enabled and crop), gr.update(visible=not enabled))
 
 
-def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata):
+def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata, foreground=None):
     global _active
     if not enabled or source is None:
         raise gr.Error("Load an image and enable Crop / outpaint first.")
+    if has_painted_area(foreground):
+        plan = canvas_plan(canonical_image(source).size, dict(zip(EDGES, (left, right, top, bottom))))
+        if foreground.getchannel("A").crop(plan["source_box"]).getbbox():
+            raise gr.Error("An area is painted. Use Generate edit to apply the painting, or clear it for a crop-only save.")
     _active = True
     try:
         result = main_thread.run_and_wait_result(save_crop, source, dict(zip(EDGES, (left, right, top, bottom))), keep_metadata)
@@ -171,20 +178,21 @@ def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata):
 def run_canvas_edit(task_id, *args):
     *args, batch_count = args
     batch_count = validate_count(batch_count)
-    *args, canvas_enabled, left, right, top, bottom = args
+    *args, canvas_enabled, left, right, top, bottom, seam_blend = args
     *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
-    canvas_edges = dict(zip(EDGES, (left, right, top, bottom))) if canvas_enabled else None
+    # Read the submitted strokes directly; the UI's paint flag is asynchronous.
+    enabled = has_painted_area(foreground)
+    editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
+    canvas_edges = {**dict(zip(EDGES, (left, right, top, bottom))), "seam_blend": seam_blend} if canvas_enabled else None
     if canvas_enabled:
         if base[0] is None:
             raise ValueError("Add a source image first.")
         plan = canvas_plan(canonical_image(base[0]).size, canvas_edges)
-        if not plan["expand"]:
+        paint = extract_mask(base[0], editor) if enabled else None
+        retained_paint = paint is not None and paint.crop(plan["source_box"]).getbbox() is not None
+        if not plan["expand"] and not retained_paint:
             return run_canvas_crop(base[0], True, left, right, top, bottom, keep_metadata)
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
-    # Derive this from the submitted strokes, not an asynchronously updated UI
-    # flag. Painting, erasing, undo and the native clear button all work directly.
-    enabled = has_painted_area(foreground)
-    editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
                     adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges, batch_count=batch_count)
 
@@ -305,6 +313,7 @@ def create_tab():
                     canvas_source_size = gr.State([0, 0])
                     with gr.Column(visible=False, elem_id="image_edit_canvas_controls") as canvas_controls:
                         gr.Markdown("**Added pixels per edge** · positive expands, negative crops. The green outline is the final canvas; it stays visible.")
+                        gr.Markdown("**Paint over edge objects to replace them while extending the scene.** Added space and painted areas are filled together.")
                         with gr.Row(elem_id="image_edit_canvas_horizontal"):
                             canvas_left = gr.Slider(-4096, 4096, value=0, step=1, label="Left", min_width=140, elem_id="image_edit_canvas_left")
                             canvas_right = gr.Slider(-4096, 4096, value=0, step=1, label="Right", min_width=140, elem_id="image_edit_canvas_right")
@@ -312,6 +321,8 @@ def create_tab():
                             canvas_top = gr.Slider(-4096, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
                             canvas_bottom = gr.Slider(-4096, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
                         canvas_summary = gr.Markdown(elem_id="image_edit_canvas_summary")
+                        seam_blend = gr.Slider(0, 128, value=32, step=1, label="Seam blending (px)",
+                            info="Crossfade after generation into a narrow strip of the original. No image blur; 0 keeps a hard edge. Applies only where canvas is added.", elem_id="image_edit_seam_blend")
                         canvas_reset = gr.Button("Reset edges", size="sm", elem_id="image_edit_canvas_reset")
                     area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint.", elem_id="qwen_edit_area_mode")
                     camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
@@ -389,22 +400,22 @@ def create_tab():
                     js="receipt => { window.imageEditCurvesSaved?.(receipt); }", api_name=False)
             task_id = gr.Textbox(visible=False)
             edge_controls = [canvas_left, canvas_right, canvas_top, canvas_bottom]
-            for component in (canvas_enabled, *edge_controls, prompt_choices):
+            for component in (canvas_enabled, *edge_controls, seam_blend, prompt_choices):
                 component.do_not_save_to_config = True
             source.change(reset_canvas_controls, [source, canvas_enabled],
                 [canvas_enabled, *edge_controls, canvas_source_size, get_prompt, prompt_choices, prompt_items, prompt_note], show_progress="hidden", api_name=False).then(
-                canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family],
+                canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family, area_only],
                 [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
             canvas_reset.click(lambda: (0, 0, 0, 0), outputs=edge_controls, show_progress="hidden", api_name=False)
-            for component in (canvas_enabled, *edge_controls, family):
-                component.change(canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family],
+            for component in (canvas_enabled, *edge_controls, family, area_only):
+                component.change(canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family, area_only],
                     [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
             for component in (canvas_enabled, *edge_controls):
                 component.change(None, [canvas_enabled, *edge_controls], [],
                     js="(enabled, left, right, top, bottom) => { window.imageEditSetCanvasEdges?.(enabled, left, right, top, bottom); }", api_name=False)
             from modules.call_queue import wrap_gradio_gpu_call
             apply_crop.click(wrap_gradio_gpu_call(run_canvas_crop, extra_outputs=[gr.update() for _ in range(6)]),
-                [source, canvas_enabled, *edge_controls, keep_metadata],
+                [source, canvas_enabled, *edge_controls, keep_metadata, mask_editor.foreground],
                 [result, download, last_seed, batch_gallery, batch_items, batch_source, status], api_name="image_edit_crop")
             for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed):
                 component.do_not_save_to_config = True

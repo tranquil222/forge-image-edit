@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.8 — beta
+
+- Painting remains available during crop/outpaint. The generated region combines
+  the added border with source-space brush strokes; edge objects can be covered
+  before extending the scene. Brush alignment, zoom/pan, erase and undo are retained.
+- Add adjustable seam blending (0–128 pixels, default 32). Crossfade after generation
+  into a narrow original-image overlap, without blurring the photo or softening
+  Fibo's grey input mask. Added pixels never blend against grey padding. Pixels
+  outside painting and the overlap remain exact. Zero disables seam blending.
+- Painted edits also work with crop-only or zero edge changes. Without painting,
+  pure crops still save without running a model. Curves use the combined selection.
+- Generation API adds seam-blending pixels immediately before batch count;
+  the crop endpoint now also reads the foreground to prevent silently ignoring painting.
+
 ## 0.5.7 — beta
 
 - Crop / outpaint is disabled without a source and stays selected across uploads,

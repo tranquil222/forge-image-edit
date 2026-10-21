@@ -26,7 +26,8 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
             }
             this.canvasFrame.hidden = !layout;
             container.classList.toggle("qe-outpaint-active", !!window.imageEditCanvasEdges?.enabled);
-            this.drawingCanvas_.style.display = window.imageEditCanvasEdges?.enabled ? "none" : "";
+            this.drawingCanvas_.style.display = this.img ? "" : "none";
+            this.drawingCanvas_.style.clipPath = "";
             image.style.clipPath = "";
             if (!layout) return;
             Object.assign(this.canvasFrame.style, {left: `${this.imgX}px`, top: `${this.imgY}px`,
@@ -35,6 +36,9 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
             image.style.top = `${this.imgY + layout.top * this.imgScale}px`;
             const [x1, y1, x2, y2] = layout.box;
             image.style.clipPath = `inset(${y1 / this.orgHeight * 100}% ${(this.orgWidth - x2) / this.orgWidth * 100}% ${(this.orgHeight - y2) / this.orgHeight * 100}% ${x1 / this.orgWidth * 100}%)`;
+            // Keep the painting bitmap in original-image coordinates. Only its
+            // display position/clip changes, so strokes survive canvas changes.
+            Object.assign(this.drawingCanvas_.style, {left: image.style.left, top: image.style.top, clipPath: image.style.clipPath});
         }
         isInsideImage(x, y) {
             const layout = this.canvasLayout();
@@ -48,7 +52,7 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
             if (value && value === this.img) return;
             const enabled = !!window.imageEditCanvasEdges?.enabled;
             window.imageEditCanvasEdges = {enabled, left: 0, right: 0, top: 0, bottom: 0};
-            this.no_scribbles = enabled;
+            this.no_scribbles = false;
             // A new source must not inherit strokes or undo history, even when
             // it has the same dimensions as the previous source.
             const canvas = this.drawingCanvas_;

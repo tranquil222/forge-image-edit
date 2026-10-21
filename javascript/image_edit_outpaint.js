@@ -19,7 +19,7 @@
         root.imageEditCanvasEdges = {enabled: !!enabled, left: Number(left), right: Number(right), top: Number(top), bottom: Number(bottom)};
         const canvas = root.qwenEditPaintCanvas;
         if (!canvas) return;
-        canvas.no_scribbles = !!enabled;
+        canvas.no_scribbles = false;
         canvas.drawing = false;
         canvas.adjustInitialPositionAndScale();
         canvas.drawImage();

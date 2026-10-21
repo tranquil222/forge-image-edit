@@ -22,7 +22,7 @@ from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
 from .tone import match_source_tone, tone_summary
 from .fibo_defaults import apply_default
-from .outpaint import canvas_plan, canvas_images, outpaint_instruction
+from .outpaint import canvas_plan, canvas_images, canvas_blend_mask, outpaint_instruction
 from .adjustments import MASK_KEY, encode_selection, remember_selection
 from .masking import camera_angle_instruction
 
@@ -234,11 +234,14 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     original = canonical_image(source)
     mask, crop = None, None
     plan = None
+    painted_canvas = False
     if canvas_edges is not None:
         plan = canvas_plan(original.size, canvas_edges)
-        if not plan["expand"]:
-            raise ValueError("No added canvas to fill. Use Apply crop for an inward-only change.")
-        original, mask = canvas_images(original, plan)
+        source_paint = extract_mask(original, editor) if area_only else None
+        painted_canvas = source_paint is not None and source_paint.crop(plan["source_box"]).getbbox() is not None
+        original, mask = canvas_images(original, plan, source_paint)
+        if mask.getbbox() is None:
+            raise ValueError("Paint an area or expand the canvas to generate an edit. Use Apply crop for crop-only changes.")
         area_only, area_mode, feather = True, "Outpaint", 0
     effective_instruction = instruction
     if area_mode == "Camera angle":
@@ -272,15 +275,20 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         if adapter.key != "fibo2":
             effective_instruction = scoped_instruction(instruction, guide_reference, replace=replace)
         if plan is not None:
-            area_mode = "Outpaint"
-            # Full canvas context, one model-specific border guide; old brush
-            # strokes do not participate in a crop/outpaint operation.
+            area_mode = "Outpaint" if plan["expand"] else "Painted canvas edit"
+            # The border and source-space painting form one editable region.
+            # Keep full-canvas context and a single model-specific guide.
             input_references = input_references[:1]
-            effective_instruction = outpaint_instruction(instruction, adapter.key == "fibo2")
+            if plan["expand"]:
+                effective_instruction = outpaint_instruction(instruction, adapter.key == "fibo2", painted_canvas)
     if adapter.key == "fibo2":
         effective_instruction = fibo_result_prompt(effective_instruction, result_description)
     else:
         result_description = ""
+    if plan is not None:
+        # Input masking stays hard. The small overlap is composited only after
+        # inference, using generated content already present inside the photo.
+        mask = canvas_blend_mask(mask, plan)
     references = [prepare_reference(im, resolution) for im in input_references]
     content_boxes = [reference_content_box(*im.size, resolution) for im in input_references]
     seed = parse_seed(seed)
@@ -309,6 +317,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             recipe["masked_edit"].update(mask_fill=[128, 128, 128], mask_threshold=128)
     if plan is not None:
         recipe["canvas"] = plan
+        recipe["canvas_painted_area"] = painted_canvas
     if effective_instruction != instruction:
         recipe["effective_prompt"] = effective_instruction
     recipe["quality_preset"] = next((name for name, values in adapter.profiles.items() if all(recipe[key] == value for key, value in values.items())), "Custom")
@@ -368,7 +377,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             output.info.update(binary)
         path = Path(path)
         remember_selection(path, selection, recipe)
-        note = " · retained original pixels preserved" if plan is not None else " · outside painted area preserved" if area_only else ""
+        note = (" · original preserved outside painting / seam blend" if painted_canvas or (plan["expand"] and plan["seam_blend"]) else " · retained original pixels preserved") if plan is not None else " · outside painted area preserved" if area_only else ""
         if preserve_tone:
             note += " · " + tone_summary(recipe["tone_match"])
         if "fibo_global_curves" in recipe:
