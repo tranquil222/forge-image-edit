@@ -1,5 +1,5 @@
 {
-  "version": "0.5.11",
+  "version": "0.5.12",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 8162,
-      "sha256": "9c421817109d5168b82cf9497534ab63fb73976591ccfc3327d694645a142a9f"
+      "bytes": 9029,
+      "sha256": "166eb5b52a6a68c9463df06d7966329fce56d4b21d02322f76ecc0b47fcab3f6"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 24629,
-      "sha256": "7d056a7cf7acf056f064ab59b90948cb1e6bd8b8c86fc14a36864daa879c9568"
+      "bytes": 25689,
+      "sha256": "575c0e54a84c579497380f12b2d8567f2634ed5538068698f0094872bdab0763"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 32529,
-      "sha256": "2dd988cd5c54bf3915c0962589cdcfdf966520afb1eb16ddf81622f3dc406f15"
+      "bytes": 34186,
+      "sha256": "3c165001cbdb39cd03bf5ffc65cdf90cf958dc4f573d9c2763e4750924dea51f"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "bf4b95c7327a01927179397fa2f154436aca45e98e57f4761f37d84855d29fcd"
+      "sha256": "df5254bd60d1c1bd1e230f24395b7566f2bdd1f712bc6b8844623aa7d332280c"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -113,8 +113,8 @@
     },
     {
       "path": "forge_qwen_edit/masking.py",
-      "bytes": 9344,
-      "sha256": "0fc22b0673b649a0ae11991f760325b9048bd2c25025e03d7985313d0ee75f7b"
+      "bytes": 10805,
+      "sha256": "f3d5fb61aff8a4f6c3cca3446c93935fbf093fd872c3c93039f04794e8bcb06b"
     },
     {
       "path": "forge_qwen_edit/metadata.py",
@@ -128,8 +128,8 @@
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 23667,
-      "sha256": "31251a7673c12344ba76e1bb50268605c1732365e95cf0e2d8f877bffbb1de73"
+      "bytes": 24694,
+      "sha256": "355f2cbeddcac098396c11f4c877c2eb0903db80232f8a02b34ab7816d97a062"
     },
     {
       "path": "forge_qwen_edit/outpaint.py",
@@ -158,8 +158,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 37908,
-      "sha256": "98a0709fc78ba2333c6bf2d18c5b4378f2a9e3f0ccc11e9197a8ea2730157306"
+      "bytes": 39333,
+      "sha256": "6ed84ef8ca3d835d10533be4b528e73b24ec5a61dbd1ac4203b2f758361fd004"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -188,8 +188,8 @@
     },
     {
       "path": "javascript/image_edit_curves_ui.js",
-      "bytes": 26978,
-      "sha256": "1056b2c6e0da14299697e29342c0e3d1787111c1f9094ceb7f1a903d5977e5d1"
+      "bytes": 26995,
+      "sha256": "f9b96b89ddd8eed5292908371b35038ed9a45d023ef52238c25b334fbf013b76"
     },
     {
       "path": "javascript/image_edit_outpaint.js",
@@ -203,8 +203,8 @@
     },
     {
       "path": "javascript/image_edit_reference_curves.js",
-      "bytes": 2979,
-      "sha256": "037364f696fbb9abfe5c764a33bd708546758d70595f682caabf33cde79386d9"
+      "bytes": 4447,
+      "sha256": "c44044249a84eaa1e0f600ad4ae30d1604684e751b94d2a7244d5c61be94300f"
     },
     {
       "path": "javascript/image_edit_spline.js",
@@ -248,8 +248,8 @@
     },
     {
       "path": "style.css",
-      "bytes": 11101,
-      "sha256": "baeae1fd21c2ec053ef198b245426e2f34cd03e232b4f5a95d58897c049e3bfc"
+      "bytes": 12453,
+      "sha256": "7340818a660756e0c74173c1d9e91a5e4865a5395b376a1558ed7688865e070e"
     },
     {
       "path": "tests/curves.test.cjs",
@@ -303,8 +303,8 @@
     },
     {
       "path": "tests/test_masking.py",
-      "bytes": 7317,
-      "sha256": "77e4090e178c53a2a52cf71ceb15a2b144907f5ecf5b7a6f032db0191fea90e8"
+      "bytes": 8187,
+      "sha256": "df64b5c2a0fd328de934557724b2613ec76ce8f4e5f1d5d07062dce0c8639b47"
     },
     {
       "path": "tests/test_memory_staging.py",
@@ -318,8 +318,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 17343,
-      "sha256": "93a02bbb30454d781f6ecd8b4490144b38ab424bb673465e691553928e245a51"
+      "bytes": 20691,
+      "sha256": "1b46f77958f82c0fc328b5cc39d580fe76ff4ef40c78ab0f85dc5b99d3dacd6d"
     },
     {
       "path": "tests/test_outpaint.py",

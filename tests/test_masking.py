@@ -6,14 +6,25 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from forge_qwen_edit.masking import composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, has_painted_area, edit_modes, camera_angle_instruction
+from forge_qwen_edit.masking import composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, has_painted_area, edit_modes, camera_angle_instruction, expression_transfer_instruction
 
 
 class MaskingTests(unittest.TestCase):
     def test_camera_is_a_whole_scene_choice_for_both_models(self):
         for family in ('Qwen Image 2.1', 'Fibo 2.0 Edit Turbo', 'Fibo 2.0 Dev'):
-            self.assertEqual(edit_modes(family), ['Standard', 'Camera angle'])
+            self.assertEqual(edit_modes(family), ['Standard', 'Camera angle', 'Expression transfer'])
             self.assertNotIn('Camera angle', edit_modes(family, True))
+            self.assertIn('Expression transfer', edit_modes(family, True))
+
+    def test_expression_guidance_preserves_fibo_caption_and_reference_roles(self):
+        import json
+        value = {'edit_instruction': 'Use the sneer.', 'structured_caption': {'short_description': 'a portrait'}}
+        result = json.loads(expression_transfer_instruction(json.dumps(value), fibo=True))
+        self.assertEqual(result['structured_caption'], value['structured_caption'])
+        self.assertTrue(result['edit_instruction'].startswith(value['edit_instruction']))
+        self.assertIn('Edit the person in <image_1>', result['edit_instruction'])
+        self.assertIn('Use <image_2> only as a facial-expression reference', result['edit_instruction'])
+        self.assertIn('not a face swap', result['edit_instruction'])
 
     def test_camera_guidance_preserves_fibo_structured_caption_and_user_move(self):
         import json

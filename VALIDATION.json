@@ -1,5 +1,5 @@
 {
-  "version": "0.5.11",
+  "version": "0.5.12",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 106,
+    "extension_python_tests": 109,
     "javascript_tests": 13,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -418,6 +418,16 @@
       "pixel_checks": "Both preview PNGs match full-resolution LUT correction exactly. Both model-input hashes match independently prepared corrected references using the QA Pillow version. Uploaded original file hashes remain unchanged; PNG recipes contain the submitted per-slot settings.",
       "scope": "Adjustments are applied locally before reference resizing for inference. Preview is a comparison toggle, not a generation bypass. Reference originals remain in their upload controls; changing an upload resets only its controls.",
       "prompt_shortcuts": "Three token buttons beside each prompt. Browser checks passed for cursor insertion, selection replacement, keyboard activation, empty fields, field isolation and wide/narrow layouts; no page errors."
+    },
+    "expression_transfer_0512": {
+      "method": "Production job tests plus isolated Edge/Forge browser checks with CPU-only inference. Model output quality was not evaluated.",
+      "checks": "Whole-image and painted preset routing, required reference validation, empty-instruction default, structured-caption preservation, packed reference order including an empty first slot, clean base crop, exact unpainted pixels, saved preset/effective prompt and mask metadata passed. Browser selection remains Expression transfer when painting is added or cleared. Saved input hashes matched clean source and reference preparation. All 109 Python and 13 JavaScript tests passed; Python compilation passed.",
+      "scope": "Prompt guidance only, not a trained identity lock. Painted expression edits send the clean base crop and use the mask for final compositing; replacement and outpaint paths remain unchanged."
+    },
+    "source_reference_0512": {
+      "method": "Edge browser against isolated Forge with CPU-only inference fixture for result reuse. No model behavior changed.",
+      "checks": "One active reference editor, independent adjustments retained across switching/closing, clean source image comparison, source upload/replacement/clear, result reuse, outpaint-overlay exclusion and responsive wide/narrow layout passed. No browser errors. All 13 JavaScript tests passed; Python compilation passed.",
+      "scope": "Read-only image_1 color comparison. The source is not modified, included again as an extra reference or filtered by reference curves. Existing full-resolution reference adjustment and generation settings remain unchanged."
     }
   },
   "limitations": [

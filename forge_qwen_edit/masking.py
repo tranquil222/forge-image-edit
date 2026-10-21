@@ -7,13 +7,38 @@ from PIL import Image, ImageChops, ImageFilter, ImageOps
 from .workflow import image_digest
 
 AREA_MODES = ("Replace / remove", "Refine / expression")
-WHOLE_MODES = ("Standard", "Camera angle")
+WHOLE_MODES = ("Standard", "Camera angle", "Expression transfer")
 
 
 def edit_modes(family, painted=False):
     if not painted:
         return list(WHOLE_MODES)
-    return ["Fibo masked edit"] if family.startswith("Fibo 2.0") else list(AREA_MODES)
+    modes = ["Fibo masked edit"] if family.startswith("Fibo 2.0") else list(AREA_MODES)
+    return modes + ["Expression transfer"]
+
+
+def expression_transfer_instruction(instruction, fibo=False):
+    """Describe reference roles without replacing the base person's appearance."""
+    base, donor = ("<image_1>", "<image_2>") if fibo else ("image 1", "image 2")
+    rules = (
+        f"Edit the person in {base}. Use {donor} only as a facial-expression reference: "
+        "transfer the mouth shape, lip movement, brow position, eyelid tension and cheek movement "
+        "that create the expression, adapted to the base person's facial anatomy and head angle. "
+        f"Preserve the identity, facial proportions, skin tone and texture, hair, pose, clothing, "
+        f"lighting, colors and background from {base}. Do not copy the reference person's identity, "
+        "face shape, skin, makeup, hair, clothing, lighting or background. "
+        "Other references must not replace the base person's appearance or scene. "
+        "Return the edited base image, not a face swap, collage or recreation of the reference."
+    )
+    if fibo:
+        try:
+            structured = json.loads(instruction)
+        except ValueError:
+            structured = None
+        if isinstance(structured, dict):
+            structured["edit_instruction"] = str(structured.get("edit_instruction", "")).strip() + "\n\n" + rules
+            return json.dumps(structured, ensure_ascii=False)
+    return instruction.strip() + "\n\n" + rules
 
 
 def camera_angle_instruction(instruction, fibo=False):

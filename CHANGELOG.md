@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.12 — beta
+
+- Add an Expression transfer edit preset: use the first additional reference only
+  for facial expression, with guidance to retain the base identity, appearance and
+  scene. Support whole-image edits and painting; painted expression edits send the
+  clean source face and use the selection for final compositing. Save the preset
+  and expanded instruction in the PNG recipe.
+- Show the clean `<image_1>` source beside reference Curves & levels for color
+  comparison. Follow source uploads, replacement, clearing and result reuse without
+  including brush/outpaint overlays or applying reference adjustments to the source.
+- Open one reference editor at a time in a full-width comparison workspace.
+  Switching or closing editors retains both references' independent adjustments.
+  Stack the source comparison above the curves on narrow screens.
+
 ## 0.5.11 — beta
 
 - Add compact `<image_1>`, `<image_2>` and `<image_3>` insertion buttons beside

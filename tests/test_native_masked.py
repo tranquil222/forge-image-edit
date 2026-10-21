@@ -24,7 +24,7 @@ from forge_qwen_edit.tone import match_source_tone, tone_summary
 from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_selection, result_context
 from forge_qwen_edit.fibo_defaults import apply_default as apply_fibo_default
 from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
-from forge_qwen_edit.masking import masked_reference_instruction
+from forge_qwen_edit.masking import masked_reference_instruction, expression_transfer_instruction
 from forge_qwen_edit.reference_adjustments import adjust_reference, reference_adjustment_records, UPLOAD_DIGEST
 
 
@@ -55,6 +55,17 @@ class NativeMaskedTests(unittest.TestCase):
         for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
             with self.subTest(family=family):
                 self.check_masked_job("Camera angle", family)
+
+    def test_expression_uses_clean_base_and_preserves_masked_pixels(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            for painted in (False, True):
+                for gap in (False, True):
+                    with self.subTest(family=family, painted=painted, gap=gap):
+                        self.check_masked_job("Expression transfer", family, extra_refs=True,
+                            expression_painted=painted, reference_gap=gap)
+
+    def test_expression_requires_a_reference_before_inference(self):
+        self.check_masked_job("Expression transfer", "Fibo 2.0 Edit Turbo")
 
     def test_outpaint_uses_full_canvas_model_border_and_keeps_retained_pixels(self):
         for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
@@ -90,7 +101,7 @@ class NativeMaskedTests(unittest.TestCase):
                 with self.subTest(family=family, mode=mode):
                     self.check_masked_job(mode, family, canvas_paint=True, extra_refs=True, adjust_refs=True)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False):
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -144,9 +155,19 @@ class NativeMaskedTests(unittest.TestCase):
             ImageDraw.Draw(layer).rectangle((200, 100, 290, 220), fill=(0, 255, 0, 255))
             editor["layers"] = [layer]
             camera = mode == "Camera angle"
+            expression = mode == "Expression transfer"
             edges = (canvas_edges if canvas_edges is not None else {"left": -32, "right": 80, "top": 24, "bottom": -20}) if mode == "Outpaint" else None
             instruction = "Move the camera near the ground looking up at the subject." if camera else "Remove the stray object."
             extras = [Image.new('RGB', (320, 240), (155, 90, 40)), Image.new('RGB', (240, 320), (20, 180, 60))] if extra_refs else [None, None]
+            if expression:
+                instruction = "Transfer the sneer." if expression_painted else ""
+                if reference_gap:
+                    extras[0] = None
+                if not extra_refs:
+                    with self.assertRaisesRegex(ValueError, "additional reference image"):
+                        namespace["generate"](source, None, None, "", "", 512, 4, "-1", "Euler", schedule, model_name, encoder_name, vae_name, True, area_mode=mode, model_family=family)
+                    self.assertEqual(calls, [])
+                    return
             curves = None
             if adjust_refs:
                 from test_adjustments import payload
@@ -154,7 +175,34 @@ class NativeMaskedTests(unittest.TestCase):
                 extras[1].info[UPLOAD_DIGEST] = 'b' * 64
                 curves = [json.dumps(payload('a' * 64)), json.dumps(payload('b' * 64))]
             output, filename, seed, message = namespace["generate"](
-                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves)
+                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves)
+            if expression:
+                from forge_qwen_edit.workflow import read_recipe
+                recipe = read_recipe(filename)
+                self.assertEqual(recipe['edit_mode'], mode)
+                self.assertEqual(recipe['area_only'], expression_painted)
+                self.assertEqual(recipe['effective_prompt'], expression_transfer_instruction(recipe['prompt'], fibo))
+                expected_source = source.crop(context_box(extract_mask(source, editor))) if expression_painted else source
+                self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(prepare_reference(expected_source, 512)))
+                filled = [im for im in extras if im is not None]
+                self.assertEqual(len(calls[0].edit_references), 1 + len(filled))
+                for actual, extra in zip(calls[0].edit_references[1:], filled):
+                    self.assertEqual(image_digest(actual), image_digest(prepare_reference(extra, 512)))
+                self.assertNotIn('neutral-grey', calls[0].prompt)
+                if expression_painted:
+                    self.assertEqual(output.size, source.size)
+                    outside = np.array(layer)[..., 3] == 0
+                    np.testing.assert_array_equal(np.array(output)[outside], np.array(source)[outside])
+                    self.assertTrue(recipe['masked_edit']['clean_reference_sent'])
+                    self.assertIsNone(recipe['masked_edit']['guide_reference'])
+                    self.assertNotIn('mask_fill', recipe['masked_edit'])
+                    _, saved_mask, _ = result_context(filename, __import__('hashlib').sha256(Path(filename).read_bytes()).hexdigest())
+                    self.assertIsNotNone(saved_mask)
+                else:
+                    box = reference_content_box(*source.size, 512)
+                    self.assertEqual(output.size, (box[2] - box[0], box[3] - box[1]))
+                    self.assertNotIn('masked_edit', recipe)
+                return
             if extra_refs:
                 self.assertEqual(len(calls[0].edit_references), 3)
                 expected_extras = [adjust_reference(im, data) for im, data in zip(extras, curves)] if curves else extras

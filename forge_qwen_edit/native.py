@@ -26,7 +26,7 @@ from .outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_refe
 from .masking import masked_reference_instruction
 from .adjustments import MASK_KEY, encode_selection, remember_selection
 from .reference_adjustments import adjust_reference, reference_adjustment_records
-from .masking import camera_angle_instruction
+from .masking import camera_angle_instruction, expression_transfer_instruction
 
 
 class EditCancelled(Exception):
@@ -206,6 +206,11 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         raise ValueError("Add a source image first.")
     if canvas_edges is not None and not (instruction or "").strip():
         instruction = "Extend the surrounding scene naturally."
+    if area_mode == "Expression transfer" and canvas_edges is None:
+        if reference2 is None and reference3 is None:
+            raise ValueError("Expression transfer needs an additional reference image showing the expression.")
+        if not (instruction or "").strip():
+            instruction = "Transfer the expression from the first additional reference to the person in the source image."
     if not instruction or not instruction.strip():
         raise ValueError("Enter an edit instruction.")
     if sampler not in adapter.samplers or sd_samplers.find_sampler_config(sampler) is None:
@@ -256,16 +261,24 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         reference2 = adjust_reference(reference2, reference_curves[0])
         reference3 = adjust_reference(reference3, reference_curves[1])
     extra_references = [im for im in (reference2, reference3) if im is not None]
+    expression = area_mode == "Expression transfer"
+    if expression:
+        effective_instruction = expression_transfer_instruction(instruction, adapter.key == "fibo2")
     input_references = [original, *extra_references]
     if area_only:
-        if plan is None and adapter.key != "fibo2" and area_mode not in ("Replace / remove", "Refine / expression"):
+        if plan is None and adapter.key != "fibo2" and area_mode not in ("Replace / remove", "Refine / expression", "Expression transfer"):
             raise ValueError("Choose a painted-area mode.")
         if not 0 <= float(feather) <= 64:
             raise ValueError("Edge blending must be between 0 and 64 pixels.")
         mask = mask if plan is not None else extract_mask(original, editor)
         crop = (0, 0, original.width, original.height) if plan is not None else context_box(mask)
-        replace = plan is not None or adapter.key == "fibo2" or area_mode == "Replace / remove"
-        if adapter.key == "fibo2":
+        replace = not expression and (plan is not None or adapter.key == "fibo2" or area_mode == "Replace / remove")
+        if expression:
+            # Keep the base face visible for identity/expression refinement. The
+            # painted selection limits the final composite, not the model input.
+            input_references[0] = original.crop(crop)
+            guide_reference = None
+        elif adapter.key == "fibo2":
             # Fibo's trained mask input is neutral grey, not Qwen's green guide.
             # With extra references, use the multi-image conditioning path with
             # an already grey-masked first image. This combination is experimental.
@@ -281,7 +294,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             input_references[0] = original.crop(crop)
             input_references.append(location_guide(original, mask).crop(crop))
             guide_reference = len(input_references)
-        if adapter.key != "fibo2":
+        if adapter.key != "fibo2" and not expression:
             effective_instruction = scoped_instruction(instruction, guide_reference, replace=replace)
         if plan is not None:
             area_mode = "Outpaint" if plan["expand"] else "Painted canvas edit"
@@ -289,7 +302,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             # Keep full-canvas context and the model-specific first-image guide.
             if plan["expand"]:
                 effective_instruction = outpaint_instruction(instruction, adapter.key == "fibo2", painted_canvas)
-        if extra_references:
+        if extra_references and not expression:
             effective_instruction = masked_reference_instruction(effective_instruction, adapter.key == "fibo2", len(extra_references))
     if adapter.key == "fibo2":
         effective_instruction = fibo_result_prompt(effective_instruction, result_description)
@@ -320,16 +333,16 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "reference_content_boxes": [list(box) for box in content_boxes],
         "resize_mode": "aspect-preserving edge pad / unpad",
         "area_only": bool(area_only), "source_sha256": image_digest(original),
-        "edit_mode": area_mode if area_only or area_mode == "Camera angle" else "Standard",
+        "edit_mode": area_mode if area_only or area_mode in ("Camera angle", "Expression transfer") else "Standard",
         "source_size": list(original.size),
     }
     reference_adjustments = reference_adjustment_records((reference2, reference3))
     if reference_adjustments:
         recipe["reference_adjustments"] = reference_adjustments
     if area_only:
-        recipe["masked_reference_guidance"] = bool(extra_references)
+        recipe["masked_reference_guidance"] = bool(extra_references) and not expression
         recipe["masked_edit"] = {"crop": list(crop), "mask_sha256": image_digest(mask), "feather": float(feather), "guide_reference": guide_reference, "mode": area_mode, "clean_reference_sent": not replace}
-        if adapter.key == "fibo2":
+        if adapter.key == "fibo2" and not expression:
             recipe["masked_edit"].update(mask_fill=[128, 128, 128], mask_threshold=128)
     if plan is not None:
         recipe["canvas"] = plan

@@ -99,6 +99,21 @@ result caption. It does not contact an LLM. Use either that field or your own
 structured JSON instruction, not both. More Turbo steps do not guarantee better
 instruction following. Dev is a separate optional checkpoint, not a Turbo switch.
 
+### Expression transfer
+
+Choose **Edit mode → Expression transfer** and add an expression reference.
+The source is `<image_1>`; the first filled additional reference is `<image_2>`.
+The preset adds expression-only guidance and asks the model to retain the source
+person's identity, appearance, lighting and background. An optional edit instruction
+can specify the person or expression details. This is a prompting preset, not a
+trained identity lock; reference appearance can still leak into a global result.
+
+Paint the face to preserve pixels outside the selection. In this mode the model
+receives a clean source crop, not a grey-covered face, and the mask is used for the
+final feathered composite. The preset remains selected when painting is added or
+cleared. Crop/outpaint uses its own mode. The PNG recipe retains the preset and
+expanded prompt without changing the text you entered.
+
 ### Camera angle
 
 Leave the canvas unpainted and choose **Edit mode → Camera angle** (Qwen or Fibo).
@@ -159,7 +174,9 @@ keep the labels aligned. Additional references increase memory use.
 
 Use **Edit** beneath an additional reference to expand its **Curves & levels**.
 Each slot has independent RGB/channel curves, levels, undo/redo and resets. The
-preview updates in place, while the uploaded file stays untouched. Generation
+clean **`<image_1>` source** appears beside the curves for color comparison. Only
+one editor opens at a time; switching editors retains both references' settings.
+The preview updates in place, while the uploaded file stays untouched. Generation
 applies those adjustments to the full-resolution original before resizing it for
 the model, including during painting and outpaint. Closing Edit keeps the changes;
 **Reset all** restores the original tones. **Preview** only switches the displayed

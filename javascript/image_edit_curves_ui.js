@@ -3,7 +3,7 @@
     window.createImageEditCurves = function(dialog, picture, preview, callbacks, options = {}) {
         const C = window.ImageEditCurves;
         const reference = !!options.reference;
-        const panel = dialog.querySelector(".qe-curves-panel");
+        const panel = options.panel || dialog.querySelector(".qe-curves-panel");
         panel.innerHTML = `<div class="qe-curves-title"><strong>Curves & levels</strong><label><input type="checkbox" data-field="preview" checked> Preview</label></div>
             <div class="qe-curves-scope">Loading adjustment area…</div>
             <div class="qe-curves-mask-controls">
