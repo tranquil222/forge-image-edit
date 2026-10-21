@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 120,
-    "javascript_tests": 15,
+    "extension_python_tests": 123,
+    "javascript_tests": 16,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -556,10 +556,13 @@
     },
     "left_controls_layout": {
       "version": "0.5.19",
-      "scope": "Layout and tooltip only; generation inputs, defaults and inference unchanged.",
-      "browser": "Edge at 1800px and 650px; empty and loaded source. Generate/Cancel immediately below source, Crop/outpaint between buttons and Seed/Batch, Quality/Resolution below seeds, expanded canvas and Output size below main controls. Edit mode/Shift/RoPE on right. Source-to-Generate gap is 16px, independent of result/download height. Expanding sizing or toggling outpaint leaves Generate in place.",
+      "scope": "Layout, shared whole-image/canvas sizing and help tooltips. Shift/RoPE sampling behavior is unchanged.",
+      "browser": "Edge at 1800px and 650px; empty and loaded source. Generate/Cancel immediately below source, Crop/outpaint between buttons and Seed/Batch. Its four edge controls expand immediately beneath the checkbox, before Seed/Batch. Quality/Resolution follow seeds; Output size follows quality. Edit mode/Shift/RoPE stay on right. Source-to-Generate gap is 16px, independent of result/download height. Expanding sizing or toggling outpaint leaves Generate in place.",
       "painting_help": "Standalone instruction removed; guidance retained in source brush-width tooltip and accessible description.",
-      "preserved_behaviors": "Unchanged/unpainted outpaint disables generation with hint; expansion enables Generate outpaint; RoPE remains visible and checked. No horizontal overflow. No Image Edit JavaScript errors."
+      "preserved_behaviors": "Unchanged/unpainted outpaint disables generation with hint; expansion enables Generate outpaint; RoPE remains visible and checked. No horizontal overflow. No Image Edit JavaScript errors.",
+      "sizing": "One Resize to/Resize by section remains visible with Crop/outpaint on or off and Custom output size checked or unchecked. Editing a dimension/multiplier enables custom sizing. Browser checks verified full-canvas proportions: 1018-square source plus 1018 left edge becomes 2:1, 800 x 400 output; disabling canvas returns 400 x 400. Immediate submit uses current linked values; 0.5 sizes the entire canvas. No separate percentage dropdown.",
+      "help": "Long help moved to ? buttons. Hover/focus/click display help; Escape dismisses it; help clicks do not toggle Crop/outpaint or Custom output size. Wide/narrow screenshots inspected.",
+      "integration": "CPU production-path tests cover exact resized canvas inference/save dimensions, paint/seam compositing, extra references, RoPE, dispatch routing, and resize-only saves for shrink/enlarge with both Qwen and Fibo. No new GPU quality claim."
     }
   },
   "limitations": [

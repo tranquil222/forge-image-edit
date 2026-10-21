@@ -74,6 +74,32 @@ class MaskingTests(unittest.TestCase):
         self.editor = editor_value(self.source)
         self.editor["layers"] = [self.layer]
 
+    def test_shared_size_dispatches_to_canvas_or_model_without_losing_paint(self):
+        import ast
+        from types import SimpleNamespace
+        from forge_qwen_edit.outpaint import EDGES, canvas_plan
+        from forge_qwen_edit.masking import canonical_image
+        tree = ast.parse((Path(__file__).resolve().parents[1] / 'forge_qwen_edit/ui.py').read_text(encoding='utf-8'))
+        method = next(n for n in tree.body if getattr(n, 'name', '') == 'run_canvas_edit')
+        ns = dict(has_painted_area=has_painted_area, extract_mask=extract_mask, canonical_image=canonical_image,
+            EDGES=EDGES, canvas_plan=canvas_plan, validate_count=lambda n: n, gr=SimpleNamespace(Error=ValueError),
+            run_edit=lambda *args, **kw: ('model', args), run_canvas_crop=lambda *args, **kw: ('crop', args, kw),
+            model_bar=SimpleNamespace(resolve_selection=lambda *a: (SimpleNamespace(name='checkpoint'), SimpleNamespace(label='Fibo'), 'encoder', 'vae')))
+        exec(compile(ast.Module(body=[method], type_ignores=[]), 'canvas_dispatch', 'exec'), ns)
+        for left, paint in ((0, None), (80, None), (0, self.layer), (80, self.layer)):
+            result = ns['run_canvas_edit']('task', self.source, *([None] * 9), 'checkpoint', [], 'Automatic', False,
+                False, paint, 8, 'Standard', '', True, 1, False, True, left, 0, 0, 0, 32, 1, 1, '', '',
+                'Manual', .85, True, True, 'Resize by', 1024, 1024, .5)
+            if left or paint is not None:
+                self.assertEqual(result[0], 'model')
+                self.assertEqual(result[1][-6]['output_resize']['scale'], .5)
+                self.assertIsNone(result[1][-1])
+                self.assertEqual(result[1][15], paint is not None)
+            else:
+                self.assertEqual(result[0], 'crop')
+                self.assertTrue(result[1][9])
+                self.assertEqual(result[2]['output_scale'], .5)
+
     def test_unpainted_pixels_and_alpha_are_exactly_preserved(self):
         mask = extract_mask(self.source, self.editor)
         crop = context_box(mask)

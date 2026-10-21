@@ -116,6 +116,13 @@ class NativeMaskedTests(unittest.TestCase):
                 with self.subTest(family=family, resize=resize):
                     self.check_masked_job('Camera angle', family, output_resize=resize, extra_refs=True, fibo_shift_mode='Image-size adjusted')
 
+    def test_shared_canvas_resize_drives_model_and_saved_size_with_paint_and_references(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            for resize in (dict(mode='Resize to', width=901, height=526), dict(mode='Resize by', scale=.5), dict(mode='Resize by', scale=1.5)):
+                with self.subTest(family=family, resize=resize):
+                    self.check_masked_job('Outpaint', family, canvas_paint=True, extra_refs=True, fibo_rope=True,
+                        canvas_edges=dict(right=80, output_resize=resize))
+
     def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -258,7 +265,7 @@ class NativeMaskedTests(unittest.TestCase):
                 np.testing.assert_array_equal(np.array(output), np.array(expected))
                 reference = fibo_masked_reference(expanded, hard) if fibo else location_guide(expanded, hard, opaque=True)
                 self.assertEqual(len(calls[0].edit_references), 3 if extra_refs else 1)
-                working = canvas_reference_resolution(expanded.size, 512, plan['shrink_by'])
+                working = 0 if plan.get('output_resize') else canvas_reference_resolution(expanded.size, 512, plan['shrink_by'])
                 self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(prepare_reference(reference, working)))
                 if plan['shrink_by'] > 1:
                     self.assertLessEqual(calls[0].width, expanded.width + 31)

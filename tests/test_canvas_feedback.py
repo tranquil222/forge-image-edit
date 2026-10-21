@@ -23,7 +23,7 @@ class CanvasFeedbackTests(unittest.TestCase):
             _, generate, crop, hint = self.feedback([512, 512], True, 0, 0, 0, 0, 'Fibo 2.0 Edit Turbo', painted)
             self.assertEqual(generate['interactive'], painted)
             self.assertFalse(crop['visible'])
-            self.assertTrue(hint['visible'])
+            self.assertEqual(hint['visible'], not painted)
             if not painted:
                 self.assertIn('Nothing to change yet', hint['value'])
 
@@ -37,6 +37,19 @@ class CanvasFeedbackTests(unittest.TestCase):
         for size, left, ready in (([0, 0], 20, True), ([512, 512], -600, True), ([512, 512], 20, False)):
             _, generate, _, _ = self.feedback(size, True, left, 0, 0, 0, 'Fibo 2.0 Edit Turbo', model_ready=ready)
             self.assertFalse(generate['interactive'])
+
+    def test_shared_resize_handles_expanded_and_resize_only_canvases(self):
+        message, generate, crop, hint = self.feedback([512, 512], True, 256, 0, 0, 0, 'Fibo 2.0 Edit Turbo',
+            resize_enabled=True, output_width=600, output_height=400)
+        self.assertTrue(generate['interactive'])
+        self.assertFalse(crop['visible'])
+        self.assertIn('600 × 400', message)
+        self.assertFalse(hint['visible'])
+        _, generate, crop, _ = self.feedback([512, 512], True, 0, 0, 0, 0, 'Fibo 2.0 Edit Turbo',
+            resize_enabled=True, resize_mode='Resize by', output_scale=.5)
+        self.assertTrue(crop['visible'])
+        self.assertEqual(crop['value'], 'Apply resize')
+        self.assertFalse(generate['visible'])
 
 
 if __name__ == '__main__':

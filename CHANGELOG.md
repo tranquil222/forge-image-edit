@@ -3,12 +3,19 @@
 ## 0.5.19 beta
 
 - Put Generate / Cancel directly below the source image on the left, followed by
-  Crop / outpaint, Seed / Batch and Speed / quality / Resolution. Expanded canvas
-  settings and Output size stay below the main controls.
+  Crop / outpaint, Seed / Batch and Speed / quality / Resolution. Canvas edge
+  controls expand directly under their toggle; Output size stays below quality.
 - Move the standalone painting guidance into a source-toolbar tooltip.
 - Keep Edit mode, Shift and RoPE on the right below the result actions.
 - Let each column flow independently, removing the gap previously reserved under
-  the source for the taller result/download section. No inference changes.
+  the source for the taller result/download section.
+- Use one always-visible Resize to / Resize by section for whole-image and
+  crop/outpaint edits. Remove the separate canvas percentage dropdown. Dimensions
+  stay linked to the complete planned canvas; editing a size enables its override.
+- Custom sizing sends and saves the requested size for outpaint too. Resize-only
+  canvases use Apply resize without model generation. Existing painted pixels and
+  seam masks follow the resized canvas.
+- Move lengthy control explanations into keyboard- and touch-accessible ? help.
 
 ## 0.5.18 beta
 

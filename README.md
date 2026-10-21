@@ -8,10 +8,11 @@ tab. Version **0.5.19 beta**. No ComfyUI server or cloud image service.
 
 Generate / Cancel sit directly below the source image on the left, followed by
 the Crop / outpaint toggle, Seed / Batch, and Speed / quality / Resolution.
-Expanded canvas settings and Output size sit below these main controls.
+Crop/outpaint edge controls expand immediately under that toggle, above Seed / Batch.
+Output size stays below Quality / Resolution.
 Edit mode, Shift and RoPE are on the right, below the result/download controls.
 The columns flow independently, so the result controls do not leave a gap under
-the source. Expanding sizing or crop controls does not move Generate down.
+the source. Expanding crop controls does not move Generate down. Sizing stays visible in either mode.
 
 Fibo has two independent experimental controls on the right:
 
@@ -38,19 +39,18 @@ Both controls are saved in the PNG recipe. Older PNGs restore Manual 1.15 and
 RoPE off. Qwen ignores these Fibo-only controls. Existing 4-step Turbo defaults
 and low-resolution behavior are unchanged unless you enable a control.
 
-The shared **Output size** section holds sizing controls. For exact whole-image
-dimensions, enable **Custom output size**.
-**Resize to** provides linked Width / Height sliders; **Resize by** scales from
-the loaded source (for example, 2× doubles each dimension). This sets the actual
-whole-image inference/output size, not a post-generation enlargement. It overrides
-Resolution for the source/output; additional references still use Resolution.
-Sizes are limited to 32–4096 pixels per edge. Loading a new source resets the
-dimensions and scale, but keeps your checkbox preference. The controls are hidden
-for painted and crop/outpaint edits, which retain their existing canvas geometry.
-Use Crop / outpaint to change the aspect ratio or add content outside the image.
-In that mode, the same Output size section shows **Resize by** percentages for
-the complete canvas (formerly Shrink by); **50%** halves width and height.
-Canvas scaling only reduces size; enlarge the canvas with the edge controls.
+One shared **Custom output size** section stays visible in whole-image and
+crop/outpaint modes, outside the crop/outpaint expansion. **Resize to** provides
+linked Width / Height sliders; **Resize by** scales both sides (0.5 halves them,
+2 doubles them). Changing a size enables the override; uncheck Custom output size
+to use Resolution again. Its controls remain visible when unchecked.
+For outpaint, sizing applies to the complete planned canvas, including added or
+cropped edges. It sets actual inference and saved dimensions, not a post-generation
+enlargement. Additional references still use Resolution. Sizes are limited to
+32–4096 pixels per edge. Loading a new source resets dimensions and scale while
+keeping the checkbox preference. Ordinary painted edits keep their original size
+and do not offer this override. Use Crop / outpaint to change the canvas shape.
+The **?** buttons show detailed help on hover, keyboard focus or click.
 An unchanged, unpainted canvas disables Generate and explains what to change.
 Painting still enables generation with every edge set to zero.
 
@@ -262,19 +262,17 @@ pixels crop that edge.** Left/right and top/bottom are independent, so a single
 operation can crop one side and expand another. The resulting canvas dimensions
 are shown automatically. **Reset edges** returns to the original bounds.
 
-**Output size → Resize by** reduces the whole planned canvas before generation
-and saves at that smaller size. For example, a 3072 × 2048 canvas at **50%**
-becomes 1536 × 1024 (half the width and height, one quarter of the pixels).
-Choose 100% (original size), 67%, 50%, 33% or 25%. Edge values remain in loaded-source pixels; the
-summary shows the reduced output and model-image dimensions. The loaded source
-and its strokes are untouched. The scale stays selected across source changes;
-Reset edges resets only the four edges.
+The same **Custom output size → Resize to / Resize by** controls apply to the
+whole planned canvas before generation. For example, a 3072 × 2048 canvas at
+**0.5** becomes 1536 × 1024 (half each side, one quarter of the pixels). Multipliers
+range from 0.25 to 4; final dimensions must be 32–4096 pixels per side. Edge values
+remain in loaded-source pixels. The source and its strokes stay untouched.
+Reset edges resets only the four edges; linked output dimensions follow the new
+canvas shape. Loading a new source resets the multiplier to 1.
 
-**Resolution** already limits model working size independently of the saved
-canvas. It can reduce the shrunk canvas further for inference, but will not
-enlarge it. Native resolution (0) uses the reduced canvas, plus model-grid padding.
-Shrinking a large saved canvas does not necessarily reduce inference cost if a
-lower Resolution already limits it.
+With custom sizing enabled, the model works at the chosen canvas size, plus
+model-grid padding that is removed from the saved result. With it unchecked,
+**Resolution** limits working size independently of the saved canvas dimensions.
 
 The green outline is a persistent preview of the final canvas, not a green
 overlay. Fibo receives RGB **128, 128, 128** only in the added border; Qwen uses
@@ -313,8 +311,8 @@ seams, but mismatched geometry or texture may remain visible or look softer in t
 - **Crop only, without painting:** **Apply crop** saves the exact retained pixels without model
   inference, resampling, a prompt or a valid edit-model selection. Batch count
   does not produce duplicate crops.
-- **Shrink only, without painting or expansion:** **Apply shrink** saves a smaller
-  copy without running the model. Crop and shrink can also be combined.
+- **Resize only, without painting or expansion:** **Apply resize** saves a resized
+  copy without running the model. Crop and resize can also be combined.
 
 Both use Forge's native img2img save path and metadata controls. Recipes record
 the signed edges, retained source rectangle and output dimensions. **Use result

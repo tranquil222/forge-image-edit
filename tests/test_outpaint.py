@@ -177,8 +177,14 @@ class OutpaintTests(unittest.TestCase):
                     cropped = source.crop((10, 0, 80, 40)) if 'left' in edges else source
                     expected = cropped.resize((cropped.width // 2, cropped.height // 2), Image.Resampling.LANCZOS)
                     np.testing.assert_array_equal(np.array(output), np.array(expected))
-                    self.assertIn('shrink only, no model run', message)
+                    self.assertIn('resize only, no model run', message)
                     self.assertEqual(read_recipe(path)['canvas']['shrink_by'], 2)
+                for scale in (.75, 1.5):
+                    resize = dict(mode='Resize by', scale=scale)
+                    output, path, _ = save_crop(source, dict(output_resize=resize))
+                    expected = source.resize((round(source.width * scale), round(source.height * scale)), Image.Resampling.LANCZOS)
+                    np.testing.assert_array_equal(np.array(output), np.array(expected))
+                    self.assertEqual(read_recipe(path)['canvas']['output_resize'], resize)
 
 
 if __name__ == '__main__': unittest.main()

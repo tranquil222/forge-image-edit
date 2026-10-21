@@ -324,7 +324,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         # Input masking stays hard. The small overlap is composited only after
         # inference, using generated content already present inside the photo.
         mask = canvas_blend_mask(mask, plan)
-    working_resolution = canvas_reference_resolution(original.size, resolution, plan["shrink_by"]) if plan is not None else resolution
+    working_resolution = (0 if plan.get("output_resize") else canvas_reference_resolution(original.size, resolution, plan["shrink_by"])) if plan is not None else resolution
     reference_resolutions = [working_resolution] + [resolution] * (len(input_references) - 1)
     references = [prepare_sized_reference(im, custom_size) if index == 0 and custom_size else prepare_reference(im, res)
                   for index, (im, res) in enumerate(zip(input_references, reference_resolutions))]
@@ -435,8 +435,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         path = Path(path)
         remember_selection(path, selection, recipe)
         note = (" · original preserved outside painting / seam blend" if painted_canvas or (plan["expand"] and plan["seam_blend"]) else " · retained original pixels preserved") if plan is not None else " · outside painted area preserved" if area_only else ""
-        if plan is not None and plan["shrink_by"] > 1:
-            note = f" · shrunk {plan['shrink_by']:g}× · downscaled original preserved outside painting / seam blend"
+        if plan is not None and plan["output_size"] != plan["canvas_size"]:
+            note = " · resized original preserved outside painting / seam blend"
         if preserve_tone:
             note += " · " + tone_summary(recipe["tone_match"])
         if "fibo_global_curves" in recipe:
