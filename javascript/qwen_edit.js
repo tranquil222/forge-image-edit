@@ -199,7 +199,7 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
         // The batch retains its submitted source even if the canvas changes later.
         originalUrl = app.querySelector("#image_edit_batch_source textarea")?.value || originals.get(editedUrl) || source?.currentSrc || source?.src || "";
         originalButton.disabled = !originalUrl;
-        const link = app.querySelector("#qwen_edit_download a[href]");
+        const link = app.querySelector("#image_edit_download_data a[href]");
         download.href = link?.href || editedUrl;
         curves?.open(editedUrl, download.href);
         fit = true;

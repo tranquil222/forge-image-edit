@@ -16,6 +16,7 @@ from .metadata import build_metadata, preserve_binary_metadata, text_fields
 
 MASK_KEY = "image_edit_mask"
 _selections = OrderedDict()
+_recipes = OrderedDict()
 
 
 def encode_selection(mask, feather=0):
@@ -30,12 +31,27 @@ def encode_selection(mask, feather=0):
     return {"version": 1, "size": list(alpha.size), "png": base64.b64encode(buffer.getvalue()).decode("ascii")}
 
 
-def remember_selection(path, selection):
+def remember_selection(path, selection, recipe=None):
     digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
     _selections[digest] = selection
     _selections.move_to_end(digest)
     while len(_selections) > 12:
         _selections.popitem(last=False)
+    if recipe is not None:
+        _recipes[digest] = deepcopy(recipe)
+        _recipes.move_to_end(digest)
+        while len(_recipes) > 128:
+            _recipes.popitem(last=False)
+
+
+def result_recipe(source, digest):
+    if digest in _recipes:
+        return deepcopy(_recipes[digest])
+    try:
+        recipe = json.loads(source.info.get("image_edit", source.info.get("qwen_edit", "null")))
+    except (ValueError, TypeError):
+        recipe = None
+    return recipe if isinstance(recipe, dict) else {}
 
 
 def result_context(saved_path, digest):
@@ -50,7 +66,7 @@ def result_context(saved_path, digest):
     if digest not in _selections:
         try:
             selection = json.loads(source.info.get(MASK_KEY, "null"))
-            recipe = json.loads(source.info.get("image_edit", "null"))
+            recipe = result_recipe(source, digest)
         except (ValueError, TypeError):
             raise ValueError("The saved edit selection could not be read.") from None
         if selection is None and isinstance(recipe, dict) and recipe.get("area_only"):
@@ -68,9 +84,11 @@ def result_context(saved_path, digest):
 
 
 def describe_result(saved_path, payload):
+    from .fibo_defaults import describe_default
     data = json.loads(payload)
-    _, mask, selection = result_context(saved_path, data.get("base_sha256"))
+    source, mask, selection = result_context(saved_path, data.get("base_sha256"))
     return {"id": data.get("id"), "ok": True, "op": "context", "scope": "Painted area" if mask else "Whole image",
+            "fibo_default": describe_default(result_recipe(source, data.get("base_sha256"))),
             "mask": "data:image/png;base64," + selection["png"] if mask else None}
 
 
@@ -125,10 +143,7 @@ def adjustment_metadata(source, data, keep_original, selection=None):
                   "scope": scope, "space": "8-bit RGB", "order": "master levels/curve, then channel levels/curve",
                   "settings": data["settings"], "luts": data["luts"], "input_sha256": data["base_sha256"]}
     parameters = f"Manual RGB curves / levels adjustment ({scope}; no generation)"
-    try:
-        recipe = json.loads(source.info.get("image_edit", source.info.get("qwen_edit", "null")))
-    except (ValueError, TypeError):
-        recipe = None
+    recipe = result_recipe(source, data["base_sha256"])
     if isinstance(recipe, dict) and recipe.get("model_family"):
         recipe = deepcopy(recipe)
         previous = recipe.get("postprocessing", [])
@@ -169,5 +184,5 @@ def save_adjustment(saved_path, payload, keep_original=True):
         preserve_binary_metadata(filename, binary)
         output.info.update(fields)
         output.info.update(binary)
-    remember_selection(filename, selection)
+    remember_selection(filename, selection, recipe)
     return output, str(filename), data.get("id", "")

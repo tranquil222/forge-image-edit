@@ -5,6 +5,7 @@ import json
 import math
 from contextlib import nullcontext
 
+import numpy as np
 from PIL import Image, ImageOps
 
 
@@ -48,14 +49,33 @@ def reference_size(width, height, resolution):
         ratio = width / height
         width = math.sqrt(resolution * resolution * ratio)
         height = math.sqrt(resolution * resolution / ratio)
-    return max(32, round(width / 32) * 32), max(32, round(height / 32) * 32)
+    rounding = round if resolution else math.ceil
+    return max(32, rounding(width / 32) * 32), max(32, rounding(height / 32) * 32)
+
+
+def reference_content_box(width, height, resolution):
+    """Fit without stretching; the model grid is padding, never scene content."""
+    grid_w, grid_h = reference_size(width, height, resolution)
+    factor = min(grid_w / width, grid_h / height) if int(resolution) else 1
+    content_w = max(1, min(grid_w, round(width * factor)))
+    content_h = max(1, min(grid_h, round(height * factor)))
+    left, top = (grid_w - content_w) // 2, (grid_h - content_h) // 2
+    return left, top, left + content_w, top + content_h
 
 
 def prepare_reference(image, resolution):
     image = ImageOps.exif_transpose(image)
     image = image.convert("RGBA" if "A" in image.getbands() or "transparency" in image.info else "RGB")
     size = reference_size(*image.size, resolution)
-    return image if image.size == size else image.resize(size, Image.Resampling.LANCZOS)
+    left, top, right, bottom = reference_content_box(*image.size, resolution)
+    content_size = (right - left, bottom - top)
+    content = image if image.size == content_size else image.resize(content_size, Image.Resampling.LANCZOS)
+    if content.size == size:
+        return content
+    pixels = np.pad(np.asarray(content), ((top, size[1] - bottom), (left, size[0] - right), (0, 0)), mode="edge")
+    result = Image.fromarray(pixels)
+    result.info = image.info.copy()
+    return result
 
 
 def image_digest(image):

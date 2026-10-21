@@ -1,5 +1,5 @@
 {
-  "version": "0.5.4",
+  "version": "0.5.5",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2018,
-      "sha256": "45eebdb25467972ad48d0360590b8a9254193ba066db9d29b0e961a42e72bdae"
+      "bytes": 2876,
+      "sha256": "c73dba2ae526441c91b9d8c2bc5e8bbc86815fedfd5216fb5cd48993f88005a8"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 15116,
-      "sha256": "91efae2f6a8caf03d2e1692ac04ca2a89751f06a80ad4df787b70cf6b66902fb"
+      "bytes": 16515,
+      "sha256": "7be54c980808f5e254ac241d50f40731ad0f158ac2766c0743127859a2921ff8"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 22951,
-      "sha256": "9b70099989bfe9a0838023d9b60a0f0b152132fa84832775f31d13a184599e8b"
+      "bytes": 24462,
+      "sha256": "a642071e37154a62cd0046cf44225fae0040eb6be3e7ceaabb73eba3a7e6eccd"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 77,
-      "sha256": "f4d1480d779f5765fc85156af8ac57fa52f328e0cfce63e9f95c8695ec7b59e5"
+      "sha256": "0130ee797c6bc0249b7e87a001bde6ac64667e108faa087a8af9912a25e9a268"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -88,8 +88,8 @@
     },
     {
       "path": "forge_qwen_edit/adjustments.py",
-      "bytes": 8914,
-      "sha256": "090026ab9ab09bc7dd158f364a51b4540a05e3fcab9328b49c6c397f933a7ff0"
+      "bytes": 9487,
+      "sha256": "3d8c4136b4787c3c76c90eeec6127add838a02f635fd02f06f1b5e8d2b0c5242"
     },
     {
       "path": "forge_qwen_edit/batching.py",
@@ -105,6 +105,11 @@
       "path": "forge_qwen_edit/canvas.pyi",
       "bytes": 2528,
       "sha256": "f70152f55ec46f4fc2e626f5151c5d0ef8717a4bc07eb42a0fa45691ee8b3cf8"
+    },
+    {
+      "path": "forge_qwen_edit/fibo_defaults.py",
+      "bytes": 4087,
+      "sha256": "cc3a1f38b92e8bffba8eec26c089cb8a95cbe19fbc08cb460007338c38dd1515"
     },
     {
       "path": "forge_qwen_edit/masking.py",
@@ -123,8 +128,8 @@
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 19526,
-      "sha256": "62b80c0a81f696cabd6dd00cee3f21aa60ce54bfae6becf9bde65665059f9307"
+      "bytes": 20120,
+      "sha256": "c857190d06254e3964ac5a5c3adb5e85cf190fb374ef1c72393be31a71d5cf1b"
     },
     {
       "path": "forge_qwen_edit/selection.py",
@@ -133,18 +138,18 @@
     },
     {
       "path": "forge_qwen_edit/tone.py",
-      "bytes": 3198,
-      "sha256": "08471553a962e254a31db4b1ad9ec1bbd53ad4d0bda964ba896fccb1c96b214d"
+      "bytes": 4075,
+      "sha256": "a4059af596f1e24dc65c13e8ddb68a630bdb61f70f97bd4f94b8f63bec1e2ee0"
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 22765,
-      "sha256": "79fa6d116335335df8d96c95f67aaa1a5a7f3a03622015ae3fd7192e0e09b69d"
+      "bytes": 23888,
+      "sha256": "a3e4333aff71417add4cf725487c38bab8649736471ba9337733b440f3cb317e"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
-      "bytes": 7064,
-      "sha256": "7312bb50a0b816e7fe051b67188a1d61e9555c23e3909566ea7b2c0ed6d52bc1"
+      "bytes": 8062,
+      "sha256": "9bdb1c690c400b7b40b6608a70165ff25c49873d95fa30324541a78161077116"
     },
     {
       "path": "install.py",
@@ -168,8 +173,8 @@
     },
     {
       "path": "javascript/image_edit_curves_ui.js",
-      "bytes": 19220,
-      "sha256": "7b27c77953cd8141eb7d67c6c8b33a44a3641ef3872e3e2561f40d7290074dd9"
+      "bytes": 21826,
+      "sha256": "547fb552d4a843d832f1dc4a0939832ae148ba5a4a43243ed7a02caf04e8de1d"
     },
     {
       "path": "javascript/image_edit_spline.js",
@@ -183,8 +188,8 @@
     },
     {
       "path": "javascript/qwen_edit.js",
-      "bytes": 12200,
-      "sha256": "524c5c4ccc18c7c72672b9c0c138929cbdd6601d43385231e8bc351e87ba8f70"
+      "bytes": 12206,
+      "sha256": "6874f8ac7c0d4aa2d6bd59e8819cd6c58cb29929b8f3d60189eff8a762e69a10"
     },
     {
       "path": "licenses/ComfyUI-GPL-3.0.txt",
@@ -208,13 +213,13 @@
     },
     {
       "path": "scripts/qwen_edit_tab.py",
-      "bytes": 559,
-      "sha256": "9e0502325bdc3b261c41d9393f647d972f03fb8a406c5485d94715381e85bb37"
+      "bytes": 620,
+      "sha256": "056fbcea6e0e38d1466eb70e64452aa09782284189b6bb90debd50263584fcfd"
     },
     {
       "path": "style.css",
-      "bytes": 6333,
-      "sha256": "31799513289b94b3db04743b7fddb8386ef32ac7ddb9706151ed617772805814"
+      "bytes": 7042,
+      "sha256": "8be275133d746385490e626398cf6442159d50a31fec65192b32457e5ecf51a3"
     },
     {
       "path": "tests/curves.test.cjs",
@@ -228,8 +233,8 @@
     },
     {
       "path": "tests/lightbox.test.cjs",
-      "bytes": 4570,
-      "sha256": "54ca9699e17ec0db790e4bdb567540fed3aa64d2d27206bdb1fa438598914e21"
+      "bytes": 4576,
+      "sha256": "833b0ff5df356bee91bdab9c3e99b36119d0aaeb03a494f57b3ec4ae626f006c"
     },
     {
       "path": "tests/test_adjustments.py",
@@ -245,6 +250,11 @@
       "path": "tests/test_cancellation.py",
       "bytes": 2637,
       "sha256": "107834b790e02a8412d39a5796e567a1a344a2a8aaf591785ebb8537096e9e6a"
+    },
+    {
+      "path": "tests/test_fibo_defaults.py",
+      "bytes": 5618,
+      "sha256": "0803b5ef3632f34ce655d9900308b31f3a24835df9bcac0b0cbca24a0fb8c3a7"
     },
     {
       "path": "tests/test_installer.py",
@@ -273,8 +283,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 9825,
-      "sha256": "ef7a009f6f39a03ddcaee32794a5693ece22debf7ef63c7f1596a0a3bb345186"
+      "bytes": 10158,
+      "sha256": "5b5534ec8e3f96d723f7d12eb1ef8bb96e36a40efe59b19e89a23307a86fe485"
     },
     {
       "path": "tests/test_portability.py",
@@ -283,13 +293,13 @@
     },
     {
       "path": "tests/test_tone.py",
-      "bytes": 4022,
-      "sha256": "6c2bb951625530a439a0dd177519899a533926f4c239d25109f2c4c6098cf25d"
+      "bytes": 4671,
+      "sha256": "3456f299719c54895e79f6b88695f585b20bb9489e68541fb8a5ba1955f103d7"
     },
     {
       "path": "tests/test_workflow.py",
-      "bytes": 3319,
-      "sha256": "fdd0cd97b17de5a1c194198e317d8555af55f02b0dc092248822a12df649500a"
+      "bytes": 4353,
+      "sha256": "01e7f0f2603145e60388636cd23096f26311c7658a47ed56a7dcad983ec285e4"
     },
     {
       "path": "tools/backend_support.py",

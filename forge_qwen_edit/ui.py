@@ -13,7 +13,7 @@ from modules import script_callbacks, sd_schedulers, shared
 from modules.ui_components import ToolButton
 from modules_forge import main_entry, main_thread
 
-from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_size
+from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_content_box
 from .masking import AREA_MODES, WHOLE_MODES, canonical_image, has_painted_area, edit_modes
 from .canvas import EditCanvas, MetadataImage
 from . import model_bar
@@ -80,9 +80,10 @@ def dimensions(image, resolution, area_only=False, mode="Standard"):
         image = canonical_image(image)
         detail = f"Crop resolution: {resolution if resolution else 'native'}."
         return f"**Painted-area edit** · Output stays **{image.width} × {image.height}**. {detail} Unpainted pixels are preserved."
-    width, height = reference_size(*image.size, resolution)
+    left, top, right, bottom = reference_content_box(*image.size, resolution)
+    width, height = right - left, bottom - top
     scope = "Camera-angle edit · whole image" if mode == "Camera angle" else "Whole-image edit"
-    return f"**{scope}** · Output: **{width} × {height}** · source: {image.width} × {image.height} · no crop"
+    return f"**{scope}** · Output: **{width} × {height}** · source: {image.width} × {image.height} · source proportions preserved"
 
 
 def camera_help(mode):
@@ -162,6 +163,7 @@ def reuse_result(image, saved_path=None):
 
 def curves_request(payload, saved_path, keep_metadata):
     from .adjustments import describe_result, save_adjustment
+    from .fibo_defaults import prepare_default, write_config
     request_id = ""
     try:
         if not isinstance(payload, str) or len(payload) > 24000:
@@ -174,7 +176,16 @@ def curves_request(payload, saved_path, keep_metadata):
             return gr.update(), gr.update(), gr.update(), json.dumps(describe_result(saved_path, payload))
         if _active:
             raise ValueError("Wait for the current edit to finish before applying curves.")
+        config = None
+        if request.get("op") == "fibo_default" or request.get("use_fibo_default") is True:
+            config = prepare_default(saved_path, payload)
+        if request.get("op") == "fibo_default":
+            write_config(config)
+            return gr.update(), gr.update(), gr.update(), json.dumps({"id": request_id, "ok": True,
+                "op": "fibo_default", "enabled": config["enabled"], "available": config.get("preset") is not None})
         output, path, request_id = save_adjustment(saved_path, payload, keep_metadata)
+        if config is not None:
+            write_config(config)
         return output, path, f"<p>Saved {html.escape(Path(path).name)} · curves applied · previous file kept</p>", json.dumps({"id": request_id, "ok": True})
     except (ValueError, TypeError, KeyError, OSError) as error:
         return gr.update(), gr.update(), gr.update(), json.dumps({"id": request_id, "ok": False, "error": str(error)})
@@ -208,7 +219,9 @@ def create_tab():
                     result = gr.Image(label="Edited result · click to enlarge", type="pil", image_mode="RGBA", format="png", interactive=False, height=420, elem_id="qwen_edit_result")
                     with gr.Row(elem_id="qwen_edit_result_actions"):
                         reuse = gr.Button("Use result as source", size="sm")
-                        download = gr.File(label="Download PNG with recipe", interactive=False, height=72, elem_id="qwen_edit_download")
+                        download_button = gr.DownloadButton("Download PNG with settings", size="sm", interactive=False, elem_id="qwen_edit_download")
+                    # Retain the full native saved-file path for reuse and curves.
+                    download = gr.File(label="Edited PNG", interactive=False, elem_id="image_edit_download_data")
                     batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
                         object_fit="contain", preview=False, allow_preview=False, visible=False, elem_id="image_edit_batch_gallery")
                     batch_items = gr.State([])
@@ -234,8 +247,8 @@ def create_tab():
                 profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
                 resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
             profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
-            preserve_tone = gr.Checkbox(value=False, label="Match source brightness / contrast", elem_id="image_edit_preserve_tone",
-                info="Reduce global tone drift after an object edit. Does not prevent texture changes; paint an edit area to keep the rest exact. Leave off for lighting or contrast changes.")
+            preserve_tone = gr.Checkbox(value=False, label="Auto-correct global brightness / contrast", elem_id="image_edit_preserve_tone",
+                info="Next generation only. Estimates overall drift from unchanged areas, not contrast changes confined to the edited object or lost texture. For manual adjustment, open the result → Curves. Leave off for camera moves or relighting.")
             with gr.Accordion("Additional reference images", open=False):
                 reference_help = gr.Markdown("Optional. Refer to the source as **image 1**, then **image 2** and **image 3** in your instruction. More references use more memory.")
                 with gr.Row():
@@ -279,6 +292,7 @@ def create_tab():
                     js="(family, enabled, mode) => { qwenEditSetModel(family); return [family, enabled, mode]; }" if component is family else None,
                     show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])
+            download.change(lambda path: gr.update(value=path, interactive=bool(path)), [download], [download_button], show_progress="hidden", api_name=False)
             random_seed.click(lambda: "-1", outputs=[seed], queue=False, show_progress="hidden")
             reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed], queue=False, show_progress="hidden")
             # Send only a thumbnail index. Gradio 4 SelectData rejects Forge's

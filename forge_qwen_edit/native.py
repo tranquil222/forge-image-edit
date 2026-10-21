@@ -16,11 +16,12 @@ from modules_forge import main_entry
 
 from . import __version__
 from .adapters import get_adapter
-from .workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference
+from .workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference, reference_content_box
 from .masking import canonical_image, composite_patch, context_box, extract_mask, fibo_masked_instruction, fibo_masked_reference, location_guide, scoped_instruction
 from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
-from .tone import match_source_tone
+from .tone import match_source_tone, tone_summary
+from .fibo_defaults import apply_default
 from .adjustments import MASK_KEY, encode_selection, remember_selection
 from .masking import camera_angle_instruction
 
@@ -265,6 +266,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     else:
         result_description = ""
     references = [prepare_reference(im, resolution) for im in input_references]
+    content_boxes = [reference_content_box(*im.size, resolution) for im in input_references]
     seed = parse_seed(seed)
     if seed == -1:
         seed = secrets.randbits(63)
@@ -279,6 +281,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "preserve_tone": bool(preserve_tone),
         "reference_sha256": [image_digest(im) for im in references],
         "reference_sizes": [list(im.size) for im in references],
+        "reference_content_boxes": [list(box) for box in content_boxes],
+        "resize_mode": "aspect-preserving edge pad / unpad",
         "area_only": bool(area_only), "source_sha256": image_digest(original),
         "edit_mode": area_mode if area_only or area_mode == "Camera angle" else "Standard",
         "source_size": list(original.size),
@@ -320,13 +324,14 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             return None, None, "", "Edit cancelled. No completed image was saved."
         if shared.state.interrupted or shared.state.skipped or not result.images:
             return None, None, "", "Edit cancelled. No completed image was saved."
-        output = result.images[0]
+        output = result.images[0].crop(content_boxes[0])
         if preserve_tone:
             tone_source = original.crop(crop) if area_only else original
             tone_exclude = mask.crop(crop) if area_only else None
             output, recipe["tone_match"] = match_source_tone(tone_source, output, tone_exclude)
         if area_only:
             output = composite_patch(original, output, mask, crop, feather)
+        output = apply_default(output, adapter.key, area_only, recipe)
         recipe["output_size"] = list(output.size)
         metadata, binary = build_metadata(original, recipe, result.infotexts[0], keep_original_metadata)
         selection = encode_selection(mask, feather) if area_only else None
@@ -344,6 +349,10 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             output.info.update(metadata)
             output.info.update(binary)
         path = Path(path)
-        remember_selection(path, selection)
+        remember_selection(path, selection, recipe)
         note = " · outside painted area preserved" if area_only else ""
+        if preserve_tone:
+            note += " · " + tone_summary(recipe["tone_match"])
+        if "fibo_global_curves" in recipe:
+            note += " · Fibo default curves applied"
         return output, str(path), str(seed), f"Saved {path.name} · {output.width} × {output.height} · seed {seed}{note}"

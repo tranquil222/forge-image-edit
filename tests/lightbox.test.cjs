@@ -35,7 +35,7 @@ test("Gradio's button-wrapped result opens the viewer; compare and zoom use exis
         if (selector === "#image_edit_batch_source textarea") return submittedSource;
         if (selector === "#image_edit_batch_selection textarea") return selection;
         if (selector === "#qwen_edit_source img") return original;
-        if (selector === "#qwen_edit_download a[href]") return { href: "/recipe.png" };
+        if (selector === "#image_edit_download_data a[href]") return { href: "/recipe.png" };
         throw Error(`Unexpected control access: ${selector}`);
     }, querySelectorAll: () => thumbnails };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../javascript/qwen_edit.js"), "utf8"), { window, document, gradioApp: () => app, updateInput: () => selectionUpdates++ });

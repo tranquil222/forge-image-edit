@@ -8,7 +8,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 from forge_qwen_edit.masking import composite_patch
-from forge_qwen_edit.tone import match_source_tone
+from forge_qwen_edit.tone import match_source_tone, tone_summary
 from forge_qwen_edit.workflow import read_recipe
 
 
@@ -80,6 +80,14 @@ class ToneTests(unittest.TestCase):
                 info.add_text('image_edit', json.dumps(data))
                 Image.new('RGB', (32, 32)).save(path, pnginfo=info)
                 self.assertEqual(bool(read_recipe(path).get('preserve_tone', False)), bool(enabled))
+
+    def test_result_feedback_distinguishes_small_applied_and_skipped_corrections(self):
+        self.assertIn('negligible', tone_summary(dict(applied=True, gain=1.00130333, offset=-.00394541)))
+        self.assertIn('contrast -10.0%', tone_summary(dict(applied=True, gain=.9, offset=.03)))
+        self.assertIn('brightness +7.6/255', tone_summary(dict(applied=True, gain=.9, offset=.03)))
+        self.assertIn('skipped', tone_summary(dict(applied=False)))
+        _, info = match_source_tone(Image.new('RGB', (32, 32), 'gray'), Image.new('RGB', (32, 32), 'gray'))
+        self.assertIn('too little tonal range', tone_summary(info))
 
 
 if __name__ == '__main__':

@@ -16,12 +16,13 @@ from PIL.PngImagePlugin import PngInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from forge_qwen_edit.masking import canonical_image, composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, fibo_masked_reference, fibo_masked_instruction, camera_angle_instruction
-from forge_qwen_edit.workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference
+from forge_qwen_edit.workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference, reference_content_box
 from forge_qwen_edit.adapters import get_adapter
 from forge_qwen_edit.metadata import build_metadata, preserve_binary_metadata
 from forge_qwen_edit.selection import validate_components
-from forge_qwen_edit.tone import match_source_tone
+from forge_qwen_edit.tone import match_source_tone, tone_summary
 from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_selection, result_context
+from forge_qwen_edit.fibo_defaults import apply_default as apply_fibo_default
 
 
 class NativeMaskedTests(unittest.TestCase):
@@ -80,6 +81,7 @@ class NativeMaskedTests(unittest.TestCase):
                 return str(target), None
 
             namespace = dict(globals(), __version__="test", EditProcessing=FakeProcessing, EditCancelled=RuntimeError,
+                apply_default=lambda image, key, area, recipe: apply_fibo_default(image, key, area, recipe, root / "curves.json"),
                 isolated_options=lambda *args: nullcontext(),
                 sd_samplers=SimpleNamespace(find_sampler_config=lambda name: True),
                 sd_schedulers=SimpleNamespace(schedulers_map={schedule: True}),
@@ -103,7 +105,8 @@ class NativeMaskedTests(unittest.TestCase):
                 source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, not camera, editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone)
             if camera:
                 clean = prepare_reference(source, 512)
-                self.assertEqual(output.size, clean.size)
+                box = reference_content_box(*source.size, 512)
+                self.assertEqual(output.size, (box[2] - box[0], box[3] - box[1]))
                 self.assertEqual(len(calls[0].edit_references), 1)
                 self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(clean))
                 self.assertIn(instruction, calls[0].prompt)

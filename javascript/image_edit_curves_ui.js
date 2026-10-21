@@ -18,18 +18,23 @@
             </div></details>
             <div class="qe-curves-actions"><button type="button" data-curve="undo">Undo</button><button type="button" data-curve="redo">Redo</button><button type="button" data-curve="reset-channel">Reset channel</button><button type="button" data-curve="reset-all">Reset all</button></div>
             <button type="button" data-curve="apply" class="qe-curves-apply" disabled>Apply to result</button>
+            <label class="qe-curves-default"><input type="checkbox" data-field="fibo-default" disabled> Use as Fibo default (unpainted)</label>
+            <div class="qe-curves-hint" data-field="default-hint">Fibo whole-image edits only.</div>
             <p class="qe-curves-status" role="status">Apply saves a new PNG; the previous file is kept.</p>`;
         const graph = panel.querySelector("canvas"), ctx = graph.getContext("2d");
         const status = panel.querySelector(".qe-curves-status");
         const scopeLabel = panel.querySelector(".qe-curves-scope");
         const channelSelect = panel.querySelector("select");
         const previewCheck = panel.querySelector('[data-field="preview"]');
+        const defaultCheck = panel.querySelector('[data-field="fibo-default"]');
+        const defaultHint = panel.querySelector('[data-field="default-hint"]');
         const input = panel.querySelector('[data-field="input"]'), output = panel.querySelector('[data-field="output"]');
         let settings = C.defaults(), channel = "rgb", selected = 0, undo = [], redo = [];
         let raw = null, histogram = null, hash = "", currentUrl = "", downloadUrl = "";
         let original = false, dragging = false, pendingFrame = 0, loadVersion = 0, pending = null;
         let loadPromise = null, loadError = "", luts = C.compile(settings);
         let mask = null, contextId = null, contextReady = false;
+        let fiboDefault = {eligible: false, enabled: false, available: false, can_capture: false};
         const colors = {rgb: "#e7e9ed", red: "#ef8585", green: "#79cba0", blue: "#81b6ff"};
         const changed = () => !C.identity(luts);
         function remember() { undo.push(C.clone(settings)); if (undo.length > 40) undo.shift(); redo = []; }
@@ -50,6 +55,11 @@
             panel.querySelector('[data-curve="undo"]').disabled = !undo.length || !!pending;
             panel.querySelector('[data-curve="redo"]').disabled = !redo.length || !!pending;
             panel.querySelector('[data-curve="apply"]').disabled = !raw || !hash || !contextReady || !changed() || !!pending;
+            defaultCheck.disabled = !contextReady || !!pending || !fiboDefault.eligible ||
+                (!changed() && !fiboDefault.available && !fiboDefault.can_capture);
+            defaultHint.textContent = !fiboDefault.eligible ? "Fibo whole-image edits only." :
+                defaultCheck.checked ? "Saved for future unpainted Fibo edits. Apply also saves later curve changes." :
+                "Save this correction for future unpainted Fibo edits. Qwen and painted edits are unaffected.";
         }
         function draw() {
             const size = graph.width, pad = 12, span = size - 2 * pad;
@@ -131,6 +141,15 @@
         });
         channelSelect.addEventListener("change", () => { channel = channelSelect.value; selected = 0; controls(); draw(); });
         previewCheck.addEventListener("change", visibility);
+        defaultCheck.addEventListener("change", () => {
+            const field = gradioApp().querySelector("#image_edit_curves_request textarea");
+            if (!field || pending || !contextReady) { defaultCheck.checked = fiboDefault.enabled; return; }
+            const id = crypto.randomUUID();
+            pending = {id, op: "fibo_default"}; window.imageEditCurvesBusy = true;
+            field.value = JSON.stringify({version: 1, id, op: "fibo_default", enabled: defaultCheck.checked,
+                base_sha256: hash, settings, luts});
+            updateInput(field); status.textContent = "Saving Fibo default…"; controls();
+        });
         panel.querySelectorAll("[data-level]").forEach(field => {
             field.addEventListener("input", () => {
                 if (pending || !Number.isFinite(field.valueAsNumber)) return;
@@ -186,7 +205,8 @@
             if (!field) { status.textContent = "Reload Forge's UI to enable saving curves."; return true; }
             const id = crypto.randomUUID();
             pending = {id, downloadAfter, oldDownload: downloadUrl}; window.imageEditCurvesBusy = true;
-            field.value = JSON.stringify({version: 1, id, base_sha256: hash, settings, luts});
+            field.value = JSON.stringify({version: 1, id, base_sha256: hash, settings, luts,
+                use_fibo_default: fiboDefault.eligible && defaultCheck.checked});
             updateInput(field); status.textContent = "Saving full-resolution PNG…"; controls();
             return true;
         }
@@ -195,6 +215,8 @@
                 if (currentUrl === url && downloadUrl === savedUrl) return;
                 currentUrl = url; downloadUrl = savedUrl; loadVersion++; loadPromise = null; loadError = "";
                 raw = histogram = mask = null; contextId = null; contextReady = false; hash = "";
+                fiboDefault = {eligible: false, enabled: false, available: false, can_capture: false};
+                defaultCheck.checked = false;
                 scopeLabel.textContent = "Loading adjustment area…";
                 settings = C.defaults(); undo = []; redo = []; selected = 0;
                 previewCheck.checked = true; update();
@@ -230,6 +252,8 @@
                     }
                     if (token !== loadVersion) return;
                     contextReady = true; scopeLabel.textContent = data.scope;
+                    fiboDefault = data.fibo_default || {eligible: false, enabled: false, available: false, can_capture: false};
+                    defaultCheck.checked = fiboDefault.eligible && fiboDefault.enabled;
                     status.textContent = mask ? "Only the painted area changes. Outside pixels stay exact." : "The whole image is adjusted. Apply keeps the previous file.";
                     histogram = Object.fromEntries(C.channels.map(name => [name, new Array(256).fill(0)]));
                     for (let i = 0; i < raw.data.length; i += 4) if (raw.data[i + 3] && (!mask || mask[i / 4])) {
@@ -239,10 +263,16 @@
                 }
                 if (!pending || data.id !== pending.id) return;
                 const done = pending; pending = null; window.imageEditCurvesBusy = false;
-                if (!data.ok) { status.textContent = data.error || "Could not save curves."; controls(); return; }
+                if (!data.ok) { defaultCheck.checked = fiboDefault.eligible && fiboDefault.enabled; status.textContent = data.error || "Could not save curves."; controls(); return; }
+                if (done.op === "fibo_default") {
+                    fiboDefault.enabled = data.enabled; fiboDefault.available = data.available;
+                    defaultCheck.checked = data.enabled;
+                    status.textContent = data.enabled ? "Default saved. Apply to result saves this preview too." : "Fibo default disabled. The saved image is unchanged.";
+                    controls(); return;
+                }
                 let link, image;
                 for (let i = 0; i < 30; i++) {
-                    link = gradioApp().querySelector("#qwen_edit_download a[href]");
+                    link = gradioApp().querySelector("#image_edit_download_data a[href]");
                     image = gradioApp().querySelector("#qwen_edit_result img");
                     if (link?.href && link.href !== done.oldDownload && image?.src && image.src !== currentUrl) break;
                     await new Promise(resolve => setTimeout(resolve, 100));

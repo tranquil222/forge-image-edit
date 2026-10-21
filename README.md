@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.4 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.5 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -41,9 +41,9 @@ compatible with a different Forge fork, GPU, or dependency set.
 1. Upload the source image and describe the change.
 2. Choose a model-appropriate speed/quality preset and resolution.
 3. Optionally paint an area or add reference images, then **Generate edit**.
-4. Use **Download PNG with recipe** or **Use result as source**.
+4. Use **Download PNG with settings** or **Use result as source**.
 
-**Seed** and **Batch count** sit beside Generate/Cancel; in a narrow window the
+**Generate/Cancel** sit on the left, with **Seed** and **Batch count** on the right; in a narrow window the
 buttons move together onto the next line. **🎲** sets `-1` (a fresh random seed
 for every image). **♻️** copies the selected result's seed for prompt comparisons.
 
@@ -77,7 +77,12 @@ Exact tested combinations and memory-limit methodology are in [VALIDATION.json](
 
 Quality presets never resize the image or secretly switch base/Turbo weights.
 The resolution value is approximate square pixel-area equivalence, not a forced
-square crop; 0 uses native size. Fibo is trained near 1 MP; 1024 is a useful
+square crop; 0 uses native size. References are scaled proportionally and edge-padded
+to the model's 32-pixel grid. Only that padding is removed from the output, so
+the grid does not stretch or crop the scene. Output dimensions can therefore be
+non-multiples of 32. Integer resizing can differ by less than one pixel from the
+exact source ratio. Previously saved images are not modified by this fix.
+Fibo is trained near 1 MP; 1024 is a useful
 starting point. Above 1024 can be expensive. Initial model loading adds latency.
 Qwen's reference cache is disabled for Fibo. Negative prompts are inactive at
 CFG 1; Dev supports text-only negative conditioning, with the trained null
@@ -147,13 +152,16 @@ of seamless repairs. Paint a larger border if necessary.
 
 ### Contrast drift and fine texture
 
-**Match source brightness / contrast** optionally reduces global tone drift after
+**Auto-correct global brightness / contrast** optionally reduces global tone drift after
 an object edit, for both Qwen and Fibo. It estimates one neutral gain/offset from
 mostly unchanged content and applies it without blurring or sharpening. Leave it
 off for intentional lighting/contrast changes or major scene changes. It defaults
 off; PNG recipes and **Send to Image Edit** retain the setting and recipes record
 the applied correction. In painted mode the selected area is excluded from the
-estimate, and compositing still keeps outside pixels exact.
+estimate, and compositing still keeps outside pixels exact. This runs on the next
+generation, not the result already on screen. The save status reports a negligible
+estimate, a skipped estimate, or the gain/offset applied. It cannot repair localized
+contrast changes or texture loss; use Curves for a manual correction.
 
 Qwen 2.1's stock VAE has a documented fine checkerboard artifact. The optional
 [texture-fix VAE](MODELS.md#qwen-21-texture-fix-vae) addresses that decoder artifact;
@@ -185,6 +193,17 @@ before downloading. The applied RGB lookup tables and controls are recorded in
 metadata when enabled; recipe import does not apply the already-baked curves again.
 Large-image previews use at most 2048 pixels on the long edge; saved output retains
 the original dimensions. This is an 8-bit RGB adjustment, not detail restoration.
+
+For an unpainted Fibo result, adjust the curves/levels and check **Use as Fibo
+default (unpainted)**. This saves your correction for future Fibo Turbo/Dev
+whole-image edits. **Apply to result** saves the current preview and updates the
+default when checked. Uncheck to disable it; the preset remains available to
+re-enable. Qwen and painted edits never use it. The preset is stored in
+`image-edit-curves.json` in Forge's data directory and survives extension updates.
+Each corrected PNG records the applied RGB tables when metadata is enabled.
+Refining an already-corrected result composes the corrections without applying
+the previous correction twice. This is a user-calibrated preset, not a universal
+Fibo contrast or texture fix.
 
 **Original / Edited share zoom and pan**, even when their native sizes differ.
 The 100% reference is the edited result's dimensions; comparisons stay aligned.

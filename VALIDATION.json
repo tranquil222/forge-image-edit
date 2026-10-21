@@ -1,5 +1,5 @@
 {
-  "version": "0.5.4",
+  "version": "0.5.5",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 67,
+    "extension_python_tests": 73,
     "javascript_tests": 9,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -363,6 +363,18 @@
       "browser": "Isolated Edge/Gradio instance with CPU inference fixture: three-item Fibo whole-image camera batch; exact large-seed reuse and dice; selectable PNG downloads; cancellation during item two kept item one; invalid submission retained previous result; two-item Qwen painted random batch; wide 1800px and narrow 920px responsive action rows; no browser errors.",
       "metadata_audit": "All three fixed seeds exact, matching source and effective prompts. Masked random seeds distinct; saved PNG pixels outside the painted support exactly match source.",
       "scope": "UI, queue/control flow, metadata and native save/composite paths tested. No new GPU quality or physical lower-VRAM benchmark for this update; inference implementation unchanged."
+    },
+    "layout_curves_aspect_055": {
+      "method": "Browser-driven isolated current-base Forge with CPU-only inference fixture; production preparation, save, metadata, curves and UI paths. No new GPU quality claim.",
+      "base_commit": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+      "aspect": "1024x1280 source uses a 672x864 padded model grid and saves 672x840; pixel-exact comparison to proportional resize/crop. Native-size padding roundtrips preserve pixels.",
+      "layout": "Wide: Generate/Cancel left, Seed/Batch right; narrow: buttons beneath. Quality/resolution boxes aligned. Empty download height below 65px.",
+      "download": "Compact button downloads the exact native saved PNG including metadata; curves and result reuse verified.",
+      "default_curves": "Manual and automatically corrected RGB pixels match exactly; disabled returns baseline; refinements compose previous correction once. RGB alpha, persistence, invalid tables and metadata-disabled session covered by unit tests.",
+      "exclusions": "Enabled preset does not affect painted Fibo or Qwen. Painted outside-mask pixels remain byte-exact.",
+      "comparison": "Original/Edited share displayed width and height for the corrected aspect ratio.",
+      "browser_errors": 0,
+      "batch_regression": "Three fixed seeds, exact seed reuse, selected PNG download, cancellation preserving completed output, invalid submission retaining prior result, two masked random variations and source comparison passed in browser."
     }
   },
   "limitations": [

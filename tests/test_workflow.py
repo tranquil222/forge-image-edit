@@ -8,7 +8,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from forge_qwen_edit.workflow import cyberzit_quality_values, parse_seed, prepare_reference, read_recipe, reference_size
+from forge_qwen_edit.workflow import cyberzit_quality_values, parse_seed, prepare_reference, read_recipe, reference_size, reference_content_box
 
 
 class WorkflowTests(unittest.TestCase):
@@ -24,6 +24,23 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(prepared.mode, "RGBA")
         self.assertEqual(prepared.size, (96, 96))
         self.assertEqual(prepared.getpixel((40, 40))[3], 50)
+
+    def test_portrait_is_padded_not_stretched_to_model_grid(self):
+        self.assertEqual(reference_size(1024, 1280, 768), (672, 864))
+        self.assertEqual(reference_content_box(1024, 1280, 768), (0, 12, 672, 852))
+        image = Image.effect_noise((1024, 1280), 30).convert('RGBA')
+        prepared = prepare_reference(image, 768)
+        content = prepared.crop(reference_content_box(*image.size, 768))
+        self.assertEqual(content.size, (672, 840))
+        self.assertEqual(content.tobytes(), image.resize((672, 840), Image.Resampling.LANCZOS).tobytes())
+
+    def test_native_resolution_roundtrip_preserves_every_pixel(self):
+        for size in ((91, 73), (1201, 803), (1, 35), (1024, 1280)):
+            image = Image.effect_noise(size, 30).convert('RGBA')
+            prepared = prepare_reference(image, 0)
+            restored = prepared.crop(reference_content_box(*size, 0))
+            self.assertEqual(restored.size, size)
+            self.assertEqual(restored.tobytes(), image.tobytes())
 
     def test_quality_grid_matches_expected_eight_steps(self):
         expected = [1, 21/22, .9, 5/6, .75, 9/14, .5, .3, 0]
