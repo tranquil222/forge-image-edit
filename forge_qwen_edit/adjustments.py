@@ -87,9 +87,25 @@ def describe_result(saved_path, payload):
     from .fibo_defaults import describe_default
     data = json.loads(payload)
     source, mask, selection = result_context(saved_path, data.get("base_sha256"))
-    return {"id": data.get("id"), "ok": True, "op": "context", "scope": "Painted area" if mask else "Whole image",
+    selected = adjustment_mask(mask, data)
+    preview_selection = encode_selection(selected)
+    return {"id": data.get("id"), "ok": True, "op": "context", "scope": "Painted area" if selected is not None else "Whole image",
+            "has_mask": mask is not None, "restrict_to_mask": selected is not None, "mask_feather": data.get("mask_feather", 0),
             "fibo_default": describe_default(result_recipe(source, data.get("base_sha256"))),
-            "mask": "data:image/png;base64," + selection["png"] if mask else None}
+            "mask": "data:image/png;base64," + preview_selection["png"] if selected is not None else None}
+
+
+def adjustment_mask(mask, data):
+    """Feather adjustment strength inward, without spatially filtering image pixels."""
+    restrict = data.get("restrict_to_mask", True)
+    feather = data.get("mask_feather", 0)
+    if type(restrict) is not bool or type(feather) not in (int, float) or not np.isfinite(feather) or not 0 <= feather <= 64:
+        raise ValueError("Choose a mask restriction and feathering from 0 to 64 pixels.")
+    if mask is None or not restrict:
+        return None
+    if feather:
+        return ImageChops.multiply(mask, mask.filter(ImageFilter.GaussianBlur(float(feather))))
+    return mask
 
 
 def parse_adjustment(payload):
@@ -98,6 +114,7 @@ def parse_adjustment(payload):
     data = json.loads(payload)
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError("Unsupported curves settings.")
+    adjustment_mask(None, data)  # Validate scope even on a whole-image result.
     tables = data.get("luts")
     if not isinstance(tables, list) or len(tables) != 3 or any(
         not isinstance(lut, list) or len(lut) != 256 or any(type(n) is not int or not 0 <= n <= 255 for n in lut)
@@ -113,7 +130,7 @@ def parse_adjustment(payload):
         points, levels = channel.get("points"), channel.get("levels")
         if (not isinstance(points, list) or not 2 <= len(points) <= 16 or
                 any(not isinstance(p, list) or len(p) != 2 or any(type(n) is not int or not 0 <= n <= 255 for n in p) for p in points) or
-                points[0][0] != 0 or points[-1][0] != 255 or any(a[0] >= b[0] for a, b in zip(points, points[1:]))):
+                any(a[0] >= b[0] for a, b in zip(points, points[1:]))):
             raise ValueError("Invalid curve points.")
         if (not isinstance(levels, list) or len(levels) != 5 or
                 any(type(n) not in (int, float) or not np.isfinite(n) for n in levels) or
@@ -138,9 +155,11 @@ def apply_luts(image, tables, mask=None):
 
 
 def adjustment_metadata(source, data, keep_original, selection=None):
-    scope = "painted area" if selection is not None else "whole image"
+    restricted = selection is not None and data.get("restrict_to_mask", True)
+    scope = "painted area" if restricted else "whole image"
     adjustment = {"type": "curves", "version": 1, "extension_version": __version__,
-                  "scope": scope, "space": "8-bit RGB", "order": "master levels/curve, then channel levels/curve",
+                  "scope": scope, "restrict_to_mask": restricted, "mask_feather": data.get("mask_feather", 0) if restricted else 0,
+                  "space": "8-bit RGB", "order": "master levels/curve, then channel levels/curve",
                   "settings": data["settings"], "luts": data["luts"], "input_sha256": data["base_sha256"]}
     parameters = f"Manual RGB curves / levels adjustment ({scope}; no generation)"
     recipe = result_recipe(source, data["base_sha256"])
@@ -169,7 +188,9 @@ def save_adjustment(saved_path, payload, keep_original=True):
 
     data = parse_adjustment(payload)
     source, mask, selection = result_context(saved_path, data["base_sha256"])
-    output = apply_luts(source, data["luts"], mask)
+    output = apply_luts(source, data["luts"], adjustment_mask(mask, data))
+    # Keep the original edit selection for later corrections; do not repeatedly
+    # bake feathering into the mask, or discard it after a whole-image adjustment.
     fields, binary, recipe = adjustment_metadata(source, data, bool(keep_original), selection)
     directory = shared.opts.outdir_samples or shared.opts.outdir_img2img_samples or str(Path(shared.data_path) / "outputs/img2img-images")
     seed, prompt = recipe.get("seed", ""), recipe.get("prompt", "curves adjustment")

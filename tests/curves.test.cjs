@@ -39,3 +39,17 @@ test('endpoint changes and resets stay bounded and independent per channel', () 
     assert.equal(luts[0][64], 64); assert.equal(luts[1][64], 64);
     settings.blue = C.defaults().blue; assert.ok(C.identity(C.compile(settings)));
 });
+
+test('horizontal endpoint moves clip shadows and highlights at their output levels', () => {
+    const settings = C.defaults(); settings.rgb.points = [[32, 10], [200, 240]];
+    const luts = C.compile(settings);
+    for (let i = 0; i <= 32; i++) assert.equal(luts[0][i], 10);
+    for (let i = 200; i <= 255; i++) assert.equal(luts[0][i], 240);
+    assert.equal(luts[0][116], 125);
+    settings.blue.points = [[50, 0], [128, 180], [180, 255]];
+    const blue = C.table(settings.blue);
+    assert.equal(blue[49], 0); assert.equal(blue[180], 255); assert.equal(blue[255], 255);
+    settings.rgb.points = [[80, 230], [200, 30]];
+    const inverse = C.table(settings.rgb);
+    assert.equal(inverse[0], 230); assert.equal(inverse[255], 30);
+});

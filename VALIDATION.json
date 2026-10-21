@@ -1,5 +1,5 @@
 {
-  "version": "0.5.9",
+  "version": "0.5.10",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 97,
-    "javascript_tests": 11,
+    "extension_python_tests": 100,
+    "javascript_tests": 12,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -384,6 +384,13 @@
       "preview": "Persistent green outline, grey added area, no source-byte modification, compact wide/narrow controls hidden by default. Moving signed edges previews the computed dimensions.",
       "workflow": "Generate outpaint and crop-only save verified, local curves recognize border mask, global Fibo default excluded, strokes restored on toggle off, result reuse resets signed edges.",
       "browser_errors": 0
+    },
+    "references_and_curve_masks_0510": {
+      "method": "Isolated current-base Forge, real Edge browser, CPU inference fixture. No new GPU/model-quality benchmark; Fibo masked + multi-reference guidance remains experimental.",
+      "unit_checks": "100 Python and 12 JavaScript checks. Two extra references reach Fibo and Qwen painted/outpaint paths with correct prepared pixels and structured-caption preservation. Mask scope validation, inward feathering, alpha preservation, retained selections and clipped horizontal curve endpoints covered.",
+      "browser_checks": "Additional reference upload remains usable during painting/outpaint. Generated recipes contain both inputs. Curves restriction, 12px feather, whole-image toggle, undo restoring scope, endpoint dragging and numeric Input, Apply, persistent original mask and no-mask disabled controls passed; no page errors.",
+      "pixel_checks": "Browser previews and saved PNGs match exactly for restricted/feathered and whole-image corrections. 318596 unselected pixels unchanged. Original saved selection survives both adjustments. Endpoints at inputs 30 and 210 produce flat-clipped outer intervals.",
+      "scope": "This validates reference routing and compositing, not the model's ability to reproduce architecture or style. New feathering operates only on correction strength and does not blur photo pixels."
     },
     "shrink_outpaint_059": {
       "method": "Real Edge/Gradio UI in an isolated current-base Forge using a CPU inference stand-in. Native preprocessing, image resizing, masks, compositing, save and metadata paths. No new GPU quality or performance benchmark.",

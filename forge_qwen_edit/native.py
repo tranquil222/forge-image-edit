@@ -23,6 +23,7 @@ from .selection import validate_components
 from .tone import match_source_tone, tone_summary
 from .fibo_defaults import apply_default
 from .outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
+from .masking import masked_reference_instruction
 from .adjustments import MASK_KEY, encode_selection, remember_selection
 from .masking import camera_angle_instruction
 
@@ -248,7 +249,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         if area_only:
             raise ValueError("Camera angle uses the whole scene. Clear the painted area first.")
         effective_instruction = camera_angle_instruction(instruction, adapter.key == "fibo2")
-    input_references = [original, *[im for im in (reference2, reference3) if im is not None]]
+    extra_references = [im for im in (reference2, reference3) if im is not None]
+    input_references = [original, *extra_references]
     if area_only:
         if plan is None and adapter.key != "fibo2" and area_mode not in ("Replace / remove", "Refine / expression"):
             raise ValueError("Choose a painted-area mode.")
@@ -259,8 +261,9 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         replace = plan is not None or adapter.key == "fibo2" or area_mode == "Replace / remove"
         if adapter.key == "fibo2":
             # Fibo's trained mask input is neutral grey, not Qwen's green guide.
-            # Native masked editing uses exactly one source image.
-            input_references = [fibo_masked_reference(original, mask).crop(crop)]
+            # With extra references, use the multi-image conditioning path with
+            # an already grey-masked first image. This combination is experimental.
+            input_references[0] = fibo_masked_reference(original, mask).crop(crop)
             guide_reference = 1
             area_mode = "Fibo masked edit"
             effective_instruction = fibo_masked_instruction(instruction)
@@ -277,10 +280,11 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         if plan is not None:
             area_mode = "Outpaint" if plan["expand"] else "Painted canvas edit"
             # The border and source-space painting form one editable region.
-            # Keep full-canvas context and a single model-specific guide.
-            input_references = input_references[:1]
+            # Keep full-canvas context and the model-specific first-image guide.
             if plan["expand"]:
                 effective_instruction = outpaint_instruction(instruction, adapter.key == "fibo2", painted_canvas)
+        if extra_references:
+            effective_instruction = masked_reference_instruction(effective_instruction, adapter.key == "fibo2", len(extra_references))
     if adapter.key == "fibo2":
         effective_instruction = fibo_result_prompt(effective_instruction, result_description)
     else:
@@ -290,8 +294,9 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         # inference, using generated content already present inside the photo.
         mask = canvas_blend_mask(mask, plan)
     working_resolution = canvas_reference_resolution(original.size, resolution, plan["shrink_by"]) if plan is not None else resolution
-    references = [prepare_reference(im, working_resolution) for im in input_references]
-    content_boxes = [reference_content_box(*im.size, working_resolution) for im in input_references]
+    reference_resolutions = [working_resolution] + [resolution] * (len(input_references) - 1)
+    references = [prepare_reference(im, res) for im, res in zip(input_references, reference_resolutions)]
+    content_boxes = [reference_content_box(*im.size, res) for im, res in zip(input_references, reference_resolutions)]
     seed = parse_seed(seed)
     if seed == -1:
         seed = secrets.randbits(63)
@@ -313,6 +318,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "source_size": list(original.size),
     }
     if area_only:
+        recipe["masked_reference_guidance"] = bool(extra_references)
         recipe["masked_edit"] = {"crop": list(crop), "mask_sha256": image_digest(mask), "feather": float(feather), "guide_reference": guide_reference, "mode": area_mode, "clean_reference_sent": not replace}
         if adapter.key == "fibo2":
             recipe["masked_edit"].update(mask_fill=[128, 128, 128], mask_threshold=128)

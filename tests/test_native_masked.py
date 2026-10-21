@@ -24,9 +24,17 @@ from forge_qwen_edit.tone import match_source_tone, tone_summary
 from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_selection, result_context
 from forge_qwen_edit.fibo_defaults import apply_default as apply_fibo_default
 from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
+from forge_qwen_edit.masking import masked_reference_instruction
 
 
 class NativeMaskedTests(unittest.TestCase):
+    def test_reference_guidance_keeps_structured_fibo_caption(self):
+        original = {'edit_instruction': 'Use the architecture from <image_2>.', 'structured_caption': {'short_description': 'a stone courtyard'}}
+        result = json.loads(masked_reference_instruction(json.dumps(original), True, 2))
+        self.assertEqual(result['structured_caption'], original['structured_caption'])
+        self.assertTrue(result['edit_instruction'].startswith(original['edit_instruction']))
+        self.assertIn('<image_2>, <image_3>', result['edit_instruction'])
+
     def test_replace_hides_original_content_and_records_crop_recipe(self):
         self.check_masked_job("Replace / remove")
 
@@ -69,7 +77,13 @@ class NativeMaskedTests(unittest.TestCase):
                 with self.subTest(family=family, edges=edges):
                     self.check_masked_job("Outpaint", family, canvas_paint=True, canvas_edges=edges)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None):
+    def test_extra_references_reach_both_models_for_paint_and_outpaint(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            for mode in ("Replace / remove", "Outpaint"):
+                with self.subTest(family=family, mode=mode):
+                    self.check_masked_job(mode, family, canvas_paint=True, extra_refs=True)
+
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -125,8 +139,15 @@ class NativeMaskedTests(unittest.TestCase):
             camera = mode == "Camera angle"
             edges = (canvas_edges if canvas_edges is not None else {"left": -32, "right": 80, "top": 24, "bottom": -20}) if mode == "Outpaint" else None
             instruction = "Move the camera near the ground looking up at the subject." if camera else "Remove the stray object."
+            extras = [Image.new('RGB', (320, 240), (155, 90, 40)), Image.new('RGB', (240, 320), (20, 180, 60))] if extra_refs else [None, None]
             output, filename, seed, message = namespace["generate"](
-                source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges)
+                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges)
+            if extra_refs:
+                self.assertEqual(len(calls[0].edit_references), 3)
+                for actual, extra in zip(calls[0].edit_references[1:], extras):
+                    self.assertEqual(image_digest(actual), image_digest(prepare_reference(extra, 512)))
+                self.assertIn('<image_2>' if fibo else 'image 2', calls[0].prompt)
+                self.assertIn('not a collage', calls[0].prompt)
             if edges is not None:
                 plan = canvas_plan(source.size, edges)
                 expanded, hard = canvas_images(source, plan, extract_mask(source, editor) if canvas_paint else None)
@@ -139,7 +160,7 @@ class NativeMaskedTests(unittest.TestCase):
                 expected = Image.composite(generated, expanded, border)
                 np.testing.assert_array_equal(np.array(output), np.array(expected))
                 reference = fibo_masked_reference(expanded, hard) if fibo else location_guide(expanded, hard, opaque=True)
-                self.assertEqual(len(calls[0].edit_references), 1)
+                self.assertEqual(len(calls[0].edit_references), 3 if extra_refs else 1)
                 working = canvas_reference_resolution(expanded.size, 512, plan['shrink_by'])
                 self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(prepare_reference(reference, working)))
                 if plan['shrink_by'] > 1:
@@ -148,6 +169,7 @@ class NativeMaskedTests(unittest.TestCase):
                 with Image.open(filename) as saved:
                     recipe = json.loads(saved.info['image_edit'])
                     self.assertEqual(recipe['canvas'], plan)
+                    self.assertEqual(recipe['masked_reference_guidance'], extra_refs)
                     self.assertEqual(recipe['working_resolution'], working)
                     self.assertEqual(recipe['edit_mode'], 'Outpaint' if plan['expand'] else 'Painted canvas edit')
                     self.assertEqual(recipe['canvas_painted_area'], canvas_paint)
@@ -182,7 +204,7 @@ class NativeMaskedTests(unittest.TestCase):
             np.testing.assert_array_equal(np.array(output)[outside], np.array(source)[outside])
             self.assertTrue(calls[0].closed)
             replace = mode == "Replace / remove"
-            self.assertEqual(len(calls[0].edit_references), 1 if replace else 2)
+            self.assertEqual(len(calls[0].edit_references), (1 if replace else 2) + (2 if extra_refs else 0))
             self.assertIn("<image_1>" if fibo else "<image1>" if replace else "<image2>", calls[0].prompt)
             self.assertEqual(calls[0].edit_family, family)
             self.assertEqual(calls[0].distilled_cfg_scale, 1.15 if fibo else .69)

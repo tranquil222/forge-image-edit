@@ -1,5 +1,5 @@
 {
-  "version": "0.5.9",
+  "version": "0.5.10",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 6493,
-      "sha256": "eeba162dac5236b4dfb0830e640b7a83d6b2f7d2aef04405eb4436561b55a122"
+      "bytes": 7265,
+      "sha256": "1ef4ad3369168a12ea691049a6e41828a3432951f998e0e647c314374e351375"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 22018,
-      "sha256": "bfa8a1faa1a3369008f8b283b8304d6e7a1b20489c3dee4d1f7860211c67544e"
+      "bytes": 23770,
+      "sha256": "fa43ec3de62f1641ef02267a4d767782471540f010fdf575787821f6a49e567a"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 29564,
-      "sha256": "c3371b8d8eea6b4caa4ffdc43ae9335277ec93a02f6b5eb8a7a05bdee21fc054"
+      "bytes": 30949,
+      "sha256": "91dac6dd58909a7010bf682b6337dca8b6a5bc09f18625a4837f861f507ab1d8"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -78,8 +78,8 @@
     },
     {
       "path": "forge_qwen_edit/__init__.py",
-      "bytes": 77,
-      "sha256": "34a50a77a88082332c59c535c412cfb4de0bbb0080a91398f4f27d976162e7bc"
+      "bytes": 78,
+      "sha256": "f5d5d5484678fd171f1dd0dc39e4bee7746cc82a1e4a9aad2e91e17b30ffb154"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -88,8 +88,8 @@
     },
     {
       "path": "forge_qwen_edit/adjustments.py",
-      "bytes": 9487,
-      "sha256": "3d8c4136b4787c3c76c90eeec6127add838a02f635fd02f06f1b5e8d2b0c5242"
+      "bytes": 10770,
+      "sha256": "20fe4e259484af4059cec951392b9c959ad8d95df813bb0819dd395bdb23d518"
     },
     {
       "path": "forge_qwen_edit/batching.py",
@@ -113,8 +113,8 @@
     },
     {
       "path": "forge_qwen_edit/masking.py",
-      "bytes": 8320,
-      "sha256": "4190073dcff855afbae2d1743cfa58f3a29b0afa22ef90241f883bc2ca14e05c"
+      "bytes": 9344,
+      "sha256": "0fc22b0673b649a0ae11991f760325b9048bd2c25025e03d7985313d0ee75f7b"
     },
     {
       "path": "forge_qwen_edit/metadata.py",
@@ -128,8 +128,8 @@
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 22511,
-      "sha256": "fc16e5ddaa03b2e088a3b7814be91f816567a416c432892859c4cf46b1bbab0c"
+      "bytes": 23017,
+      "sha256": "9c0a8cd987d9377375c199c591484878c58629fe78a45da1599ee2c9830502e6"
     },
     {
       "path": "forge_qwen_edit/outpaint.py",
@@ -153,8 +153,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 36949,
-      "sha256": "43d54a335d107f77cb68e3f1edd0cbb0127c3a946a161fb3727669aa23ba0092"
+      "bytes": 37055,
+      "sha256": "4f92007d697a1bd42ebb3a1349900c871ef7d46019f829e95d3d55f4fd05b1bf"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -178,13 +178,13 @@
     },
     {
       "path": "javascript/image_edit_curves.js",
-      "bytes": 1995,
-      "sha256": "de31b15a207049750810d9379933cf8cbb1b338beff6c990ce8ba88af9956409"
+      "bytes": 2181,
+      "sha256": "7fc886fc3944a551f83c97dca183bf009416458c004e200cc5e6a2e99ba7d798"
     },
     {
       "path": "javascript/image_edit_curves_ui.js",
-      "bytes": 21826,
-      "sha256": "547fb552d4a843d832f1dc4a0939832ae148ba5a4a43243ed7a02caf04e8de1d"
+      "bytes": 25224,
+      "sha256": "efb2a7fdf3b5da19289b8cfc66964121a03f64d7b4a655978c2e18f70cd24adf"
     },
     {
       "path": "javascript/image_edit_outpaint.js",
@@ -233,13 +233,13 @@
     },
     {
       "path": "style.css",
-      "bytes": 7764,
-      "sha256": "e1a486e2923c7c5fefe61408cf03eda90897e109ed8cf48e1c434e7b28ad8b6d"
+      "bytes": 8232,
+      "sha256": "74c3612c3ccdef8c6772a5b066a88be16fa5613b7a7afb63dd88c657e148f4d0"
     },
     {
       "path": "tests/curves.test.cjs",
-      "bytes": 2203,
-      "sha256": "514e17f90f868088dbd27a3e06185b3ba53a6e35c2efc7b6c6d572b894b06b4a"
+      "bytes": 2943,
+      "sha256": "2ecaba8120489d905f7912fcfb8dab444c453a4acffa7514513e0b601f4ba124"
     },
     {
       "path": "tests/image_transfer.test.cjs",
@@ -258,8 +258,8 @@
     },
     {
       "path": "tests/test_adjustments.py",
-      "bytes": 6740,
-      "sha256": "5feeccaf19800e61c5ec23470c6ef0f83c9d0e74087e4af917a4effa205bdb24"
+      "bytes": 9043,
+      "sha256": "a3a1dc7ef3c52a807704c3e29971aa539c299d13ac16c3dbe80b8b57293d6ec1"
     },
     {
       "path": "tests/test_batching.py",
@@ -303,8 +303,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 14193,
-      "sha256": "287f75966c1d4ceaa5c8a1382efa32829e6d53a91500981094bc7dd724bc332a"
+      "bytes": 15892,
+      "sha256": "c16db08b77d312bb27c1112d3b716b2bbb2dbc88c61a7f7739914c10582e8197"
     },
     {
       "path": "tests/test_outpaint.py",

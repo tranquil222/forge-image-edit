@@ -31,10 +31,12 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
     fibo = family in EDIT_MODELS and get_adapter(family).key == "fibo2"
     dev = family in EDIT_MODELS and get_adapter(family).guidance > 1
     reference_help = ("Optional. Refer to the source as `<image_1>`, then `<image_2>` and `<image_3>`. "
-                      "Fibo masked editing uses only the source; additional references are not used when an area is painted."
-                      if fibo else "Optional. Refer to the source as **image 1**, then **image 2** and **image 3**. More references use more memory.")
-    if canvas_enabled:
-        reference_help = "Outpaint uses the source image only. Turn off Crop / outpaint to use additional references."
+                      if fibo else "Optional. Refer to the source as **image 1**, then **image 2** and **image 3**.")
+    if canvas_enabled or area_only:
+        reference_help += " Use references for architecture, materials or appearance in the added / painted areas. The base image stays protected outside the edit selection."
+        if fibo:
+            reference_help += " Fibo masked + multi-reference guidance is experimental."
+    reference_help += " References are numbered in filled-slot order; more references use more memory."
     help_text = ("Paint the entire object and a small border. Fibo receives an **opaque neutral-grey region**, not the green brush overlay. "
                  "Describe what should replace it. Pixels outside the painted area are preserved by compositing."
                  if fibo else "Paint the whole object and a small border, then describe what should replace it. "
@@ -44,7 +46,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
     description_help = ("For outpaint, describe the complete expanded scene, not the grey border. Get prompt from metadata can fill a starting description."
                         if canvas_enabled else "Describe the result you want, not the original. Fibo receives this as a structured result caption alongside your instruction. Leave blank for a plain edit. No cloud service is used.")
     return (gr.update(visible=fibo, info=description_help), reference_help,
-            gr.update(interactive=not (canvas_enabled or (fibo and area_only))), gr.update(interactive=not (canvas_enabled or (fibo and area_only))),
+            gr.update(interactive=True), gr.update(interactive=True),
             gr.update(choices=modes, value=selected, interactive=len(modes) > 1, visible=not canvas_enabled,
                       label="Painted-area mode" if area_only else "Edit mode",
                       info=("Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original.") if area_only else "Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint."),
@@ -390,8 +392,8 @@ def create_tab():
             with gr.Accordion("Additional reference images", open=False):
                 reference_help = gr.Markdown("Optional. Refer to the source as **image 1**, then **image 2** and **image 3** in your instruction. More references use more memory.")
                 with gr.Row():
-                    reference2 = gr.Image(label="Image 2", type="pil", image_mode="RGBA", height=240)
-                    reference3 = gr.Image(label="Image 3", type="pil", image_mode="RGBA", height=240)
+                    reference2 = gr.Image(label="Image 2", type="pil", image_mode="RGBA", height=240, elem_id="image_edit_reference2")
+                    reference3 = gr.Image(label="Image 3", type="pil", image_mode="RGBA", height=240, elem_id="image_edit_reference3")
             with gr.Accordion("Sampling settings", open=False):
                 feather = gr.Slider(0, 64, value=8, step=1, label="Painted edge blending", interactive=False, info="Only used with a painted area. Softens its inside edge; pixels outside the painting stay untouched.")
                 with gr.Row():

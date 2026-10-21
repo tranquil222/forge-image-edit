@@ -129,6 +129,24 @@ def fibo_masked_instruction(instruction):
     return instruction.strip() + "\n\n" + rules
 
 
+def masked_reference_instruction(instruction, fibo, count):
+    """Keep extra references subordinate to the editable source region."""
+    name = lambda index: f"<image_{index}>" if fibo else f"image {index}"
+    references = ", ".join(name(index) for index in range(2, count + 2))
+    rules = (f"Edit {name(1)} as the base scene. Use {references} as visual references for the requested "
+             "content, materials or appearance in the editable area. Adapt them to the base scene's perspective, "
+             "scale and lighting. Return the edited base scene, not a collage or a replacement with a reference image.")
+    if fibo:
+        try:
+            structured = json.loads(instruction)
+        except ValueError:
+            structured = None
+        if isinstance(structured, dict):
+            structured["edit_instruction"] = str(structured.get("edit_instruction", "")).strip() + "\n\n" + rules
+            return json.dumps(structured, ensure_ascii=False)
+    return instruction.strip() + "\n\n" + rules
+
+
 def scoped_instruction(instruction, guide_index, replace=False):
     if replace:
         return (

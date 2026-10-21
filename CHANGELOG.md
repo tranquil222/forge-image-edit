@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.10 — beta
+
+- Allow additional references during painted edits and outpaint. Keep the masked
+  source first, add reference-role guidance, and preserve the normal final selection.
+  Fibo masked + multi-reference guidance is experimental; its documented masked
+  pipeline is single-image, while this combines a grey source with multi-image conditioning.
+- Add explicit Restrict to mask and Feather mask (0–64 px) controls to Curves.
+  Feather adjustment strength inward, not image pixels. Preview and saved PNGs
+  match; scope/feather are undoable. Keep the original selection after every save.
+- Unlock curve endpoints horizontally for shadow/highlight clipping. Both drag
+  and Input values work; values beyond endpoints clip to their respective output levels.
+
 ## 0.5.9 — beta
 
 - Add compact Shrink by control to Crop / outpaint: 1× off, 1.5×, 2×, 3× or 4×.

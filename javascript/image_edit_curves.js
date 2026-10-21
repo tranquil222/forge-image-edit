@@ -9,10 +9,12 @@
     function table(channel) {
         const Spline = typeof module !== "undefined" && module.exports ? require("./image_edit_spline.js") : root.ImageEditSpline;
         const spline = new Spline(clone(channel.points));
+        const first = channel.points[0], last = channel.points[channel.points.length - 1];
         const [black, gamma, white, low, high] = channel.levels;
         return Array.from({ length: 256 }, (_, value) => {
             const level = low + Math.pow(clamp((value - black) / (white - black), 0, 1), 1 / gamma) * (high - low);
-            return Math.round(clamp(spline.interpolate(level)));
+            const mapped = level <= first[0] ? first[1] : level >= last[0] ? last[1] : spline.interpolate(level);
+            return Math.round(clamp(mapped));
         });
     }
     function compile(settings) {

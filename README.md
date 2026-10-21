@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.9 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.10 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -139,8 +139,8 @@ Overlapping opaque strokes add to the selection without erasing underneath,
 avoiding faint transparent outlines. Edge blending happens during compositing,
 not between brush strokes. Other Forge canvases are unchanged.
 
-- **Fibo:** opaque neutral grey (RGB 128), threshold 128. One masked source is
-  sent; extra references are disabled in this mode.
+- **Fibo:** opaque neutral grey (RGB 128), threshold 128. The masked source is
+  image 1. Optional extra references use its multi-image conditioning path.
 - **Qwen Replace / remove:** opaque green source; no clean source is sent.
 - **Qwen Refine / expression:** clean source plus green location guide.
 
@@ -149,6 +149,20 @@ support, including source alpha, remain exactly unchanged. Blending feathers
 inward. Resolution controls crop detail; final dimensions stay original.
 This is model-specific reference preparation plus compositing, not a guarantee
 of seamless repairs. Paint a larger border if necessary.
+
+**Additional reference images** work with both painting and outpaint. Use them
+for architecture, materials, objects or appearance in the editable region.
+For Fibo, an example instruction is: "Extend the room using the architecture
+from `<image_2>`, adapted to the perspective and lighting of `<image_1>`."
+References are numbered in filled-slot order; fill Image 2 before Image 3 to
+keep the labels aligned. Additional references increase memory use.
+
+Fibo's masked + multi-reference combination is **experimental**: its documented
+[masked pipeline](https://github.com/muhammadali-afridi/diffusers/blob/ali/fibo2/src/diffusers/pipelines/bria_fibo2/pipeline_bria_fibo2.py)
+accepts one image. This extension instead sends the already grey-masked source
+and extra images through multi-image conditioning, then composites only the edit
+selection. Reference adherence is model-dependent; this is not a separate trained
+outpaint or reference-guided inpaint model.
 
 ### Crop / outpaint
 
@@ -201,8 +215,8 @@ seams, but mismatched geometry or texture may remain visible or look softer in t
   The whole canvas supplies context; added pixels, painting and the seam overlap
   are composited in. Other source pixels remain exact, or match the downscaled
   original when shrinking. Resolution controls inference detail, not
-  the final canvas dimensions. Additional references and painted feathering are
-  not used; default global Fibo curves do not apply.
+  the final canvas dimensions. Optional additional references guide the new content;
+  painted feathering and default global Fibo curves do not apply.
 - **Painting without expansion:** Generate edit applies the painting, optionally
   with a crop. Setting all edges to zero still allows a painted edit.
 - **Crop only, without painting:** **Apply crop** saves the exact retained pixels without model
@@ -215,7 +229,7 @@ Both use Forge's native img2img save path and metadata controls. Recipes record
 the signed edges, retained source rectangle and output dimensions. **Use result
 as source** resets only the edge values, so edges are not accidentally applied twice.
 Recipe imports likewise do not recrop or expand an already-edited image.
-Curves after outpainting stay within its saved border/painting/overlap selection. The model
+Curves after outpainting default to its saved border/painting/overlap selection. The model
 still determines the generated continuation; exact source preservation does not
 guarantee a seamless join. Large extensions are often easier in smaller stages.
 
@@ -246,11 +260,20 @@ a master RGB curve, separate red/green/blue curves, a histogram, precise point
 coordinates, and input black/midtone/white plus output-level controls. Click to
 add points, drag to adjust, or use the graph's arrow keys. Delete removes an
 interior point. Preview, Undo/Redo, Reset channel and Reset all are available.
+Black and white endpoints move horizontally as well as vertically, by dragging,
+arrow keys or precise Input/Output entry. Moving the black point right clips lower
+inputs to its output level; moving the white point left clips higher inputs.
 
-- **Painted area:** an edit generated with a mask keeps curves inside that exact
-  saved selection, including its inward-feathered edge. Outside pixels and alpha
-  stay unchanged. Repainting the source later does not change the result's mask.
-- **Whole image:** an edit without a mask applies curves to the entire result.
+- **Restrict to mask:** on by default when the result has a saved edit selection.
+  Curves use that result's mask, including painted/outpaint/overlap areas. Uncheck
+  for whole-image correction. Repainting the source later does not change this mask.
+- **Feather mask (px):** 0–64, default 0. Softens the correction inward along the
+  saved mask; it does not blur image pixels or spread into unpainted areas. Preview
+  and full-resolution export use the same mask calculation. Undo/Redo includes
+  restriction and feather changes. The original selection is retained after saving,
+  even after an unrestricted correction, so feathering is not repeatedly baked into it.
+- **No saved mask for this result:** the controls remain visible but disabled;
+  correction applies to the whole image. A mask from another edit is never borrowed.
 - The scope is displayed in the panel. An older painted PNG without its selection
   is not silently treated as a whole-image adjustment; generate a new painted edit.
 

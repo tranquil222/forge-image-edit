@@ -54,6 +54,8 @@ class AdjustmentTests(unittest.TestCase):
 
     def test_invalid_tables_points_and_levels_are_rejected(self):
         valid = payload(); A.parse_adjustment(json.dumps(valid))
+        valid['settings']['rgb']['points'] = [[20, 0], [220, 255]]
+        A.parse_adjustment(json.dumps(valid))
         for mutate in (
             lambda d: d['luts'][0].pop(), lambda d: d['luts'][0].__setitem__(0, 256),
             lambda d: d['settings']['red'].__setitem__('points', [[0, 0], [0, 20], [255, 255]]),
@@ -61,6 +63,24 @@ class AdjustmentTests(unittest.TestCase):
         ):
             value = payload(); mutate(value)
             with self.assertRaises(ValueError): A.parse_adjustment(json.dumps(value))
+        for field, value in [('restrict_to_mask', 'yes'), ('mask_feather', -1), ('mask_feather', 65), ('mask_feather', float('nan')), ('mask_feather', True)]:
+            data = payload(); data[field] = value
+            with self.assertRaises(ValueError): A.parse_adjustment(json.dumps(data))
+
+    def test_curve_mask_restriction_feathers_inward_without_blurring_pixels(self):
+        source = Image.fromarray(np.random.default_rng(3).integers(0, 256, (80, 100, 4), dtype=np.uint8))
+        mask = Image.new('L', source.size); mask.paste(255, (20, 15, 80, 65))
+        before = mask.tobytes()
+        soft = A.adjustment_mask(mask, dict(restrict_to_mask=True, mask_feather=8))
+        self.assertEqual(mask.tobytes(), before)
+        self.assertEqual(soft.getpixel((19, 40)), 0)
+        self.assertGreater(soft.getpixel((20, 40)), 0); self.assertLess(soft.getpixel((20, 40)), 255)
+        result = A.apply_luts(source, payload()['luts'], soft)
+        np.testing.assert_array_equal(np.array(result)[np.array(mask) == 0], np.array(source)[np.array(mask) == 0])
+        np.testing.assert_array_equal(np.array(result)[..., 3], np.array(source)[..., 3])
+        self.assertIs(A.adjustment_mask(mask, {}), mask)
+        self.assertIsNone(A.adjustment_mask(mask, dict(restrict_to_mask=False, mask_feather=8)))
+        self.assertIsNone(A.adjustment_mask(None, dict(restrict_to_mask=True, mask_feather=8)))
 
     def test_native_save_metadata_mask_and_original_file_retained(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -95,6 +115,15 @@ class AdjustmentTests(unittest.TestCase):
                 self.assertEqual(source_path.read_bytes(), before_bytes)
                 self.assertEqual(result.size, source.size)
                 self.assertEqual(result.getpixel((0, 0)), (68, 88, 108, 127))
+                data = payload(digest); data.update(restrict_to_mask=False, mask_feather=12)
+                result, path, _ = A.save_adjustment(source_path, json.dumps(data), True)
+                self.assertEqual(result.getpixel((0, 0)), (85, 105, 125, 127))
+                with Image.open(path) as saved:
+                    self.assertEqual(json.loads(saved.info['image_edit_adjustment'])['scope'], 'whole image')
+                    self.assertEqual(json.loads(saved.info[A.MASK_KEY]), selection)
+                context = A.describe_result(path, json.dumps(dict(base_sha256=hashlib.sha256(Path(path).read_bytes()).hexdigest())))
+                self.assertTrue(context['has_mask']); self.assertTrue(context['restrict_to_mask'])
+                self.assertIsNotNone(context['mask'])
                 opts.enable_pnginfo = False
                 _, path, _ = A.save_adjustment(source_path, json.dumps(payload(digest)), False)
                 with Image.open(path) as saved: self.assertEqual(saved.info, {})

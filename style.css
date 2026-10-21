@@ -60,6 +60,11 @@
 #qwen_edit_lightbox .qe-curves-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
 #qwen_edit_lightbox .qe-curves-title label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 #qwen_edit_lightbox .qe-curves-scope { font-size: 12px; color: #b7c8d8; margin-bottom: 14px; }
+#qwen_edit_lightbox .qe-curves-mask-controls { margin-bottom: 14px; font-size: 12px; }
+#qwen_edit_lightbox .qe-curves-mask-controls label { display: flex; align-items: center; gap: 7px; }
+#qwen_edit_lightbox .qe-curves-feather-label { justify-content: space-between; margin-top: 10px; }
+#qwen_edit_lightbox .qe-curves-mask-controls input[type="range"] { width: 100%; margin: 7px 0 0; }
+#qwen_edit_lightbox .qe-curves-mask-controls .qe-curves-hint { margin: 7px 0 0; }
 #qwen_edit_lightbox .qe-curves-channel { display: flex; align-items: center; gap: 10px; font-size: 12px; }
 #qwen_edit_lightbox select, #qwen_edit_lightbox input[type="number"] { color: #e8eaf0; background: #11151c; border: 1px solid #484e59; border-radius: 4px; padding: 6px; min-width: 0; font: inherit; box-sizing: border-box; }
 #qwen_edit_lightbox select { flex: 1; width: 100%; }

@@ -5,6 +5,12 @@
         const panel = dialog.querySelector(".qe-curves-panel");
         panel.innerHTML = `<div class="qe-curves-title"><strong>Curves & levels</strong><label><input type="checkbox" data-field="preview" checked> Preview</label></div>
             <div class="qe-curves-scope">Loading adjustment area…</div>
+            <div class="qe-curves-mask-controls">
+                <label><input type="checkbox" data-field="restrict-mask" disabled> Restrict to mask</label>
+                <label class="qe-curves-feather-label">Feather mask (px) <output data-field="mask-feather-value">0</output></label>
+                <input type="range" min="0" max="64" step="1" value="0" data-field="mask-feather" aria-label="Feather mask (px)" disabled>
+                <div class="qe-curves-hint" data-field="mask-hint">Loading saved edit mask…</div>
+            </div>
             <label class="qe-curves-channel">Channel <select aria-label="Curve channel"><option value="rgb">RGB · all channels</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option></select></label>
             <canvas class="qe-curves-graph" width="280" height="280" tabindex="0" aria-label="Tone curve. Click to add a point; drag or use arrow keys to adjust; Delete removes a point."></canvas>
             <div class="qe-curves-points"><label>Input <input type="number" min="0" max="255" step="1" data-field="input" value="0"></label><label>Output <input type="number" min="0" max="255" step="1" data-field="output" value="0"></label><button type="button" data-curve="delete" title="Delete selected point">Delete</button></div>
@@ -24,6 +30,10 @@
         const graph = panel.querySelector("canvas"), ctx = graph.getContext("2d");
         const status = panel.querySelector(".qe-curves-status");
         const scopeLabel = panel.querySelector(".qe-curves-scope");
+        const restrictCheck = panel.querySelector('[data-field="restrict-mask"]');
+        const featherSlider = panel.querySelector('[data-field="mask-feather"]');
+        const featherValue = panel.querySelector('[data-field="mask-feather-value"]');
+        const maskHint = panel.querySelector('[data-field="mask-hint"]');
         const channelSelect = panel.querySelector("select");
         const previewCheck = panel.querySelector('[data-field="preview"]');
         const defaultCheck = panel.querySelector('[data-field="fibo-default"]');
@@ -34,10 +44,30 @@
         let original = false, dragging = false, pendingFrame = 0, loadVersion = 0, pending = null;
         let loadPromise = null, loadError = "", luts = C.compile(settings);
         let mask = null, contextId = null, contextReady = false;
+        let hasMask = false, restrictMask = true, maskFeather = 0, scopeTimer = 0;
         let fiboDefault = {eligible: false, enabled: false, available: false, can_capture: false};
         const colors = {rgb: "#e7e9ed", red: "#ef8585", green: "#79cba0", blue: "#81b6ff"};
         const changed = () => !C.identity(luts);
-        function remember() { undo.push(C.clone(settings)); if (undo.length > 40) undo.shift(); redo = []; }
+        const snapshot = () => ({settings: C.clone(settings), restrictMask, maskFeather});
+        function remember() { undo.push(snapshot()); if (undo.length > 40) undo.shift(); redo = []; }
+        function restore(value) {
+            const scopeChanged = restrictMask !== value.restrictMask || maskFeather !== value.maskFeather;
+            settings = value.settings; restrictMask = value.restrictMask; maskFeather = value.maskFeather;
+            if (scopeChanged) requestScope();
+        }
+        function requestScope() {
+            clearTimeout(scopeTimer);
+            contextReady = false; contextId = crypto.randomUUID();
+            const id = contextId;
+            scopeTimer = setTimeout(() => {
+                const field = gradioApp().querySelector("#image_edit_curves_request textarea");
+                if (!field || !raw || !hash || contextId !== id) return;
+                field.value = JSON.stringify({version: 1, id, op: "context", base_sha256: hash,
+                    restrict_to_mask: restrictMask, mask_feather: maskFeather});
+                updateInput(field);
+            }, 80);
+            status.textContent = "Updating adjustment area…"; controls();
+        }
         function visibility() {
             const show = !!raw && contextReady && !original && previewCheck.checked && changed();
             preview.hidden = !show;
@@ -47,14 +77,20 @@
             const points = settings[channel].points;
             selected = Math.min(selected, points.length - 1);
             input.value = points[selected][0]; output.value = points[selected][1];
-            input.disabled = selected === 0 || selected === points.length - 1;
-            panel.querySelector('[data-curve="delete"]').disabled = input.disabled;
+            input.disabled = !!pending;
+            panel.querySelector('[data-curve="delete"]').disabled = selected === 0 || selected === points.length - 1;
             panel.querySelectorAll("[data-level]").forEach(el => {
                 if (document.activeElement !== el) el.value = settings[channel].levels[Number(el.dataset.level)];
             });
             panel.querySelector('[data-curve="undo"]').disabled = !undo.length || !!pending;
             panel.querySelector('[data-curve="redo"]').disabled = !redo.length || !!pending;
             panel.querySelector('[data-curve="apply"]').disabled = !raw || !hash || !contextReady || !changed() || !!pending;
+            restrictCheck.checked = hasMask && restrictMask;
+            restrictCheck.disabled = !raw || !hasMask || !!pending;
+            featherSlider.value = maskFeather; featherValue.textContent = String(maskFeather);
+            featherSlider.disabled = restrictCheck.disabled || !restrictMask;
+            maskHint.textContent = !raw ? "Loading saved edit mask…" : !hasMask ? "No saved mask for this result." :
+                restrictMask ? "Uses this result's edit mask. Feathering softens the correction inward—not the image." : "Whole-image correction. The saved mask is retained.";
             defaultCheck.disabled = !contextReady || !!pending || !fiboDefault.eligible ||
                 (!changed() && !fiboDefault.available && !fiboDefault.can_capture);
             defaultHint.textContent = !fiboDefault.eligible ? "Fibo whole-image edits only." :
@@ -102,9 +138,8 @@
         }
         function movePoint(x, y) {
             const points = settings[channel].points;
-            if (selected === 0) x = 0;
-            else if (selected === points.length - 1) x = 255;
-            else x = C.clamp(x, points[selected - 1][0] + 1, points[selected + 1][0] - 1);
+            x = C.clamp(x, selected === 0 ? 0 : points[selected - 1][0] + 1,
+                selected === points.length - 1 ? 255 : points[selected + 1][0] - 1);
             points[selected] = [Math.round(x), Math.round(C.clamp(y))]; update();
         }
         graph.addEventListener("pointerdown", event => {
@@ -114,7 +149,7 @@
             const nearest = points.map(([px, py], i) => [Math.hypot(px - x, py - y), i]).sort((a, b) => a[0] - b[0])[0];
             remember();
             if (nearest[0] <= 14) selected = nearest[1];
-            else if (points.length < 16 && x > 0 && x < 255 && !points.some(p => p[0] === x)) {
+            else if (points.length < 16 && !points.some(p => p[0] === x)) {
                 points.push([x, y]); points.sort((a, b) => a[0] - b[0]); selected = points.findIndex(p => p[0] === x);
             } else { undo.pop(); return; }
             dragging = true; graph.setPointerCapture(event.pointerId); update();
@@ -141,6 +176,14 @@
         });
         channelSelect.addEventListener("change", () => { channel = channelSelect.value; selected = 0; controls(); draw(); });
         previewCheck.addEventListener("change", visibility);
+        restrictCheck.addEventListener("change", () => {
+            if (pending || !hasMask) return;
+            remember(); restrictMask = restrictCheck.checked; requestScope();
+        });
+        featherSlider.addEventListener("input", () => {
+            if (pending || !hasMask || !restrictMask) return;
+            remember(); maskFeather = Number(featherSlider.value); requestScope();
+        });
         defaultCheck.addEventListener("change", () => {
             const field = gradioApp().querySelector("#image_edit_curves_request textarea");
             if (!field || pending || !contextReady) { defaultCheck.checked = fiboDefault.enabled; return; }
@@ -165,8 +208,8 @@
             if (!action || pending) return;
             if (action === "apply") { save(false); return; }
             if (action === "delete") { deletePoint(); return; }
-            if (action === "undo" && undo.length) { redo.push(C.clone(settings)); settings = undo.pop(); }
-            if (action === "redo" && redo.length) { undo.push(C.clone(settings)); settings = redo.pop(); }
+            if (action === "undo" && undo.length) { redo.push(snapshot()); restore(undo.pop()); }
+            if (action === "redo" && redo.length) { undo.push(snapshot()); restore(redo.pop()); }
             if (action === "reset-channel") { remember(); settings[channel] = C.defaults()[channel]; }
             if (action === "reset-all") { remember(); settings = C.defaults(); }
             selected = 0; update();
@@ -206,6 +249,7 @@
             const id = crypto.randomUUID();
             pending = {id, downloadAfter, oldDownload: downloadUrl}; window.imageEditCurvesBusy = true;
             field.value = JSON.stringify({version: 1, id, base_sha256: hash, settings, luts,
+                restrict_to_mask: restrictMask, mask_feather: maskFeather,
                 use_fibo_default: fiboDefault.eligible && defaultCheck.checked});
             updateInput(field); status.textContent = "Saving full-resolution PNG…"; controls();
             return true;
@@ -215,6 +259,7 @@
                 if (currentUrl === url && downloadUrl === savedUrl) return;
                 currentUrl = url; downloadUrl = savedUrl; loadVersion++; loadPromise = null; loadError = "";
                 raw = histogram = mask = null; contextId = null; contextReady = false; hash = "";
+                clearTimeout(scopeTimer); hasMask = false; restrictMask = true; maskFeather = 0;
                 fiboDefault = {eligible: false, enabled: false, available: false, can_capture: false};
                 defaultCheck.checked = false;
                 scopeLabel.textContent = "Loading adjustment area…";
@@ -236,21 +281,23 @@
                 let data; try { data = JSON.parse(receipt); } catch { return; }
                 if (contextId && data.id === contextId) {
                     const token = loadVersion;
-                    contextId = null;
                     if (!data.ok) { loadError = data.error; status.textContent = loadError; scopeLabel.textContent = "Selection unavailable"; controls(); return; }
+                    let nextMask = null;
                     if (data.mask) {
                         try {
                             const blob = await (await fetch(data.mask)).blob();
                             const bitmap = await createImageBitmap(blob);
-                            if (token !== loadVersion) { bitmap.close(); return; }
+                            if (token !== loadVersion || data.id !== contextId) { bitmap.close(); return; }
                             const canvas = document.createElement("canvas"); canvas.width = raw.width; canvas.height = raw.height;
                             const context = canvas.getContext("2d"); context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
                             const bytes = context.getImageData(0, 0, canvas.width, canvas.height).data;
-                            mask = new Uint8ClampedArray(raw.width * raw.height);
-                            for (let i = 0; i < mask.length; i++) mask[i] = bytes[i * 4];
+                            nextMask = new Uint8ClampedArray(raw.width * raw.height);
+                            for (let i = 0; i < nextMask.length; i++) nextMask[i] = bytes[i * 4];
                         } catch { status.textContent = "The painted selection could not be loaded."; controls(); return; }
                     }
-                    if (token !== loadVersion) return;
+                    if (token !== loadVersion || data.id !== contextId) return;
+                    contextId = null; mask = nextMask; hasMask = !!data.has_mask;
+                    restrictMask = !!data.restrict_to_mask; maskFeather = data.mask_feather || 0;
                     contextReady = true; scopeLabel.textContent = data.scope;
                     fiboDefault = data.fibo_default || {eligible: false, enabled: false, available: false, can_capture: false};
                     defaultCheck.checked = fiboDefault.eligible && fiboDefault.enabled;
