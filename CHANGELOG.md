@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.7 — beta
+
+- Crop / outpaint is disabled without a source and stays selected across uploads,
+  IIB transfers, clearing/reloading and result reuse until manually unchecked.
+  Each new source resets only the edge values; all four sliders center zero.
+- Get prompt from metadata recovers the original positive prompt from Forge/A1111
+  infotext, EXIF or common ComfyUI prompt graphs. Fibo fills the finished-image
+  description without replacing the edit instruction; Qwen fills Edit instruction.
+  Multiple ComfyUI positives are selectable; missing prompts leave existing text alone.
+- Fibo outpaint help recommends describing the complete expanded scene.
+- The download area explains that images are also saved to the native img2img
+  output folder (or the user's configured override).
+- Clearing the canvas also clears the server-side source on older Forge builds.
+
 ## 0.5.6 — beta
 
 - Crop / outpaint toggle keeps signed Left/Right/Top/Bottom controls hidden

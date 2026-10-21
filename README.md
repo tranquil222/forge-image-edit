@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.6 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.7 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -153,7 +153,10 @@ of seamless repairs. Paint a larger border if necessary.
 ### Crop / outpaint
 
 Enable **Crop / outpaint** below the source to reveal four compact edge sliders.
-They start at zero for each new source. **Positive pixels add space; negative
+The toggle is disabled without a source image. It remembers your selection
+until you uncheck it, including across uploads, IIB transfers and result reuse.
+The four sliders have consistent ranges with zero centered, and reset to zero
+for each new source. **Positive pixels add space; negative
 pixels crop that edge.** Left/right and top/bottom are independent, so a single
 operation can crop one side and expand another. The resulting canvas dimensions
 are shown automatically. **Reset edges** returns to the original bounds.
@@ -167,6 +170,9 @@ when it is turned off.
 
 - **Added space:** describe what should continue beyond the photo, then
   **Generate outpaint**. A blank prompt uses a natural scene-extension instruction.
+  For Fibo, also describe the complete scene in **Describe the finished image**;
+  this can help when an instruction such as "fill the grey area" leaves the
+  border unfilled. **Get prompt from metadata** can recover a starting description.
   The whole canvas supplies context; only newly added pixels are composited in.
   Retained source pixels remain exact. Resolution controls inference detail, not
   the final canvas dimensions. Additional references and painted feathering are
@@ -177,7 +183,7 @@ when it is turned off.
 
 Both use Forge's native img2img save path and metadata controls. Recipes record
 the signed edges, retained source rectangle and output dimensions. **Use result
-as source** resets the controls, so edges are not accidentally applied twice.
+as source** resets only the edge values, so edges are not accidentally applied twice.
 Recipe imports likewise do not recrop or expand an already-edited image.
 Curves after outpainting stay within its saved added-border mask. The model
 still determines the generated continuation; exact source preservation does not
@@ -252,6 +258,17 @@ output-directory override, through `modules.images.save_image`. Normal filename
 patterns, subdirectories, numbering and save callbacks apply. The workspace
 saves a PNG so recipes and transparency can be retained. No extension-specific
 output folder or machine-specific path is used.
+
+**Get prompt from metadata** reads the source's original positive prompt, including
+original metadata preserved through earlier Image Edit operations. For Fibo it fills
+**Describe the finished image** and leaves **Edit instruction** unchanged; for Qwen
+it fills **Edit instruction**. Adjust the recovered text to describe the desired result.
+Forge/A1111 PNG and EXIF infotext and common ComfyUI saved prompt graphs are supported.
+ComfyUI positive conditioning is followed through standard samplers, guiders and
+text encoders; negative and disconnected prompts are excluded. Multiple positive
+texts appear as separate choices. Missing metadata, workflow-only files and
+unsupported custom processing cannot always recover the original text; no graph is
+executed, and an unsuccessful lookup leaves existing text unchanged.
 
 **Keep original metadata** is on by default:
 

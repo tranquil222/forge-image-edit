@@ -11,6 +11,11 @@
 #qwen_edit_result_actions { flex-grow: 0; align-items: flex-start; }
 #qwen_edit_result_actions button { min-height: 40px; }
 #qwen_edit_download { min-height: 40px; }
+#image_edit_download_column { gap: 4px; flex: 1 1 200px; }
+#image_edit_save_note p, #image_edit_prompt_note p { font-size: 12px; opacity: .75; margin: 0; }
+#image_edit_prompt_heading { align-items: center; gap: 8px; }
+#image_edit_prompt_heading p { margin: 0; }
+#image_edit_get_prompt { min-height: 32px; }
 #image_edit_download_data { display: none !important; }
 #image_edit_run_row { align-items: flex-end; flex-wrap: wrap; flex-direction: row-reverse; gap: 16px; }
 #image_edit_seed_controls { flex: 1 1 410px; align-items: flex-end; gap: 8px; }

@@ -1,5 +1,5 @@
 {
-  "version": "0.5.6",
+  "version": "0.5.7",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 79,
+    "extension_python_tests": 88,
     "javascript_tests": 11,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -384,6 +384,11 @@
       "preview": "Persistent green outline, grey added area, no source-byte modification, compact wide/narrow controls hidden by default. Moving signed edges previews the computed dimensions.",
       "workflow": "Generate outpaint and crop-only save verified, local curves recognize border mask, global Fibo default excluded, strokes restored on toggle off, result reuse resets signed edges.",
       "browser_errors": 0
+    },
+    "metadata_and_canvas_057": {
+      "unit_checks": "88 Python and 11 JavaScript tests passed. Prompt extraction covers Forge/A1111, EXIF, original edit history, ComfyUI positive branches, linked strings, guiders, multiple prompts, negative/disconnected exclusion and malformed/cyclic graphs.",
+      "browser_checks": "Isolated current-base Forge: empty-source controls disabled; original prompt lookup, Fibo description target without instruction replacement, Qwen instruction target, multiple ComfyUI choices, result reuse and IIB transfer with selection retained and edges reset, clearing/reloading, centered slider ranges, missing-prompt non-destructive behavior, native crop save and wide/narrow layout.",
+      "scope": "No inference/backend changes. User confirmed the previously unfilled grey outpaint border completed after supplying the scene prompt in the Fibo finished-image description; no claim that all outpaints succeed."
     }
   },
   "limitations": [

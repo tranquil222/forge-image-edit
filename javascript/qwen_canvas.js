@@ -45,9 +45,10 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
             this.background_gradio_bind.set_value(this.img || "");
         }
         loadImage(value) {
-            if (value === this.img) return;
-            window.imageEditCanvasEdges = {enabled: false, left: 0, right: 0, top: 0, bottom: 0};
-            this.no_scribbles = false;
+            if (value && value === this.img) return;
+            const enabled = !!window.imageEditCanvasEdges?.enabled;
+            window.imageEditCanvasEdges = {enabled, left: 0, right: 0, top: 0, bottom: 0};
+            this.no_scribbles = enabled;
             // A new source must not inherit strokes or undo history, even when
             // it has the same dimensions as the previous source.
             const canvas = this.drawingCanvas_;
@@ -57,6 +58,8 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
             this.drawing = false;
             this.dragging = false;
             super.loadImage(value);
+            // Older Forge canvases clear only the preview, not the Python input.
+            if (!value && this.background_gradio_bind.target.value) this.updateBackgroundImageData();
         }
 
         handleDraw(event) {

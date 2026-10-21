@@ -20,6 +20,7 @@ from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
 from .batching import run_batch, validate_count
 from .outpaint import EDGES, canvas_plan, canvas_images, save_crop
+from .prompt_metadata import original_prompts
 
 
 _active = False
@@ -40,7 +41,9 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
                  "**Green-replacement instructions are added automatically.** Unpainted pixels stay unchanged. For expressions, choose Refine / expression.")
     modes = edit_modes(family, area_only)
     selected = modes[0] if mode not in modes else mode
-    return (gr.update(visible=fibo), reference_help,
+    description_help = ("For outpaint, describe the complete expanded scene, not the grey border. Get prompt from metadata can fill a starting description."
+                        if canvas_enabled else "Describe the result you want, not the original. Fibo receives this as a structured result caption alongside your instruction. Leave blank for a plain edit. No cloud service is used.")
+    return (gr.update(visible=fibo, info=description_help), reference_help,
             gr.update(interactive=not (canvas_enabled or (fibo and area_only))), gr.update(interactive=not (canvas_enabled or (fibo and area_only))),
             gr.update(choices=modes, value=selected, interactive=len(modes) > 1, visible=not canvas_enabled,
                       label="Painted-area mode" if area_only else "Edit mode",
@@ -95,13 +98,42 @@ def camera_help(mode, canvas_enabled=False):
     return gr.update(visible=mode == "Camera angle" and not canvas_enabled, value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. **Do NOT say ‘keep things the same’ or ‘keep everything unchanged’**—this can work against the new perspective. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
 
 
-def reset_canvas_controls(source):
+def reset_canvas_controls(source, enabled=False):
     width, height = canonical_image(source).size if source is not None else (512, 512)
-    return (False, *[gr.update(value=0, minimum=1 - side, maximum=min(4096, max(0, 16384 - side)))
-                     for side in (width, width, height, height)], [width, height] if source is not None else [0, 0])
+    return (gr.update(value=bool(enabled), interactive=source is not None),
+            *[gr.update(value=0, minimum=-4096, maximum=4096) for _ in range(4)],
+            [width, height] if source is not None else [0, 0],
+            gr.update(interactive=source is not None), gr.update(choices=[], value=None, visible=False), [],
+            gr.update(value="", visible=False))
+
+
+def get_metadata_prompt(source, family):
+    choices = original_prompts(source)
+    if not choices:
+        return (gr.update(), gr.update(), gr.update(choices=[], value=None, visible=False), [],
+                gr.update(value="No readable original prompt found in this image. Your instruction was left unchanged.", visible=True))
+    multiple = len(choices) > 1
+    fibo = family.startswith("Fibo")
+    text = gr.update() if multiple else choices[0][1]
+    return (gr.update() if fibo else text, text if fibo else gr.update(),
+            gr.update(choices=[(label, str(i)) for i, (label, _) in enumerate(choices)], value=None, visible=multiple), choices,
+            gr.update(value="Multiple positive prompts found. Choose one below." if multiple else
+                "Original prompt loaded into Describe the finished image. Adjust it for the result you want." if fibo else
+                "Original positive prompt loaded into Edit instruction. Adjust it to describe the edit you want.", visible=True))
+
+
+def select_metadata_prompt(choices, selected, family):
+    try:
+        index = int(selected)
+        if 0 <= index < len(choices):
+            return (gr.update(), choices[index][1]) if family.startswith("Fibo") else (choices[index][1], gr.update())
+    except (ValueError, TypeError):
+        pass
+    return gr.update(), gr.update()
 
 
 def canvas_feedback(size, enabled, left, right, top, bottom, family):
+    enabled = bool(enabled and size and min(size) > 0)
     crop = False
     message = "Load an image to set the canvas edges."
     if size and min(size) > 0:
@@ -269,16 +301,16 @@ def create_tab():
                     # Gradio 4 inserts State placeholders into JS submit inputs.
                     area_only = gr.Checkbox(value=False, visible=False, interactive=False)
                     paint_hint = gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
-                    canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", elem_id="image_edit_canvas_enabled")
+                    canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled")
                     canvas_source_size = gr.State([0, 0])
                     with gr.Column(visible=False, elem_id="image_edit_canvas_controls") as canvas_controls:
                         gr.Markdown("**Added pixels per edge** · positive expands, negative crops. The green outline is the final canvas; it stays visible.")
                         with gr.Row(elem_id="image_edit_canvas_horizontal"):
-                            canvas_left = gr.Slider(-511, 4096, value=0, step=1, label="Left", min_width=140, elem_id="image_edit_canvas_left")
-                            canvas_right = gr.Slider(-511, 4096, value=0, step=1, label="Right", min_width=140, elem_id="image_edit_canvas_right")
+                            canvas_left = gr.Slider(-4096, 4096, value=0, step=1, label="Left", min_width=140, elem_id="image_edit_canvas_left")
+                            canvas_right = gr.Slider(-4096, 4096, value=0, step=1, label="Right", min_width=140, elem_id="image_edit_canvas_right")
                         with gr.Row(elem_id="image_edit_canvas_vertical"):
-                            canvas_top = gr.Slider(-511, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
-                            canvas_bottom = gr.Slider(-511, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
+                            canvas_top = gr.Slider(-4096, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
+                            canvas_bottom = gr.Slider(-4096, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
                         canvas_summary = gr.Markdown(elem_id="image_edit_canvas_summary")
                         canvas_reset = gr.Button("Reset edges", size="sm", elem_id="image_edit_canvas_reset")
                     area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint.", elem_id="qwen_edit_area_mode")
@@ -289,7 +321,9 @@ def create_tab():
                     result = gr.Image(label="Edited result · click to enlarge", type="pil", image_mode="RGBA", format="png", interactive=False, height=420, elem_id="qwen_edit_result")
                     with gr.Row(elem_id="qwen_edit_result_actions"):
                         reuse = gr.Button("Use result as source", size="sm")
-                        download_button = gr.DownloadButton("Download PNG with settings", size="sm", interactive=False, elem_id="qwen_edit_download")
+                        with gr.Column(min_width=200, elem_id="image_edit_download_column"):
+                            download_button = gr.DownloadButton("Download PNG with settings", size="sm", interactive=False, elem_id="qwen_edit_download")
+                            gr.Markdown("Also saved automatically to Forge’s img2img output folder (or your custom output folder).", elem_id="image_edit_save_note")
                     # Retain the full native saved-file path for reuse and curves.
                     download = gr.File(label="Edited PNG", interactive=False, elem_id="image_edit_download_data")
                     batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
@@ -314,6 +348,11 @@ def create_tab():
                 placeholder="Example: The woman remains beside an empty bed with an uninterrupted green bedspread and white pillows.",
                 info="Describe the result you want, not the original. Fibo receives this as a structured result caption alongside your instruction. Leave blank for a plain edit. No cloud service is used.",
                 value="", lines=3, visible=False, elem_id="fibo_edit_result_description")
+            with gr.Row(elem_id="image_edit_prompt_heading"):
+                get_prompt = gr.Button("Get prompt from metadata", size="sm", scale=0, min_width=210, interactive=False, elem_id="image_edit_get_prompt")
+                prompt_note = gr.Markdown(visible=False, elem_id="image_edit_prompt_note")
+            prompt_choices = gr.Dropdown([], label="Metadata prompt", visible=False, elem_id="image_edit_prompt_choices")
+            prompt_items = gr.State([])
             with gr.Row():
                 profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
                 resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
@@ -350,9 +389,10 @@ def create_tab():
                     js="receipt => { window.imageEditCurvesSaved?.(receipt); }", api_name=False)
             task_id = gr.Textbox(visible=False)
             edge_controls = [canvas_left, canvas_right, canvas_top, canvas_bottom]
-            for component in (canvas_enabled, *edge_controls):
+            for component in (canvas_enabled, *edge_controls, prompt_choices):
                 component.do_not_save_to_config = True
-            source.change(reset_canvas_controls, [source], [canvas_enabled, *edge_controls, canvas_source_size], show_progress="hidden", api_name=False).then(
+            source.change(reset_canvas_controls, [source, canvas_enabled],
+                [canvas_enabled, *edge_controls, canvas_source_size, get_prompt, prompt_choices, prompt_items, prompt_note], show_progress="hidden", api_name=False).then(
                 canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family],
                 [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
             canvas_reset.click(lambda: (0, 0, 0, 0), outputs=edge_controls, show_progress="hidden", api_name=False)
@@ -381,6 +421,8 @@ def create_tab():
                     js="(family, enabled, mode, canvas) => { qwenEditSetModel(family); return [family, enabled, mode, canvas]; }" if component is family else None,
                     show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])
+            get_prompt.click(get_metadata_prompt, [source, family], [instruction, result_description, prompt_choices, prompt_items, prompt_note], show_progress="hidden", api_name=False)
+            prompt_choices.input(select_metadata_prompt, [prompt_items, prompt_choices, family], [instruction, result_description], show_progress="hidden", api_name=False)
             download.change(lambda path: gr.update(value=path, interactive=bool(path)), [download], [download_button], show_progress="hidden", api_name=False)
             random_seed.click(lambda: "-1", outputs=[seed], queue=False, show_progress="hidden")
             reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed], queue=False, show_progress="hidden")
