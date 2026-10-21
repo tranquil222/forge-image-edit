@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "status": "tested beta",
   "date": "2026-10-20",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 54,
+    "extension_python_tests": 56,
     "javascript_tests": 9,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -331,6 +331,14 @@
       "metadata": "Curves controls/LUTs appended to edit history; latest generation recipe retained; import notes that curves are already baked. Whole-image and painted-area scope recorded. Metadata-off masks work in-session.",
       "layout": "Generate / Cancel verified above Edit instruction. Curves sidebar visually inspected. No browser page errors in completed tests.",
       "cancellation": "Checks after reference VAE encode, model transfer and positive encoding; unit tests verify cancelled loading never starts encoding and cancelled positive encoding skips the negative branch. Cancel status is immediate; running GPU kernels/transfers are not preempted."
+    },
+    "automatic_painted_area_update": {
+      "version": "0.5.1",
+      "controls": "No visible painted-area checkbox or duplicate clear button. Painting is always available; foreground alpha determines scope at submission. Canvas clear, Shift-erase, undo/redo and source replacement update scope automatically.",
+      "brush_regression": "Real Edge canvas comparison: original Forge erase-then-paint stroke introduced 549 non-opaque pixels inside a fully opaque selection. The tab-scoped additive brush left that selection pixel-identical (zero changed values). Single-click dots, Shift eraser and native undo/redo passed.",
+      "browser_jobs": "Actual Gradio browser submission with CPU inference stand-in: blank canvas saved a whole-image recipe and 928x640 output without mask; painted canvas saved a painted recipe, saved selection and original 1248x864 dimensions. All outside-mask pixels matched the source exactly. Source replacement returned to whole-image scope. No GPU model loading or inference in these tests.",
+      "unit_checks": "Automatic scope ignores hidden RGB in transparent pixels, handles clear/paint/erase and uses submitted strokes even when a transported scope flag is stale.",
+      "ui_transport": "Derived mask presence uses a hidden noninteractive transport component to avoid Gradio 4 inserting State placeholders into JavaScript submit inputs. There is no user-controlled toggle."
     }
   },
   "limitations": [

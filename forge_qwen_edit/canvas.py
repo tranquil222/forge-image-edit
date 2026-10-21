@@ -38,7 +38,7 @@ class MetadataImage(LogicalImage):
 class EditCanvas:
     def __init__(self):
         canvas_id = "qwen_" + uuid.uuid4().hex
-        # Reuse the installed canvas, not a fork of its drawing implementation.
+        # Reuse the installed canvas/toolbar; the selection brush is tab-scoped.
         markup = canvas_html.replace("forge_mixin", canvas_id)
         if opts.forge_canvas_plain:
             markup = markup.replace('class="forge-image-container"', f'class="forge-image-container plain" style="background-color: {opts.forge_canvas_plain_color}"').replace('stroke="white"', "stroke=#444")

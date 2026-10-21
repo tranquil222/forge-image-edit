@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.0 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.1 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -83,9 +83,16 @@ instruction following. Dev is a separate optional checkpoint, not a Turbo switch
 
 ### Painted edits
 
-Paint the complete object plus a small border. Scroll to zoom, right-drag to
-pan, Shift+paint to erase, F to enlarge, R to fit, Ctrl+Z to undo, W+scroll for
-brush size. Changing the source clears the painting and disables painted mode.
+Painting is always available; no checkbox is needed. **No strokes means a
+whole-image edit. Painted strokes mean a local edit.** The scope appears below
+the canvas. Paint the complete object plus a small border. Scroll to zoom,
+right-drag to pan, Shift+paint to erase, F to enlarge, R to fit, Ctrl+Z to undo,
+W+scroll for brush size. The native canvas reset tool clears the mask; undo and
+redo also update the scope. Changing the source clears the painting.
+
+Overlapping opaque strokes add to the selection without erasing underneath,
+avoiding faint transparent outlines. Edge blending happens during compositing,
+not between brush strokes. Other Forge canvases are unchanged.
 
 - **Fibo:** opaque neutral grey (RGB 128), threshold 128. One masked source is
   sent; extra references are disabled in this mode.

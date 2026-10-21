@@ -19,17 +19,39 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
         }
 
         handleDraw(event) {
-            // Fixed opaque selection data; Shift still activates the eraser.
+            // Add opaque selection strokes. Erase-then-paint creates alpha
+            // seams at antialiased edges when strokes overlap in Forge's brush.
             this.scribbleColor = window.imageEditMaskColor || "#00ff00";
             if (this.scribbleAlpha > 0) this.scribbleAlpha = 100;
             this.scribbleSoftness = 0;
-            super.handleDraw(event);
+            const canvas = this.drawingCanvas_, ctx = canvas.getContext("2d");
+            const rect = canvas.getBoundingClientRect();
+            const point = [(event.clientX - rect.left) / this.imgScale, (event.clientY - rect.top) / this.imgScale];
+            this.temp_draw_points.push(point);
+            ctx.putImageData(this.temp_draw_bg, 0, 0);
+            ctx.save();
+            ctx.globalCompositeOperation = this.scribbleAlpha <= 0 ? "destination-out" : "source-over";
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = ctx.fillStyle = this.scribbleColor;
+            ctx.lineCap = ctx.lineJoin = "round";
+            ctx.lineWidth = this.scribbleWidth * 4 / (this.scribbleWidthConsistent ? this.imgScale : 1);
+            ctx.beginPath();
+            if (this.temp_draw_points.length === 1) {
+                ctx.arc(point[0], point[1], ctx.lineWidth / 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                this.temp_draw_points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+                ctx.stroke();
+            }
+            ctx.restore();
+            canvas.style.opacity = "1";
         }
     }
 
-    const canvas = new QwenEditCanvas(uuid, false, true, false, 420,
+    const canvas = new QwenEditCanvas(uuid, false, false, false, 420,
         window.imageEditMaskColor || "#00ff00", true, 12, false, consistentBrush, 100, true, 0, true);
     window.qwenEditPaintCanvas = canvas;
+    document.getElementById(`resetButton_${uuid}`).title = "Clear painted area [Ctrl + X]";
 };
 
 window.qwenEditSetModel = function (family) {
@@ -45,19 +67,4 @@ window.qwenEditSetModel = function (family) {
     context.fillRect(0, 0, drawing.width, drawing.height);
     context.restore();
     canvas.updateDrawingData();
-};
-
-window.qwenEditSetPainting = function (enabled) {
-    const canvas = window.qwenEditPaintCanvas;
-    if (!canvas) return;
-    canvas.no_scribbles = !enabled;
-    const toolbar = document.getElementById(`toolbar_${canvas.uuid}`);
-    toolbar.querySelector(".forge-toolbar-box-b").style.display = enabled ? "" : "none";
-    toolbar.title = enabled ? "[Shift] for Eraser" : "";
-    for (const action of ["reset", "undo", "redo"]) {
-        document.getElementById(`${action}Button_${canvas.uuid}`).style.display = enabled ? "" : "none";
-    }
-    // Hide ignored selection strokes while whole-image editing is selected.
-    canvas.drawingCanvas_.style.opacity = enabled ? "1" : "0";
-    document.getElementById(`scribbleIndicator_${canvas.uuid}`).style.display = "none";
 };

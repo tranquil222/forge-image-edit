@@ -20,6 +20,15 @@ def editor_value(source):
     return {"background": source, "layers": [], "composite": source}
 
 
+def has_painted_area(foreground):
+    """Only stroke alpha selects an edit area; an empty canvas edits globally."""
+    if foreground is None:
+        return False
+    if "A" not in foreground.getbands():
+        raise ValueError("The painted layer has no transparency. Clear the painted area and paint again.")
+    return foreground.getchannel("A").getbbox() is not None
+
+
 def extract_mask(source, editor):
     """Read stroke alpha, never select naturally green pixels in the photo."""
     source = canonical_image(source)

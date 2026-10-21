@@ -13,7 +13,7 @@ from modules import script_callbacks, sd_schedulers, shared
 from modules_forge import main_entry, main_thread
 
 from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_size
-from .masking import AREA_MODES, canonical_image
+from .masking import AREA_MODES, canonical_image, has_painted_area
 from .canvas import EditCanvas, MetadataImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
@@ -27,7 +27,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0]):
     fibo = family in EDIT_MODELS and get_adapter(family).key == "fibo2"
     dev = family in EDIT_MODELS and get_adapter(family).guidance > 1
     reference_help = ("Optional. Refer to the source as `<image_1>`, then `<image_2>` and `<image_3>`. "
-                      "Fibo masked editing uses only the source; additional references are not used while painting is enabled."
+                      "Fibo masked editing uses only the source; additional references are not used when an area is painted."
                       if fibo else "Optional. Refer to the source as **image 1**, then **image 2** and **image 3**. More references use more memory.")
     help_text = ("Paint the entire object and a small border. Fibo receives an **opaque neutral-grey region**, not the green brush overlay. "
                  "Describe what should replace it. Pixels outside the painted area are preserved by compositing."
@@ -76,23 +76,17 @@ def dimensions(image, resolution, area_only=False):
     if area_only:
         image = canonical_image(image)
         detail = f"Crop resolution: {resolution if resolution else 'native'}."
-        return f"Output stays **{image.width} × {image.height}**. {detail} Unpainted pixels are preserved."
+        return f"**Painted-area edit** · Output stays **{image.width} × {image.height}**. {detail} Unpainted pixels are preserved."
     width, height = reference_size(*image.size, resolution)
-    return f"Output: **{width} × {height}** · source: {image.width} × {image.height} · no crop"
-
-
-def sync_source(image):
-    return (gr.update(interactive=image is not None, value=False),
-            gr.update(visible=False), gr.update(visible=False), gr.update(visible=False))
-
-
-def toggle_area(enabled):
-    return tuple(gr.update(visible=enabled) for _ in range(3))
+    return f"**Whole-image edit** · Output: **{width} × {height}** · source: {image.width} × {image.height} · no crop"
 
 
 def run_canvas_edit(task_id, *args):
     *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
+    # Derive this from the submitted strokes, not an asynchronously updated UI
+    # flag. Painting, erasing, undo and the native clear button all work directly.
+    enabled = has_painted_area(foreground)
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
                     adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone)
@@ -171,9 +165,10 @@ def create_tab():
                 with gr.Column(scale=1, min_width=350):
                     mask_editor = EditCanvas()
                     source = mask_editor.background
-                    with gr.Row():
-                        area_only = gr.Checkbox(value=False, label="Paint an edit area", interactive=False, elem_id="qwen_edit_area_only")
-                        clear_mask = gr.Button("Clear painted area", size="sm", visible=False)
+                    # Derived, hidden transport value, never a user toggle.
+                    # Gradio 4 inserts State placeholders into JS submit inputs.
+                    area_only = gr.Checkbox(value=False, visible=False, interactive=False)
+                    gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
                     area_mode = gr.Dropdown(list(AREA_MODES), value=AREA_MODES[0], label="Painted-area mode", info="Replace hides the painted content from the model. Refine also sends the clean original for identity and detail.", visible=False, elem_id="qwen_edit_area_mode")
                     mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
                     size_label = gr.Markdown("Output follows the first image’s aspect ratio.")
@@ -234,15 +229,13 @@ def create_tab():
                 component.do_not_save_to_config = True
             for component in (steps, sampler, schedule, guidance, prefix_cache):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
-            source.change(sync_source, [source], [area_only, clear_mask, mask_help, area_mode], show_progress="hidden", api_name="qwen_edit_source_changed")
-            area_only.change(toggle_area, [area_only], [clear_mask, mask_help, area_mode], js="enabled => { qwenEditSetPainting(enabled); return [enabled]; }", show_progress="hidden")
-            clear_mask.click(lambda: None, outputs=[mask_editor.foreground], show_progress="hidden")
+            mask_editor.foreground.change(has_painted_area, [mask_editor.foreground], [area_only], show_progress="hidden", api_name=False)
             for component in (source, resolution, area_only):
                 component.change(dimensions, [source, resolution, area_only], [size_label], show_progress="hidden")
             for component in (family, area_only):
                 component.change(model_controls, [family, area_only, area_mode],
                     [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance],
-                    js="(family, enabled, mode) => { qwenEditSetModel(family); return [family, enabled, mode]; }",
+                    js="(family, enabled, mode) => { qwenEditSetModel(family); return [family, enabled, mode]; }" if component is family else None,
                     show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])
             reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed])

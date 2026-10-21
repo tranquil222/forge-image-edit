@@ -6,10 +6,35 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from forge_qwen_edit.masking import composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction
+from forge_qwen_edit.masking import composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, has_painted_area
 
 
 class MaskingTests(unittest.TestCase):
+    def test_automatic_scope_uses_only_painted_alpha(self):
+        self.assertFalse(has_painted_area(None))
+        empty = Image.new('RGBA', (16, 16), (128, 128, 128, 0))
+        self.assertFalse(has_painted_area(empty))
+        empty.putpixel((5, 5), (128, 128, 128, 255))
+        self.assertTrue(has_painted_area(empty))
+        empty.putpixel((5, 5), (128, 128, 128, 0))
+        self.assertFalse(has_painted_area(empty))
+        with self.assertRaisesRegex(ValueError, 'transparency'):
+            has_painted_area(empty.convert('RGB'))
+
+    def test_submitted_strokes_override_stale_scope_flag(self):
+        import ast
+        from types import SimpleNamespace
+        tree = ast.parse((Path(__file__).resolve().parents[1] / 'forge_qwen_edit/ui.py').read_text())
+        method = next(n for n in tree.body if getattr(n, 'name', '') == 'run_canvas_edit')
+        ns = dict(has_painted_area=has_painted_area, run_edit=lambda *args: args,
+            model_bar=SimpleNamespace(resolve_selection=lambda *a: (SimpleNamespace(name='checkpoint'), SimpleNamespace(label='Fibo'), 'encoder', 'vae')))
+        exec(compile(ast.Module(body=[method], type_ignores=[]), 'scope_dispatch', 'exec'), ns)
+        for old_flag, alpha, expected in ((False, 255, True), (True, 0, False)):
+            foreground = Image.new('RGBA', (16, 16), (128, 128, 128, alpha))
+            result = ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', [], 'Automatic', False,
+                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False)
+            self.assertEqual(result[15], expected)
+
     def setUp(self):
         rng = np.random.default_rng(7)
         self.pixels = rng.integers(0, 256, (380, 620, 4), dtype=np.uint8)
