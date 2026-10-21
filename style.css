@@ -30,6 +30,11 @@
 #qwen_edit_workspace .qe-prompt-tokens button:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
 #image_edit_download_data { display: none !important; }
 #image_edit_previews { align-items: flex-start; }
+#image_edit_settings_row { align-items: flex-start; }
+#image_edit_settings_row > .gradio-column { min-height: 0; }
+#qwen_edit_workspace .qe-main-accordion { flex-grow: 0; }
+#qwen_edit_workspace .qe-main-accordion > .label-wrap { justify-content: flex-start; gap: 9px; }
+#qwen_edit_workspace .qe-main-accordion > .label-wrap > .icon { order: -1; margin: 0; scale: -1 1; }
 #image_edit_generation_controls, #image_edit_canvas_settings, #image_edit_model_controls,
 #image_edit_result_column, #qwen_edit_result_container { justify-content: flex-start; }
 #image_edit_generation_controls > *, #image_edit_canvas_settings > *,
@@ -45,7 +50,7 @@
 #image_edit_canvas_run_help p, #qwen_edit_preset_summary p { font-size: 12px; line-height: 1.5; margin: 0; }
 #image_edit_output_settings { margin-top: 4px; }
 @media (max-width: 800px) {
-    #image_edit_previews { flex-direction: column; }
+    #image_edit_previews, #image_edit_settings_row { flex-direction: column; }
 }
 #image_edit_shift_hint p, #image_edit_rope_hint p { font-size: 12px; line-height: 1.5; margin: 0; opacity: .8; }
 #qwen_edit_resolution > .container { display: flex; flex-direction: column; }
@@ -61,7 +66,7 @@
 #image_edit_source_column > *, #image_edit_standard_controls > * { flex-grow: 0; }
 #image_edit_canvas_controls { display: none; gap: 8px; }
 #image_edit_source_column:has(#image_edit_canvas_enabled input:checked:not(:disabled)) #image_edit_canvas_controls { display: flex; }
-#image_edit_source_column:has(#image_edit_canvas_enabled input:checked:not(:disabled)) #image_edit_standard_controls { display: none; }
+#qwen_edit_workspace:has(#image_edit_canvas_enabled input:checked:not(:disabled)) #image_edit_standard_controls { display: none; }
 #image_edit_canvas_horizontal, #image_edit_canvas_vertical { gap: 16px; }
 #image_edit_canvas_reset { flex-grow: 0; align-self: flex-start; min-width: 110px; max-width: 140px; }
 #qwen_edit_workspace.qe-help-enabled :is(.qe-help-detail, #qwen_edit_preset_summary, #image_edit_camera_help, #image_edit_mask_help, #image_edit_shift_hint, #image_edit_rope_hint, #image_edit_output_hint) { display: none !important; }

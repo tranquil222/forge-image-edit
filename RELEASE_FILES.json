@@ -1,5 +1,5 @@
 {
-  "version": "0.5.19",
+  "version": "0.5.20",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 14058,
-      "sha256": "329b2b6234065fc2e101238efd429da8e7bf0175c50a40111027042f8355eba5"
+      "bytes": 14512,
+      "sha256": "eb74b31bd721f30c121673afec368329528b32aedca7e4d6fc150044bc69d879"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 29167,
-      "sha256": "c269a0a8ab8a80aeaae1864947686a8383aecd8b07a706d3e4143cc9b259761b"
+      "bytes": 29215,
+      "sha256": "b7c3522afd41c1f3e99caaa2e40c2b97ec7740b21a0e342684a340d98febc6be"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 45530,
-      "sha256": "a49b9c21cedb582187823775bff43eef34d11fd84883b55793f077a94f048962"
+      "bytes": 46764,
+      "sha256": "571d7fa25259b1c3ab5fb2abb90ec2011ad44d83825c7acaed2ded3b5a8c96b2"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "8eddacfc369b932800a4600cc2effad07ca592989682b7582f42fa86c44eb657"
+      "sha256": "942fd7279e45dd52174843959ee4c869a3fa9ceea49f319b3fd56da03532d606"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -163,8 +163,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 47048,
-      "sha256": "8088da5a06cb2760c616c9bc2587b8b0a3ab4d2af7d567b2e43a688fb345977b"
+      "bytes": 47596,
+      "sha256": "02f4fce947eafbf3262ec7011b3c26c30663cca4501a050bd0e195d4a6a990b3"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -263,8 +263,8 @@
     },
     {
       "path": "style.css",
-      "bytes": 15164,
-      "sha256": "8e738615b7ad0f8cc1e153d4ddff014077a297a462c03d00a7d376f24baeee9d"
+      "bytes": 15556,
+      "sha256": "d9b15d493d72bfeced216e109eeee7cd5ea10c168bc66ed460396eb2a7851f30"
     },
     {
       "path": "tests/curves.test.cjs",

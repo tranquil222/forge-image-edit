@@ -1,5 +1,5 @@
 {
-  "version": "0.5.19",
+  "version": "0.5.20",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -563,6 +563,15 @@
       "sizing": "One Resize to/Resize by section remains visible with Crop/outpaint on or off and Custom output size checked or unchecked. Editing a dimension/multiplier enables custom sizing. Browser checks verified full-canvas proportions: 1018-square source plus 1018 left edge becomes 2:1, 800 x 400 output; disabling canvas returns 400 x 400. Immediate submit uses current linked values; 0.5 sizes the entire canvas. No separate percentage dropdown.",
       "help": "Long help moved to ? buttons. Hover/focus/click display help; Escape dismisses it; help clicks do not toggle Crop/outpaint or Custom output size. Wide/narrow screenshots inspected.",
       "integration": "CPU production-path tests cover exact resized canvas inference/save dimensions, paint/seam compositing, extra references, RoPE, dispatch routing, and resize-only saves for shrink/enlarge with both Qwen and Fibo. No new GPU quality claim."
+    },
+    "collapsible_controls": {
+      "version": "0.5.20",
+      "scope": "Layout only; inference, default values and sizing behavior unchanged.",
+      "browser": "Edge at 1800px and 650px, empty and loaded source. Settings and Extras start collapsed with left-side arrows and share an aligned header row at wide widths. Narrow screens stack them without horizontal overflow. Prompt follows collapsed controls directly.",
+      "contents": "Settings contains Seed/Batch, Speed/quality, Resolution, dimensions and shared output sizing. Extras contains Edit mode, Shift and RoPE. Crop/outpaint and all edge controls remain outside both accordions.",
+      "interactions": "Keyboard Enter toggles Settings. Opening/closing both retains seed 12345, custom size, Shift 0.85 and RoPE. Outpaint remains operable when both are closed; 2:1 expanded canvas updates 500-square custom size to 1000x500. Generate stays immediately below source and does not move on expansion.",
+      "javascript_errors": "No Image Edit errors. Unrelated existing extension errors excluded.",
+      "checks": "Python compile and git diff whitespace check passed. No new inference tests needed for a reversible layout-only change; existing suites run in CI."
     }
   },
   "limitations": [

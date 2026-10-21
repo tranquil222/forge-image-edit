@@ -2,17 +2,17 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.19 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.20 beta**. No ComfyUI server or cloud image service.
 
 ## Main controls, Fibo Shift and RoPE
 
-Generate / Cancel sit directly below the source image on the left, followed by
-the Crop / outpaint toggle, Seed / Batch, and Speed / quality / Resolution.
-Crop/outpaint edge controls expand immediately under that toggle, above Seed / Batch.
-Output size stays below Quality / Resolution.
-Edit mode, Shift and RoPE are on the right, below the result/download controls.
-The columns flow independently, so the result controls do not leave a gap under
-the source. Expanding crop controls does not move Generate down. Sizing stays visible in either mode.
+Generate / Cancel sit directly below the source image, followed by **Crop / outpaint**.
+Its edge controls expand immediately beneath the toggle, outside the accordions.
+Below them, **Settings** (left) and **Extras** (right) share an aligned header row
+with arrows on the left. Both start collapsed so the prompts sit higher.
+Settings contains Seed / Batch, Speed / quality, Resolution and shared output sizing.
+Extras contains Edit mode, Shift and RoPE. Closing either section keeps its values.
+On narrow screens the sections stack. Expanding them does not move Generate down.
 
 Fibo has two independent experimental controls on the right:
 
@@ -39,8 +39,8 @@ Both controls are saved in the PNG recipe. Older PNGs restore Manual 1.15 and
 RoPE off. Qwen ignores these Fibo-only controls. Existing 4-step Turbo defaults
 and low-resolution behavior are unchanged unless you enable a control.
 
-One shared **Custom output size** section stays visible in whole-image and
-crop/outpaint modes, outside the crop/outpaint expansion. **Resize to** provides
+Inside **Settings**, one shared **Custom output size** section is available in
+whole-image and crop/outpaint modes, outside the crop/outpaint expansion. **Resize to** provides
 linked Width / Height sliders; **Resize by** scales both sides (0.5 halves them,
 2 doubles them). Changing a size enables the override; uncheck Custom output size
 to use Resolution again. Its controls remain visible when unchecked.

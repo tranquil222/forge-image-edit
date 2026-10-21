@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.20 beta
+
+- Group Seed / Batch, Speed / quality, Resolution and output sizing inside a
+  Settings accordion; group Edit mode, Shift and RoPE inside Extras.
+- Start both collapsed to bring the prompts higher. Align their headers in one
+  row with arrows on the left; stack them on narrow screens.
+- Keep Crop / outpaint and its expanding edge controls outside both sections.
+  Closing an accordion retains settings. No inference or sizing changes.
+
 ## 0.5.19 beta
 
 - Put Generate / Cancel directly below the source image on the left, followed by
