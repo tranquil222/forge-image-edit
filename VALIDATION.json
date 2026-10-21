@@ -1,5 +1,5 @@
 {
-  "version": "0.5.13",
+  "version": "0.5.14",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -434,6 +434,10 @@
       "method": "Edge browser against isolated Forge with CPU-only inference fixture for result reuse. No model behavior changed.",
       "checks": "One active reference editor, independent adjustments retained across switching/closing, clean source image comparison, source upload/replacement/clear, result reuse, outpaint-overlay exclusion and responsive wide/narrow layout passed. No browser errors. All 13 JavaScript tests passed; Python compilation passed.",
       "scope": "Read-only image_1 color comparison. The source is not modified, included again as an extra reference or filtered by reference curves. Existing full-resolution reference adjustment and generation settings remain unchanged."
+    },
+    "layout_0514": {
+      "method": "Headless Edge against isolated Forge, wide (1800px) and narrow (650px), with backend requests held during repeated checkbox toggles. No GPU inference or model behavior changes.",
+      "checks": "Crop/outpaint panels switch before server responses; toggle position and expanded panel height remain stable while pending and after completion. Markdown remains fully visible. Repeated on/off/on retains Expression transfer and restores its tip. Source replacement resets edges without unchecking; clearing disables the checkbox and hides controls. Compact heading and exact model filenames verified. No browser errors. Python compilation, 109 Python tests and 13 JavaScript tests passed."
     }
   },
   "limitations": [

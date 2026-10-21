@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.14 — beta
+
+- Switch Crop / outpaint controls immediately in the browser, keeping the toggle
+  above both sections. Preserve the selected edit mode and its tip while hidden.
+- Remove Gradio's temporary Markdown minimum height and fading in Image Edit,
+  which caused blank gaps and repeated layout jumps during feedback updates.
+- Shorten the heading to Image Edit. Show the exact selected checkpoint, encoder
+  and VAE filenames beside a compact matching-components button. Show required
+  component filenames when the selection is incomplete or incompatible.
+- Remove the unrelated Qwen texture-fix compatibility warning from Fibo's header.
+
 ## 0.5.13 — beta
 
 - Add a fallback tip to Expression transfer: describe the expression in words,

@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.10 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.14 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 

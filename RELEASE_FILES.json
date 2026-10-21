@@ -1,5 +1,5 @@
 {
-  "version": "0.5.13",
+  "version": "0.5.14",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 9459,
-      "sha256": "faf9f4ff39d88b3b2159cb32bff1f1140846e7df02bdbd9395376f18448addea"
+      "bytes": 10111,
+      "sha256": "31cde5f0ca02415ef1c35ae987b58a0693e5e3dcd682f6981c35dcd35408232a"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -49,12 +49,12 @@
     {
       "path": "README.md",
       "bytes": 26165,
-      "sha256": "6141ab02204c49a18df9ba0e3aec3197a1558a090edb39cf0215ce43857a29eb"
+      "sha256": "f92497e9fd65cb07817d4d832a1b52c7f5a1e69e1e428768dfd46cd7a153a7a0"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 35525,
-      "sha256": "f1ba79a27578fad47ea86e6a1dd587e02546bbb5c85f720271903ec9a2092b6e"
+      "bytes": 36256,
+      "sha256": "138c74f753dec38305301782bf485abc15ee0f56c3bac5b6f62c163e3d443901"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "5b12f8c05047d105c2d39e2d282c3cc84f91d3ba90279aace93d6350627b3e05"
+      "sha256": "dac09b85f8adba995d92abf12eb7ae9ab5f1acf56ce6f02a2d21933e5674639a"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -123,8 +123,8 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 14942,
-      "sha256": "38535dc8a06666c9e9b60a5d13ecad9c3702aa3ef6482211253c094ff9f90921"
+      "bytes": 14843,
+      "sha256": "19878ee9378f35fb4142f47bf4d17976ad64734eddaf5a424f1ac7e7ba89d238"
     },
     {
       "path": "forge_qwen_edit/native.py",
@@ -158,8 +158,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 39999,
-      "sha256": "88a15071bbc857e3438fe38e58520cede6aba89eabab6e806fa666ee0861a610"
+      "bytes": 40556,
+      "sha256": "f1c5d86b3029f3172de781cfdc36e38877b32adcd8cee13195c2815f45ef73ee"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -248,8 +248,8 @@
     },
     {
       "path": "style.css",
-      "bytes": 12453,
-      "sha256": "7340818a660756e0c74173c1d9e91a5e4865a5395b376a1558ed7688865e070e"
+      "bytes": 13410,
+      "sha256": "8b3bb589ede4e3cc716b6f3faa3b7d98159104331687529827057fea02f4a756"
     },
     {
       "path": "tests/curves.test.cjs",

@@ -1,8 +1,15 @@
 #qwen_edit_workspace { max-width: 1440px; margin: 0 auto; gap: 14px; }
-#qwen_edit_workspace .qe-heading { padding: 16px 0 4px; }
-#qwen_edit_workspace .qe-eyebrow { font-size: 11px; letter-spacing: .14em; opacity: .6; font-weight: 600; }
-#qwen_edit_workspace .qe-heading h2 { margin: 7px 0 4px; font-size: 30px; line-height: 1.15; }
-#qwen_edit_workspace .qe-heading p { opacity: .75; margin: 0; }
+/* Gradio adds a 96px minimum and dims Markdown while callbacks are pending,
+   even with show_progress="hidden". Keep existing text and layout stable. */
+#qwen_edit_workspace .gradio-markdown [data-testid="markdown"].min { min-height: 0; }
+#qwen_edit_workspace .gradio-markdown .pending { opacity: 1; transition: none; }
+#qwen_edit_workspace .qe-heading h2 { margin: 0; font-size: 24px; line-height: 1.2; }
+#image_edit_model_row { align-items: center; gap: 8px 16px; }
+#image_edit_model_status { flex: 1 1 600px; min-width: 0; }
+#image_edit_model_status p { margin: 0; font-size: 12px; line-height: 1.6; }
+#image_edit_model_status .qe-model-files { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+#image_edit_model_status .qe-model-files span { min-width: 0; overflow-wrap: anywhere; }
+#image_edit_correct_components { flex-grow: 0; min-height: 32px; }
 #qwen_edit_workspace #qwen_edit_generate { min-height: 48px; font-weight: 600; }
 #qwen_edit_workspace #qwen_edit_source,
 #qwen_edit_workspace #qwen_edit_result { border-radius: 10px; }
@@ -38,7 +45,11 @@
 #qwen_edit_source .forge-container { border-radius: 10px; }
 #qwen_edit_source .qe-outpaint-frame { position: absolute; background: #808080; outline: 2px solid #58cf92; pointer-events: none; }
 #qwen_edit_source .qe-outpaint-frame[hidden] { display: none; }
-#image_edit_canvas_controls { gap: 8px; }
+#image_edit_source_column { justify-content: flex-start; }
+#image_edit_source_column > *, #image_edit_standard_controls > * { flex-grow: 0; }
+#image_edit_canvas_controls { display: none; gap: 8px; }
+#image_edit_source_column:has(#image_edit_canvas_enabled input:checked:not(:disabled)) #image_edit_canvas_controls { display: flex; }
+#image_edit_source_column:has(#image_edit_canvas_enabled input:checked:not(:disabled)) #image_edit_standard_controls { display: none; }
 #image_edit_canvas_horizontal, #image_edit_canvas_vertical { gap: 16px; }
 #image_edit_canvas_reset { flex-grow: 0; align-self: flex-start; min-width: 110px; max-width: 140px; }
 #qwen_edit_lightbox { width: calc(100vw - 32px); height: calc(100vh - 32px); max-width: none; max-height: none; padding: 0; border: 1px solid #454851; border-radius: 10px; background: #111318; color: #e8eaf0; }

@@ -44,33 +44,35 @@ def ensure_backend(adapter):
         raise ValueError("Backend setup required. Fully close and relaunch Forge after installation. If this remains, see the setup guide.")
 
 
+def component_summary(checkpoint, encoder, vae):
+    files = zip(("Checkpoint", "Encoder", "VAE"), (checkpoint, encoder, vae))
+    return '<div class="qe-model-files">' + "".join(
+        f"<span><strong>{kind}:</strong> <code>{html.escape(basename(name))}</code></span>"
+        for kind, name in files) + '</div>'
+
+
 def selection_status(value, modules):
     try:
-        adapter = adapter_for_checkpoint(resolve_checkpoint(value))
+        checkpoint = resolve_checkpoint(value)
+        adapter = adapter_for_checkpoint(checkpoint)
     except ValueError:
         adapter = None
     if adapter is None:
-        return "Choose a **Qwen Image 2.1** or **Fibo 2.0** checkpoint in the top model bar.", gr.update(interactive=False)
+        return ("Choose a **Qwen Image 2.1** or **Fibo 2.0** checkpoint in the top model bar. "
+                "[Exact model files](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), gr.update(interactive=False)
     try:
         checkpoint, adapter, encoder, vae = resolve_selection(value, modules)
-        message = f"**{adapter.label} · ready to edit**"
-        if adapter.key == "qwen21":
-            if basename(vae).lower() == "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors":
-                message += "\n\nQwen texture-fix VAE selected. Reduces the decoder's fine grid; whole-image edits can still change texture."
-            else:
-                message += ("\n\nFor Qwen's fine checkerboard, use the optional "
-                            "[texture-fix VAE](https://huggingface.co/madebyollin/texture-fix-vae-for-qwen-image-2.1/blob/main/texture_fix_vae_for_qwen_image_2.1_bf16.safetensors). "
-                            "Put it in `models/VAE`, refresh, then select it **instead of** the stock VAE in the top **VAE / Text Encoder** field. Keep your Qwen3-VL 8B encoder.")
-        else:
-            message += "\n\nFibo uses `flux2-vae.safetensors`. Qwen's texture-fix VAE is not compatible."
+        message = component_summary(checkpoint.filename, encoder, vae)
+        if adapter.key == "qwen21" and basename(vae).lower() != "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors":
+            message += "\n\nFine checkerboard? [Optional Qwen texture-fix VAE](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md#qwen-21-texture-fix-vae)."
         return message, gr.update(interactive=True)
     except ValueError as error:
         if str(error).startswith("Backend setup required"):
             return ("**Backend setup required.** Fully close and relaunch Forge after installation. "
                     "[Setup guide](https://github.com/tranquil222/forge-image-edit/blob/main/COMPATIBILITY.md)."), gr.update(interactive=False)
-        requirements = " · ".join(f"{kind}: `{filename}`" for kind, filename in zip(("Encoder", "VAE"), adapter.defaults[1:]))
-        return ("**Choose matching components** or click **Use matching encoder / VAE**.\n\n" + requirements +
-                "\n\n[Model downloads](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)"), gr.update(interactive=False)
+        requirements = component_summary(checkpoint.filename, *adapter.defaults[1:])
+        return (requirements + "\n\n**Required files above.** Select the encoder and VAE in the top model bar, or use the matching-components button. "
+                "[Downloads](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), gr.update(interactive=False)
 
 
 def observe_checkpoint(value, modules, previous):
