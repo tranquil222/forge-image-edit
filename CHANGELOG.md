@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.13 — beta
+
+- Add a fallback tip to Expression transfer: describe the expression in words,
+  remove additional references, switch modes and paint the face. Include a short
+  example and an optional image-capable LLM suggestion. Name the fallback mode
+  for the current model and painted/unpainted state.
+- Clarify that Expression transfer adds prompt guidance; it does not enforce
+  expression-only use of the reference.
+
 ## 0.5.12 — beta
 
 - Add an Expression transfer edit preset: use the first additional reference only

@@ -108,6 +108,13 @@ person's identity, appearance, lighting and background. An optional edit instruc
 can specify the person or expression details. This is a prompting preset, not a
 trained identity lock; reference appearance can still leak into a global result.
 
+If the reference takes over, describe only the expression in words (or ask an
+image-capable LLM to describe it), remove the additional references, switch to
+**Standard**, and paint the face. Fibo then uses its normal masked edit; for Qwen,
+choose **Refine / expression** after painting. For example: "Pucker her lips into
+a small rounded kiss and narrow one eye slightly." The in-app tip names the
+appropriate fallback mode for the current model and painted/unpainted state.
+
 Paint the face to preserve pixels outside the selection. In this mode the model
 receives a clean source crop, not a grey-covered face, and the mask is used for the
 final feathered composite. The preset remains selected when painting is added or

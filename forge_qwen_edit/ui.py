@@ -25,7 +25,7 @@ from .prompt_metadata import original_prompts
 
 _active = False
 PAINT_KEYS = "**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size."
-EDIT_MODE_INFO = "Standard uses your instruction directly. Camera angle redraws the viewpoint. Expression transfer uses the first additional reference for facial expression only."
+EDIT_MODE_INFO = "Standard uses your instruction directly. Camera angle adds viewpoint guidance. Expression transfer adds expression-only guidance for the first additional reference."
 
 
 def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=False):
@@ -100,7 +100,13 @@ def dimensions(image, resolution, area_only=False, mode="Standard", canvas_enabl
     return f"**{scope}** · Output: **{width} × {height}** · source: {image.width} × {image.height} · source proportions preserved"
 
 
-def camera_help(mode, canvas_enabled=False):
+def camera_help(mode, canvas_enabled=False, family="", area_only=False):
+    if mode == "Expression transfer" and not canvas_enabled:
+        fallback = "Standard" if not area_only else "Fibo masked edit" if family.startswith("Fibo 2.0") else "Refine / expression"
+        return gr.update(visible=True, value=(
+            "**If the reference takes over:** Describe only the expression in words, or ask an image-capable LLM to describe it. "
+            f"Remove the additional references, switch to **{fallback}**, and paint the face to keep the rest unchanged.\n\n"
+            "**Example:** Pucker her lips into a small rounded kiss and narrow one eye slightly."))
     return gr.update(visible=mode == "Camera angle" and not canvas_enabled, value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. **Do NOT say ‘keep things the same’ or ‘keep everything unchanged’**—this can work against the new perspective. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
 
 
@@ -465,8 +471,8 @@ def create_tab():
             mask_editor.foreground.change(has_painted_area, [mask_editor.foreground], [area_only], show_progress="hidden", api_name=False)
             for component in (source, resolution, area_only, area_mode, canvas_enabled):
                 component.change(dimensions, [source, resolution, area_only, area_mode, canvas_enabled], [size_label], show_progress="hidden")
-            for component in (area_mode, canvas_enabled):
-                component.change(camera_help, [area_mode, canvas_enabled], [camera_note], show_progress="hidden")
+            for component in (area_mode, canvas_enabled, family, area_only):
+                component.change(camera_help, [area_mode, canvas_enabled, family, area_only], [camera_note], show_progress="hidden")
             for component in (family, area_only, canvas_enabled, area_mode):
                 event = component.input if component is area_mode else component.change
                 event(model_controls, [family, area_only, area_mode, canvas_enabled],
