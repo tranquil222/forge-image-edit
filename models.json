@@ -1,0 +1,102 @@
+{
+  "fibo2-turbo": {
+    "repository": "Comfy-Org/Fibo-2.0",
+    "revision": "41e6a0331eff43d5a323107197056e377288c642",
+    "model_card": "https://huggingface.co/Comfy-Org/Fibo-2.0",
+    "files": [
+      {
+        "source": "diffusion_models/fibo2_edit_turbo_int8_convrot.safetensors",
+        "kind": "checkpoint",
+        "bytes": 8408562474,
+        "sha256": "1f6fa7c499191f405467123f655f11762661eaa5bd479d1da8f161398ef72c3b"
+      },
+      {
+        "source": "text_encoders/qwen3vl_4b_int8_convrot.safetensors",
+        "kind": "encoder",
+        "bytes": 4858559240,
+        "sha256": "32de113cbf8282b02cbff0794b637b9d6676da09314a1db5a30bcea9bf4ee01c"
+      },
+      {
+        "source": "vae/flux2-vae.safetensors",
+        "kind": "vae",
+        "bytes": 336211292,
+        "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+      }
+    ]
+  },
+  "fibo2-dev": {
+    "repository": "Comfy-Org/Fibo-2.0",
+    "revision": "41e6a0331eff43d5a323107197056e377288c642",
+    "model_card": "https://huggingface.co/Comfy-Org/Fibo-2.0",
+    "files": [
+      {
+        "source": "diffusion_models/fibo2_dev_int8_convrot.safetensors",
+        "kind": "checkpoint",
+        "bytes": 8408562474,
+        "sha256": "063dd397395809fd22234c6bd32932cfcb22619f4d2282bdbf1dc58c406fe325"
+      },
+      {
+        "source": "text_encoders/qwen3vl_4b_int8_convrot.safetensors",
+        "kind": "encoder",
+        "bytes": 4858559240,
+        "sha256": "32de113cbf8282b02cbff0794b637b9d6676da09314a1db5a30bcea9bf4ee01c"
+      },
+      {
+        "source": "vae/flux2-vae.safetensors",
+        "kind": "vae",
+        "bytes": 336211292,
+        "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3"
+      }
+    ]
+  },
+  "qwen21": {
+    "repository": "Comfy-Org/Qwen-Image-2.1",
+    "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994",
+    "model_card": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1",
+    "files": [
+      {
+        "source": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+        "kind": "checkpoint",
+        "bytes": 7256783064,
+        "sha256": "cb74113cb03faecd79611b01fd7fd642f0aa60d6f0b95086abee214d75eaa57d"
+      },
+      {
+        "source": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+        "kind": "encoder",
+        "bytes": 9350798360,
+        "sha256": "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f"
+      },
+      {
+        "source": "vae/qwen_image_2.1_vae_bf16.safetensors",
+        "kind": "vae",
+        "bytes": 675509688,
+        "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+      }
+    ]
+  },
+  "qwen21-turbo": {
+    "repository": "Comfy-Org/Qwen-Image-2.1",
+    "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994",
+    "model_card": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1",
+    "files": [
+      {
+        "source": "diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors",
+        "kind": "checkpoint",
+        "bytes": 7256787829,
+        "sha256": "8144a0182964aa8403ad6dbc011db837304167d235161b9aabaa8532e967314c"
+      },
+      {
+        "source": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+        "kind": "encoder",
+        "bytes": 9350798360,
+        "sha256": "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f"
+      },
+      {
+        "source": "vae/qwen_image_2.1_vae_bf16.safetensors",
+        "kind": "vae",
+        "bytes": 675509688,
+        "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+      }
+    ]
+  }
+}

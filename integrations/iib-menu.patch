@@ -1,0 +1,54 @@
+--- a/vue/src/components/ContextMenu.vue
++++ b/vue/src/components/ContextMenu.vue
+@@ -47,6 +47,7 @@
+           <a-menu-item key="send2txt2img">{{ $t('sendToTxt2img') }}</a-menu-item>
+           <a-menu-item key="loadPP5Set">Load set in Prompt Permuter 5</a-menu-item>
+           <a-menu-item key="send2img2img">{{ $t('sendToImg2img') }}</a-menu-item>
++          <a-menu-item key="send2qwenedit">Send to Image Edit</a-menu-item>
+           <a-menu-item key="send2inpaint">{{ $t('sendToInpaint') }}</a-menu-item>
+           <a-menu-item key="send2extras">{{ $t('sendToExtraFeatures') }}</a-menu-item>
+           <a-sub-menu key="sendToThirdPartyExtension" :title="$t('sendToThirdPartyExtension')">
+--- a/vue/src/page/fileTransfer/fullScreenContextMenu.vue
++++ b/vue/src/page/fileTransfer/fullScreenContextMenu.vue
+@@ -552,6 +552,7 @@
+                   <a-menu-item key="send2txt2img">{{ $t('sendToTxt2img') }}</a-menu-item>
+                   <a-menu-item key="loadPP5Set">Load set in Prompt Permuter 5</a-menu-item>
+                   <a-menu-item key="send2img2img">{{ $t('sendToImg2img') }}</a-menu-item>
++                  <a-menu-item key="send2qwenedit">Send to Image Edit</a-menu-item>
+                   <a-menu-item key="send2inpaint">{{ $t('sendToInpaint') }}</a-menu-item>
+                   <a-menu-item key="send2extras">{{ $t('sendToExtraFeatures') }}</a-menu-item>
+                   <a-sub-menu key="sendToThirdPartyExtension" :title="$t('sendToThirdPartyExtension')">
+--- a/vue/src/page/fileTransfer/hooks/useFileItemActions.tsx
++++ b/vue/src/page/fileTransfer/hooks/useFileItemActions.tsx
+@@ -343,6 +343,23 @@
+         return copyImgTo('txt2img')
+       case 'send2img2img':
+         return copyImgTo('img2img')
++      case 'send2qwenedit': {
++        if (spinning.value) return
++        if (!isImageFile(file.name)) return message.error('Select an image to send to Image Edit.')
++        spinning.value = true
++        try {
++          if (typeof parent.qwenEditLoadImage !== 'function') {
++            throw new Error('Image Edit is not available. Enable the extension and refresh the Forge page.')
++          }
++          await parent.qwenEditLoadImage(toRawFileUrl(file), file.name)
++          closeImageFullscreenPreview()
++        } catch (error: any) {
++          message.error(error.message || 'Could not send this image to Image Edit.', 6)
++        } finally {
++          spinning.value = false
++        }
++        return
++      }
+       case 'send2inpaint':
+         return copyImgTo('inpaint')
+       case 'send2extras':
+--- a/vue/env.d.ts
++++ b/vue/env.d.ts
+@@ -5,4 +5,5 @@
+ 
+ interface Window {
+   IIB_container_id?: string
+-}+  qwenEditLoadImage?: (url: string, filename?: string) => Promise<void>
++}

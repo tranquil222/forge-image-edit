@@ -1,0 +1,99 @@
+{
+  "version": "0.4.0",
+  "status": "tested beta",
+  "date": "2026-10-20",
+  "environment": {
+    "os": "Windows",
+    "python": "3.13.1",
+    "gpu": "NVIDIA RTX 3090 24 GB",
+    "torch": "2.10.0+cu130",
+    "gradio": "4.40.0",
+    "transformers": "4.57.6",
+    "diffusers": "0.37.1",
+    "pillow": "12.3.0"
+  },
+  "checks": {
+    "extension_python_tests": 35,
+    "javascript_tests": 5,
+    "fibo_backend_cpu_tests": 7,
+    "qwen_backend_cpu_tests": 20,
+    "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
+    "clean_install_gpu_edits": {
+      "turbo": {
+        "model_family": "Fibo 2.0 Edit Turbo",
+        "steps": 4,
+        "cfg": 1.0,
+        "resolution": 768,
+        "seed": "42",
+        "total_seconds_including_load": 27.74,
+        "visually_checked": "requested red-to-blue hat change present",
+        "clean_public_base": true
+      },
+      "dev": {
+        "model_family": "Fibo 2.0 Dev",
+        "steps": 50,
+        "cfg": 5.0,
+        "resolution": 768,
+        "seed": "42",
+        "total_seconds_including_load": 111.02,
+        "visually_checked": "requested red-to-blue hat change present",
+        "clean_public_base": true
+      },
+      "qwen": {
+        "model_family": "Qwen Image 2.1",
+        "steps": 8,
+        "cfg": 1.0,
+        "resolution": 512,
+        "seed": "42",
+        "total_seconds_including_load": 26.79,
+        "visually_checked": "requested red-to-blue hat change present",
+        "clean_public_base": true
+      }
+    },
+    "painted_edit": "Live Fibo Turbo neutral-grey mask; original dimensions and exact outside-mask RGBA preservation verified. Painted hat region changed from red to blue.",
+    "metadata": "Original text preservation, numbered history, latest recipe import, IIB handoff API, binary PNG metadata roundtrip, preservation-off and native img2img save integration passed.",
+    "model_bar": "Generation event reads native checkpoint, modules and dtype components directly. Wrong components rejected; matching installed components and UI preset correction verified.",
+    "ci": "See the GitHub Actions checks for this revision: https://github.com/tranquil222/forge-image-edit/actions",
+    "current_public_base": {
+      "commit": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+      "torch": "2.14.0+cu130",
+      "backend_files": 18,
+      "setup": "Verified patch applied to an isolated clone; startup passed using the current Forge Python environment. User clean installation was left unchanged.",
+      "gpu_edits": [
+        {
+          "name": "fibo2-turbo",
+          "steps": 4,
+          "cfg": 1,
+          "resolution": 768,
+          "visually_checked": "Requested red-to-blue hat change present"
+        },
+        {
+          "name": "qwen21-turbo",
+          "steps": 8,
+          "cfg": 1,
+          "resolution": 512,
+          "visually_checked": "Requested red-to-blue hat change present"
+        },
+        {
+          "name": "fibo2-dev",
+          "steps": 50,
+          "cfg": 5,
+          "resolution": 768,
+          "visually_checked": "Requested red-to-blue hat change present"
+        }
+      ]
+    },
+    "url_installer": "Checks affected-file signatures before applying a backed-up patch. Unsupported builds install the tab without failing Forge; existing compatible backends are not replaced."
+  },
+  "limitations": [
+    "Not tested on Linux, macOS, AMD or other GPUs; CI definitions do not imply those runs passed.",
+    "Clean checkout used the same installed Python environment, not a fresh dependency installation.",
+    "Native browser automation was unavailable; UI wiring was checked through Gradio configuration/API and JavaScript unit tests, not an end-to-end browser session.",
+    "IIB menu patch is optional and revision-dependent. Image Edit does not automatically modify another extension.",
+    "Full numerical parity with upstream ComfyUI/diffusers is not established.",
+    "Only supported named architectures and compatible components are validated; arbitrary edit checkpoints are not supported.",
+    "No universal image-editing quality guarantee; Turbo extra steps are experimental.",
+    "CFG 1 models ignore negative prompts; Dev uses text-only unconditional conditioning.",
+    "Model weights and their licenses are separate; no weights, example images or private settings are in this release."
+  ]
+}

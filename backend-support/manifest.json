@@ -1,0 +1,148 @@
+{
+  "base_commit": "41359cd4b8b89212b3dbad8c9af719160a12ed63",
+  "base_repository": "https://github.com/Haoming02/sd-webui-forge-classic",
+  "patch": "image-edit-backend.patch",
+  "patch_sha256": "127b7ecdcdae2dfba7ca466e95c01f820c1e54e8530e638085ca724f495b7ecd",
+  "files": [
+    {
+      "path": "backend/args.py",
+      "before_sha256": "0955570765832de766b38a67229e0baa580580d535fc00ef6f701f2734d71cfc",
+      "after_sha256": "d37500d14da5d8ee1ae88f659311a80b1204ba2e2a7359987347a9598906f329"
+    },
+    {
+      "path": "backend/diffusion_engine/base.py",
+      "before_sha256": "79dde3b36cfad347c2843c2ab50f68e0388c735cc5211460ff7e2fd3feaa1569",
+      "after_sha256": "8b7dd8a5ea9eebabeff572ae4b83a21d8157fca8d89e85e63a292b9025148d3b"
+    },
+    {
+      "path": "backend/diffusion_engine/fibo2.py",
+      "before_sha256": null,
+      "after_sha256": "1a9160a335acffe9d985aded556813d0341f06a0e8723a6d57bad0e5a74ecf3a"
+    },
+    {
+      "path": "backend/diffusion_engine/qwen21.py",
+      "before_sha256": null,
+      "after_sha256": "9a1ca259fcf35470243ce61dcba34be9bb38136817c1ea767b2441877a5fed3e"
+    },
+    {
+      "path": "backend/diffusion_engine/wan.py",
+      "before_sha256": "12a57eb1ff4d7c2e504296d7c0234641c485d204a4d9186746de7198dd7becb2",
+      "after_sha256": "89346e7dd3b57cc6ad31b6f4d58b5a6f846db7605dd659a3b28adbe72e6255b1"
+    },
+    {
+      "path": "backend/huggingface/Qwen/Qwen-Image-2.1/model_index.json",
+      "before_sha256": null,
+      "after_sha256": "91a56a5124f2c5cc257d39b90f86ce18f6554b7a1d044b0fb0473a7dcc79f28a"
+    },
+    {
+      "path": "backend/huggingface/Qwen/Qwen-Image-2.1/scheduler/scheduler_config.json",
+      "before_sha256": null,
+      "after_sha256": "645253127e5c418a5bb4fe6c037a70b862fb43a4112cf46f1b35ec1e243bc1c9"
+    },
+    {
+      "path": "backend/huggingface/Qwen/Qwen-Image-2.1/text_encoder/config.json",
+      "before_sha256": null,
+      "after_sha256": "74c2f7d3bf0af59da87b3df2e0378781b8701f47573f711f5b805dbe90c1b2f8"
+    },
+    {
+      "path": "backend/huggingface/Qwen/Qwen-Image-2.1/transformer/config.json",
+      "before_sha256": null,
+      "after_sha256": "488c56097ad715941490ad3e6194fe88a37b6110f41ad121ae7d228cc2c7e329"
+    },
+    {
+      "path": "backend/huggingface/Qwen/Qwen-Image-2.1/vae/config.json",
+      "before_sha256": null,
+      "after_sha256": "a8b30e2819ad36eb99a4f8ba1c2baad49e6aae0534ea279bc877c2956e71497a"
+    },
+    {
+      "path": "backend/huggingface/briaai/Fibo-2.0-edit-turbo/model_index.json",
+      "before_sha256": null,
+      "after_sha256": "275c195dd29fc72440aa127d93fcae86c3f39bfffa1d40bc6b049d20837f1946"
+    },
+    {
+      "path": "backend/huggingface/briaai/Fibo-2.0-edit-turbo/text_encoder/config.json",
+      "before_sha256": null,
+      "after_sha256": "1a1006851200920f53ab7e17ca14a8b3d1b91075dfbbff493307ba894cab0abb"
+    },
+    {
+      "path": "backend/huggingface/briaai/Fibo-2.0-edit-turbo/vae/config.json",
+      "before_sha256": null,
+      "after_sha256": "0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948"
+    },
+    {
+      "path": "backend/loader.py",
+      "before_sha256": "e140910f24cb015802598751767b9dbbf723cf5726e7f6559ddcc99e4a59e51b",
+      "after_sha256": "a18dae5ba92fe2d037d9be165d77386d54b7c3ba58228b2e11e1d1c0b26834e7"
+    },
+    {
+      "path": "backend/nn/fibo2.py",
+      "before_sha256": null,
+      "after_sha256": "ffd15693454855129e07cf7cbe710ba6cf81015b722744792a28f5ddd6447d03"
+    },
+    {
+      "path": "backend/nn/llm/llama.py",
+      "before_sha256": "512350cf40ca658dc21a4dc83efda4d1a5e641702c3bac1be13d1c934abeb1e8",
+      "after_sha256": "70fbc3374d79793c64f8aa07a34b6240c0a58e52414c42a118d7fed185f89875"
+    },
+    {
+      "path": "backend/nn/qwen21.py",
+      "before_sha256": null,
+      "after_sha256": "578b7a8f2881aa0fd09ab30e7f91c382263f8c12b9a69d8ca63b86158f6955c0"
+    },
+    {
+      "path": "backend/nn/wan_vae_22.py",
+      "before_sha256": null,
+      "after_sha256": "d5938b756ea3180a5fb17c07ea05cd98a2c1a4fa328613fd7a5fcae33d8d0d1a"
+    },
+    {
+      "path": "backend/patcher/vae.py",
+      "before_sha256": "16b8dfa4778b341e23bc1ff87c607d95b69ccd32f96f17b0bbc118037596abc4",
+      "after_sha256": "3bc5ec790d2aaec8d2243c2b810571508412c51897c5df1fb7009fbc0d7473a5"
+    },
+    {
+      "path": "backend/sampling/condition.py",
+      "before_sha256": "2af585f8eb82456e17eed9be8558355d5c015d630b278c545b3712b2db8f6feb",
+      "after_sha256": "478b34d8933ed2c045591763558f1a69ecd6db7c810a34f73c179c10e46f389f"
+    },
+    {
+      "path": "backend/text_processing/fibo2_engine.py",
+      "before_sha256": null,
+      "after_sha256": "7be442790b1f261d6e5e1dfbbb38df7498b30a3c1363673d89dffcfcc99fac48"
+    },
+    {
+      "path": "backend/text_processing/qwen21_engine.py",
+      "before_sha256": null,
+      "after_sha256": "5001fe345b010cc54138bd393ea8f5348d8d4077c12c51d544a9b1f91f762693"
+    },
+    {
+      "path": "modules/processing.py",
+      "before_sha256": "22d992b6eae72ff8da55753d7526a0745a47bc3804c5e007db6de5524c9d4a43",
+      "after_sha256": "31a7633f932bb9261fe62ccfb0df7514f2dce082a4f5d79be521ad0a126d960a"
+    },
+    {
+      "path": "modules_forge/main_entry.py",
+      "before_sha256": "5ee7268c84d4586d1147a6e69108e83cbae970e93fd3cd28962003bdd37f0cf6",
+      "after_sha256": "b6b00b7ad0a6062115de086ff977965000bf063fb3481a2c19482cae738e968e"
+    },
+    {
+      "path": "modules_forge/packages/huggingface_guess/detection.py",
+      "before_sha256": "aa3b76f8a61835f381e2697099662e8ca518100bd705b0e0159a00138182fcbe",
+      "after_sha256": "7d1e60cbac832b2ab08543007efe4b51743d5f7222db3239a7d81e391a82ac20"
+    },
+    {
+      "path": "modules_forge/packages/huggingface_guess/latent.py",
+      "before_sha256": "ffb3c2111626199b2cf2af6539ba54736ca46dbaf94c97784717dbd7d7479fb7",
+      "after_sha256": "c0e804b1f1df9ee626b1dda2f20a1b4725db3b35cef8179f11eb22d6e4c492b4"
+    },
+    {
+      "path": "modules_forge/packages/huggingface_guess/model_list.py",
+      "before_sha256": "0f653fa84c8ea6ce21b25503d1f3b908bf775436ea96ae5c5c03dea665ee9ed9",
+      "after_sha256": "caf03e75dd9f9d93235eb0cb4da7f6c5c243f3011ef9fdb74f84974bf6bab69d"
+    },
+    {
+      "path": "modules_forge/presets.py",
+      "before_sha256": "1254bdefb2a16d539bd6ddedd55598363c60e32f2597c37b50dbf3f0e7a38822",
+      "after_sha256": "52561cc36c8ad1ae80fd2621c4fdcb8a23f42b309210f37e406c785d92ad1f6a"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible Image Edit problem
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Forge revision and Image Edit version
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: OS, GPU and VRAM
+  - type: textarea
+    id: components
+    attributes:
+      label: Checkpoint, encoder and VAE filenames
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, settings, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant error message
+      description: Remove credentials and personal paths before posting logs.

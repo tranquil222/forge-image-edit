@@ -1,0 +1,227 @@
+"""Dedicated editing tab. Import the GPU backend only when a job is requested."""
+
+import html
+from pathlib import Path
+from types import SimpleNamespace
+from PIL import Image
+
+import gradio as gr
+import torch
+
+from modules import script_callbacks, sd_schedulers, shared
+from modules_forge import main_entry, main_thread
+
+from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_size
+from .masking import AREA_MODES, canonical_image
+from .canvas import EditCanvas, MetadataImage
+from . import model_bar
+from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
+
+
+_active = False
+PAINT_KEYS = "**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size."
+
+
+def model_controls(family, area_only=False, mode=AREA_MODES[0]):
+    fibo = family in EDIT_MODELS and get_adapter(family).key == "fibo2"
+    dev = family in EDIT_MODELS and get_adapter(family).guidance > 1
+    reference_help = ("Optional. Refer to the source as `<image_1>`, then `<image_2>` and `<image_3>`. "
+                      "Fibo masked editing uses only the source; additional references are not used while painting is enabled."
+                      if fibo else "Optional. Refer to the source as **image 1**, then **image 2** and **image 3**. More references use more memory.")
+    help_text = ("Paint the entire object and a small border. Fibo receives an **opaque neutral-grey region**, not the green brush overlay. "
+                 "Describe what should replace it. Pixels outside the painted area are preserved by compositing."
+                 if fibo else "Paint the whole object and a small border, then describe what should replace it. "
+                 "**Green-replacement instructions are added automatically.** Unpainted pixels stay unchanged. For expressions, choose Refine / expression.")
+    modes = ["Fibo masked edit"] if fibo else list(AREA_MODES)
+    selected = modes[0] if mode not in modes else mode
+    return (gr.update(visible=fibo), reference_help,
+            gr.update(interactive=not (fibo and area_only)), gr.update(interactive=not (fibo and area_only)),
+            gr.update(choices=modes, value=selected, interactive=not fibo, visible=area_only,
+                      info="Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original."),
+            gr.update(value=PAINT_KEYS + "\n\n" + help_text, visible=area_only),
+            gr.update(info="Dev: 50 steps is the official starting point; 30 is a faster preview." if dev else "Turbo is trained for 4 steps. Other counts are experimental, not higher-quality presets." if fibo else "Number of sampling steps."),
+            gr.update(info="1024 is closest to Fibo's roughly 1 MP training size. Smaller values are faster. Painted edits preserve the original canvas size; 0 uses native size." if fibo else "Independent of quality. In painted mode this controls crop detail. 0 uses native size."),
+            gr.update(interactive=area_only),
+            gr.update(interactive=dev, label="Negative prompt" if dev else "Negative prompt (inactive at CFG 1)",
+                      info="Dev uses a trained null caption when empty. Negative conditioning is text-only." if dev else "Not used at CFG 1. Express exclusions in the edit instruction."),
+            gr.update(interactive=dev, info="Dev default: 5." if dev else "Fixed at 1 for this editing model."))
+
+
+def cyberzit_quality(n, sigma_min, sigma_max, device, **kwargs):
+    return torch.tensor(cyberzit_quality_values(n), dtype=torch.float32, device=device)
+
+
+def official_turbo(n, sigma_min, sigma_max, device, **kwargs):
+    grid = [1.0, .978453, .95418, .926626, .89508, .845148, .704534, .414568, 0.0]
+    positions = torch.linspace(0, 8, n + 1, dtype=torch.float64)
+    lower = positions.floor().long().clamp(max=7)
+    weights = positions - lower
+    values = torch.tensor(grid, dtype=torch.float64)
+    return (values[lower] * (1 - weights) + values[lower + 1] * weights).to(device=device, dtype=torch.float32)
+
+
+def register_schedule():
+    for name, label, function in (("qwen_edit_cyberzit_quality", SCHEDULES[0], cyberzit_quality), ("qwen21_turbo", SCHEDULES[2], official_turbo)):
+        if label not in sd_schedulers.schedulers_map:
+            scheduler = sd_schedulers.Scheduler(name, label, function)
+            sd_schedulers.schedulers.append(scheduler)
+            sd_schedulers.schedulers_map[scheduler.name] = scheduler
+            sd_schedulers.schedulers_map[scheduler.label] = scheduler
+
+
+def dimensions(image, resolution, area_only=False):
+    if image is None:
+        return "Output follows the first image’s aspect ratio."
+    if area_only:
+        image = canonical_image(image)
+        detail = f"Crop resolution: {resolution if resolution else 'native'}."
+        return f"Output stays **{image.width} × {image.height}**. {detail} Unpainted pixels are preserved."
+    width, height = reference_size(*image.size, resolution)
+    return f"Output: **{width} × {height}** · source: {image.width} × {image.height} · no crop"
+
+
+def sync_source(image):
+    return (gr.update(interactive=image is not None, value=False),
+            gr.update(visible=False), gr.update(visible=False), gr.update(visible=False))
+
+
+def toggle_area(enabled):
+    return tuple(gr.update(visible=enabled) for _ in range(3))
+
+
+def run_canvas_edit(task_id, *args):
+    *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance = args
+    checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
+    editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
+    return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
+                    adapter.label, result_description, keep_metadata, dtype, guidance)
+
+
+def custom_settings(family=DEFAULT_FAMILY):
+    if family == "Fibo 2.0 Dev":
+        return "Custom", "**Fibo Dev custom settings.** The official starting point is 50 steps and CFG 5."
+    return "Custom", ("**Fibo custom settings.** Four steps are recommended for Turbo; more steps are not a guaranteed quality improvement."
+                      if family in EDIT_MODELS and get_adapter(family).key == "fibo2" else "Custom sampling settings. Quality presets leave resolution unchanged.")
+
+
+def run_edit(task_id, *args):
+    global _active
+    from .native import generate
+    _active = True
+    try:
+        result = main_thread.run_and_wait_result(generate, *args)
+        if result is None:
+            raise RuntimeError(main_thread.last_exception or "The edit did not complete. See the Forge console.")
+        output, path, seed, message = result
+        return output, path, seed, f"<p>{html.escape(message)}</p>"
+    finally:
+        _active = False
+
+
+def cancel_edit():
+    if _active:
+        shared.state.interrupt()
+
+
+def reuse_result(image, saved_path=None):
+    if image is None:
+        raise gr.Error("Generate an edit before using its result as the source.")
+    if saved_path and Path(saved_path).is_file():
+        with Image.open(saved_path) as saved:
+            return saved.copy()
+    return image
+
+
+def create_tab():
+    main_entry.refresh_models()
+    model_bar.bar.clear()
+    model_bar.bound = False
+    model_bar.workspace = None
+    with gr.Blocks(analytics_enabled=False) as tab:
+        with gr.Column(elem_id="qwen_edit_workspace"):
+            gr.HTML('<div class="qe-heading"><div class="qe-eyebrow">FORGE NEO / IMAGE EDITING</div><h2>Image Edit</h2><p>Describe a change. Keep the rest.</p></div>')
+            family = gr.Textbox(value="", visible=False, elem_id="image_edit_model")
+            selection_signature = gr.State("")
+            backend_label = gr.Markdown("Select your edit checkpoint in Forge's top model bar.")
+            correct_components = gr.Button("Use matching encoder / VAE", size="sm", elem_id="image_edit_correct_components")
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1, min_width=350):
+                    mask_editor = EditCanvas()
+                    source = mask_editor.background
+                    with gr.Row():
+                        area_only = gr.Checkbox(value=False, label="Paint an edit area", interactive=False, elem_id="qwen_edit_area_only")
+                        clear_mask = gr.Button("Clear painted area", size="sm", visible=False)
+                    area_mode = gr.Dropdown(list(AREA_MODES), value=AREA_MODES[0], label="Painted-area mode", info="Replace hides the painted content from the model. Refine also sends the clean original for identity and detail.", visible=False, elem_id="qwen_edit_area_mode")
+                    mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
+                    size_label = gr.Markdown("Output follows the first image’s aspect ratio.")
+                with gr.Column(scale=1, min_width=350, elem_id="qwen_edit_result_container"):
+                    result = gr.Image(label="Edited result · click to enlarge", type="pil", image_mode="RGBA", format="png", interactive=False, height=420, elem_id="qwen_edit_result")
+                    with gr.Row(elem_id="qwen_edit_result_actions"):
+                        reuse = gr.Button("Use result as source", size="sm")
+                        download = gr.File(label="Download PNG with recipe", interactive=False, height=72, elem_id="qwen_edit_download")
+            instruction = gr.Textbox(label="Edit instruction", placeholder="Remove the stray object and reconstruct the background. Or: give this person a subtle, natural smile while keeping their identity.", lines=3, elem_id="qwen_edit_instruction")
+            result_description = gr.Textbox(label="Describe the finished image (optional, Fibo)",
+                placeholder="Example: The woman remains beside an empty bed with an uninterrupted green bedspread and white pillows.",
+                info="Describe the result you want, not the original. Fibo receives this as a structured result caption alongside your instruction. Leave blank for a plain edit. No cloud service is used.",
+                value="", lines=3, visible=False, elem_id="fibo_edit_result_description")
+            with gr.Row():
+                profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
+                resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
+            profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
+            with gr.Row():
+                generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
+                cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
+            status = gr.HTML(elem_id="qwen_edit_status")
+            with gr.Accordion("Additional reference images", open=False):
+                reference_help = gr.Markdown("Optional. Refer to the source as **image 1**, then **image 2** and **image 3** in your instruction. More references use more memory.")
+                with gr.Row():
+                    reference2 = gr.Image(label="Image 2", type="pil", image_mode="RGBA", height=240)
+                    reference3 = gr.Image(label="Image 3", type="pil", image_mode="RGBA", height=240)
+            with gr.Accordion("Sampling settings", open=False):
+                feather = gr.Slider(0, 64, value=8, step=1, label="Painted edge blending", interactive=False, info="Only used with a painted area. Softens its inside edge; pixels outside the painting stay untouched.")
+                with gr.Row():
+                    seed = gr.Textbox(value="-1", label="Seed", info="-1 stays random for every edit.", elem_id="qwen_edit_seed")
+                    last_seed = gr.Textbox(value="", label="Last seed", interactive=False, elem_id="qwen_edit_last_seed")
+                    reuse_seed = gr.Button("Reuse last seed", size="sm")
+                with gr.Row():
+                    steps = gr.Slider(1, 150, value=12, step=1, label="Steps")
+                    sampler = gr.Dropdown(["Res Multistep", "Euler"], value="Res Multistep", label="Sampler")
+                    schedule = gr.Dropdown(list(SCHEDULES), value=SCHEDULES[0], label="Schedule")
+                    guidance = gr.Slider(1, 15, value=1, step=0.1, label="CFG", interactive=False)
+                prefix_cache = gr.Checkbox(value=True, label="Cache reference attention between steps", info="Turn off to reduce cache memory or troubleshoot an edit.")
+                negative = gr.Textbox(value="", label="Negative prompt (inactive at CFG 1)", interactive=False, lines=1, info="Not used by these CFG 1 editing modes. Express exclusions in the edit instruction.")
+            keep_metadata = gr.Checkbox(value=True, label="Keep original metadata", elem_id="image_edit_keep_metadata",
+                info="Retain the source metadata and append an Image Edit section and recipe. Turn off to save only the new edit metadata. Forge's global metadata setting still applies.")
+            with gr.Accordion("Import settings from a generated PNG", open=False):
+                gr.Markdown("Reads a PNG made by Image Edit, older Qwen Edit recipes, or a simple Qwen 2.1 Comfy workflow. Upload the original source image separately.")
+                recipe_file = gr.File(file_types=[".png"], type="filepath", label="Generated PNG")
+                import_button = gr.Button("Import recipe", size="sm")
+                import_status = gr.Markdown()
+            handoff = MetadataImage(visible=False, numpy=False, elem_id="image_edit_handoff")
+            task_id = gr.Textbox(visible=False)
+            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather):
+                component.do_not_save_to_config = True
+            for component in (steps, sampler, schedule, guidance, prefix_cache):
+                component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
+            source.change(sync_source, [source], [area_only, clear_mask, mask_help, area_mode], show_progress="hidden", api_name="qwen_edit_source_changed")
+            area_only.change(toggle_area, [area_only], [clear_mask, mask_help, area_mode], js="enabled => { qwenEditSetPainting(enabled); return [enabled]; }", show_progress="hidden")
+            clear_mask.click(lambda: None, outputs=[mask_editor.foreground], show_progress="hidden")
+            for component in (source, resolution, area_only):
+                component.change(dimensions, [source, resolution, area_only], [size_label], show_progress="hidden")
+            for component in (family, area_only):
+                component.change(model_controls, [family, area_only, area_mode],
+                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance],
+                    js="(family, enabled, mode) => { qwenEditSetModel(family); return [family, enabled, mode]; }",
+                    show_progress="hidden", api_name="image_edit_controls" if component is family else False)
+            reuse.click(reuse_result, [result, download], [source])
+            reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed])
+            cancel.click(cancel_edit, queue=False)
+    model_bar.workspace = SimpleNamespace(**locals())
+    # Retain the tab ID for existing canvas and image-browser handoffs.
+    return [(tab, "Image Edit", "qwen_edit")]
+
+
+def register():
+    register_schedule()
+    script_callbacks.on_ui_tabs(create_tab)
+    script_callbacks.on_after_component(model_bar.after_component)

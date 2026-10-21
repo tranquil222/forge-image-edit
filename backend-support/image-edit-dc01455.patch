@@ -1,0 +1,1876 @@
+diff --git a/backend/args.py b/backend/args.py
+index f8601f0..0a46f85 100644
+--- a/backend/args.py
++++ b/backend/args.py
+@@ -159,6 +159,10 @@ class dynamic_args(metaclass=_DynamicArgsMeta):
+     """Qwen-Image-Edit"""
+     qwen21: bool = False
+     """Qwen-Image-2.1"""
++    fibo2: bool = False
++    """Fibo 2.0 generation/editing"""
++    qwen21_auto_shift: bool = True
++    qwen21_prefix_cache: bool = True
+     nunchaku: bool = False
+     """Nunchaku (SVDQ) Models"""
+     klein: bool = False
+@@ -179,7 +183,7 @@ class dynamic_args(metaclass=_DynamicArgsMeta):
+     """lq_latent & degrade_sigma for PiD"""
+     context_handler: "IndexListContextHandler" = None
+     """Context Handler for PiD"""
+-    image_slots: list[int] = None
++    image_slots: list[int] = []
+     """Image Slots for Qwen-Image-2.1"""
+     is_referencing: bool = False
+     """Appending Reference Latent(s) (by. ImageStitch)"""
+@@ -199,8 +203,10 @@ class dynamic_args(metaclass=_DynamicArgsMeta):
+         cls.concat_latent = None
+         cls.lq_latent = [None, None]
+         cls.context_handler = None
+-        cls.image_slots = None
++        cls.image_slots = []
++        cls.qwen21_auto_shift = True
++        cls.qwen21_prefix_cache = True
+ 
+     @classmethod
+     def can_reference(cls) -> bool:
+-        return any(getattr(cls, key) for key in ("kontext", "edit", "qwen21", "klein", "wan", "anima", "krea2"))
++        return any(getattr(cls, key) for key in ("kontext", "edit", "qwen21", "fibo2", "klein", "wan", "anima", "krea2"))
+diff --git a/backend/diffusion_engine/base.py b/backend/diffusion_engine/base.py
+index 46aac37..775a4a2 100644
+--- a/backend/diffusion_engine/base.py
++++ b/backend/diffusion_engine/base.py
+@@ -119,6 +119,7 @@ class ForgeDiffusionEngine:
+             return
+         self.forge_objects.unet.model.predictor.set_parameters(shift=shift)
+         memory_management.logger.debug(f"Shift: {shift}")
++        return shift
+ 
+     def save_unet(self, filename: str) -> str:
+         sd = utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model)
+diff --git a/backend/diffusion_engine/fibo2.py b/backend/diffusion_engine/fibo2.py
+new file mode 100644
+index 0000000..d6ed27a
+--- /dev/null
++++ b/backend/diffusion_engine/fibo2.py
+@@ -0,0 +1,62 @@
++"""Native Fibo 2.0 editing in Forge's img2img/reference-image workflow."""
++import torch
++from huggingface_guess import model_list
++
++from backend import memory_management
++from backend.args import dynamic_args
++from backend.diffusion_engine.base import ForgeDiffusionEngine, ForgeObjects
++from backend.patcher.clip import CLIP
++from backend.patcher.unet import UnetPatcher
++from backend.patcher.vae import VAE
++from backend.text_processing.fibo2_engine import Fibo2TextProcessingEngine
++
++
++class Fibo2(ForgeDiffusionEngine):
++    matched_guesses = [model_list.Fibo2]
++
++    def __init__(self, estimated_config, huggingface_components):
++        super().__init__(estimated_config, huggingface_components)
++        clip = CLIP(model_dict={"qwen3vl_4b": huggingface_components["text_encoder"]},
++                    tokenizer_dict={"qwen3vl_4b": huggingface_components["tokenizer"]})
++        vae = VAE(model=huggingface_components["vae"], is_flux2=True)
++        unet = UnetPatcher.from_model(model=huggingface_components["transformer"],
++            diffusers_scheduler=None, k_predictor=self._get_predictor(), config=estimated_config)
++        self.text_processing_engine_fibo = Fibo2TextProcessingEngine(
++            clip.cond_stage_model.qwen3vl_4b, clip.tokenizer.qwen3vl_4b)
++        self.forge_objects = ForgeObjects(unet=unet, clip=clip, vae=vae, clipvision=None)
++        self.forge_objects_original = self.forge_objects.shallow_copy()
++        self.forge_objects_after_applying_lora = self.forge_objects.shallow_copy()
++        self.use_shift = True
++
++    @torch.inference_mode()
++    def get_learned_conditioning(self, prompt):
++        images = []
++        if not prompt.is_negative_prompt:
++            references = list(self.ref_latents)
++            if self.ini_latent is not None:
++                references.insert(0, self.ini_latent)
++                self.ini_latent = None
++            images = [image for image, latent in references]
++            dynamic_args.ref_latents = [latent for image, latent in references]
++        memory_management.load_model_gpu(self.forge_objects.clip.patcher)
++        return self.text_processing_engine_fibo(prompt, images=images)
++
++    @torch.inference_mode()
++    def encode_first_stage(self, x):
++        latent = super().encode_first_stage(x)
++        # Keep the exact image used by the VAE for the VL encoder too.
++        reference = (x[:1].movedim(1, -1).mul(0.5).add(0.5).cpu(), latent[:1].detach().cpu())
++        if dynamic_args.is_referencing:
++            self.ref_latents.append(reference)
++        else:
++            self.ini_latent = reference
++        return latent
++
++    def get_prompt_lengths_on_ui(self, prompt):
++        length = len(self.text_processing_engine_fibo.tokenize([prompt])[0])
++        return length, max(999, length)
++
++    def clear_references(self):
++        super().clear_references()
++        self.ini_latent = None
++        dynamic_args.ref_latents.clear()
+diff --git a/backend/diffusion_engine/qwen21.py b/backend/diffusion_engine/qwen21.py
+index 23e7965..00dfb61 100644
+--- a/backend/diffusion_engine/qwen21.py
++++ b/backend/diffusion_engine/qwen21.py
+@@ -1,5 +1,3 @@
+-# https://github.com/Comfy-Org/ComfyUI/blob/v0.38.0/comfy_extras/nodes_qwen.py
+-
+ import math
+ from typing import TYPE_CHECKING
+ 
+@@ -15,8 +13,7 @@ from backend.diffusion_engine.base import ForgeDiffusionEngine, ForgeObjects
+ from backend.patcher.clip import CLIP
+ from backend.patcher.unet import UnetPatcher
+ from backend.patcher.vae import VAE
+-from backend.text_processing.qwen_image_21_engine import Qwen3VL8BEngine
+-from modules.shared import opts
++from backend.text_processing.qwen21_engine import QwenImage21TextProcessingEngine
+ 
+ 
+ class QwenImage21(ForgeDiffusionEngine):
+@@ -24,109 +21,112 @@ class QwenImage21(ForgeDiffusionEngine):
+ 
+     def __init__(self, estimated_config, huggingface_components):
+         super().__init__(estimated_config, huggingface_components)
+-
+-        clip = CLIP(model_dict={"qwen3vl_8b": huggingface_components["text_encoder"]}, tokenizer_dict={"qwen3vl_8b": huggingface_components["tokenizer"]})
+-
++        clip = CLIP(
++            model_dict={"qwen3vl_8b": huggingface_components["text_encoder"]},
++            tokenizer_dict={"qwen3vl_8b": huggingface_components["tokenizer"]},
++        )
+         vae = VAE(model=huggingface_components["vae"], is_qwen21=True)
+-
+-        k_predictor = self._get_predictor()
+-
+-        unet = UnetPatcher.from_model(model=huggingface_components["transformer"], diffusers_scheduler=None, k_predictor=k_predictor, config=estimated_config)
+-
+-        self.text_processing_engine_qwen = Qwen3VL8BEngine(
++        unet = UnetPatcher.from_model(
++            model=huggingface_components["transformer"],
++            diffusers_scheduler=None,
++            k_predictor=self._get_predictor(),
++            config=estimated_config,
++        )
++        self.text_processing_engine_qwen = QwenImage21TextProcessingEngine(
+             text_encoder=clip.cond_stage_model.qwen3vl_8b,
+             tokenizer=clip.tokenizer.qwen3vl_8b,
+         )
+-
+         self.forge_objects = ForgeObjects(unet=unet, clip=clip, vae=vae, clipvision=None)
+         self.forge_objects_original = self.forge_objects.shallow_copy()
+         self.forge_objects_after_applying_lora = self.forge_objects.shallow_copy()
+-
+-    def set_shift(self, shift: float, width: int, height: int):
+-        seq_len = width * height / (16 * 16)
+-
+-        # shift = base_shift + (max_shift - base_shift) * (sequence_length - base_image_seq_len) / (max_image_seq_len - base_image_seq_len)
+-        shift = 0.5 + (0.9 - 0.5) * (seq_len - 256) / (8192 - 256)
+-
+-        self.forge_objects.unet.model.predictor.set_parameters(shift=shift)
+-        memory_management.logger.debug(f"Shift: {shift}")
+-
+-    def _get_references(self) -> list[torch.Tensor]:
+-        _references = [*self.ref_latents]
+-        if self.ini_latent is not None:
+-            _references.insert(0, self.ini_latent)
+-        return _references
++        self.use_shift = True
++        self.last_shift_mode = "Auto"
++
++    @staticmethod
++    def calculate_shift(width: int, height: int) -> float:
++        """Calculate Diffusers' resolution-aware flow shift.
++
++        The Qwen 2.1 VAE downsamples by 16, so 1024 square is 4096 image
++        tokens and evaluates to about 0.69. Values beyond the documented
++        8192-token reference are capped at 0.9.
++        """
++        image_seq_len = math.ceil(width / 16) * math.ceil(height / 16)
++        base_seq_len, max_seq_len = 256, 8192
++        base_shift, max_shift = 0.5, 0.9
++        ratio = (image_seq_len - base_seq_len) / (max_seq_len - base_seq_len)
++        return max(base_shift, min(max_shift, base_shift + ratio * (max_shift - base_shift)))
++
++    def set_shift(self, shift: float, width: int = None, height: int = None):
++        if dynamic_args.qwen21_auto_shift and width and height:
++            shift = self.calculate_shift(width, height)
++            self.last_shift_mode = "Auto (resolution-aware)"
++        else:
++            self.last_shift_mode = "Manual"
++        return super().set_shift(shift, width=width, height=height)
+ 
+     @torch.inference_mode()
+     def get_learned_conditioning(self, prompt: "SdConditioning"):
+         memory_management.load_model_gpu(self.forge_objects.clip.patcher)
+-
+-        _references = self._get_references()
+-
+-        if opts.qwen21_do_reference and bool(_references):
+-            if not prompt.is_negative_prompt:
+-                self.ini_latent = None
+-
+-            return self.get_learned_conditioning_with_image(prompt, _references)
+-
++        diffusion_model = self.forge_objects.unet.model.diffusion_model
++        if hasattr(diffusion_model, "reset_prefix_cache"):
++            diffusion_model.reset_prefix_cache(dynamic_args.qwen21_prefix_cache)
+         if not prompt.is_negative_prompt:
++            references = [*self.ref_latents]
++            if self.ini_latent is not None:
++                references.insert(0, self.ini_latent)
++                self.ini_latent = None
++            if dynamic_args.edit and references:
++                return self.get_learned_conditioning_with_image(prompt, references)
+             dynamic_args.ref_latents.clear()
+-            dynamic_args.image_slots = None
+-
++            dynamic_args.image_slots.clear()
+         return self.text_processing_engine_qwen(prompt)
+ 
+     @torch.inference_mode()
+-    def get_learned_conditioning_with_image(self, prompt: list[str], images: list[torch.Tensor]):
+-        images_vl, ref_latents = [], []
++    def get_learned_conditioning_with_image(self, prompt, images):
++        vision_images, ref_latents = [], []
+         for image in images:
+-            v, r = self.encode_vision(image)
+-            images_vl.append(v)
+-            ref_latents.append(r)
+-
+-        dynamic_args.ref_latents = ref_latents.copy()
+-        return self.text_processing_engine_qwen(prompt, images=images_vl)
++            visual, latent = self.encode_vision(image)
++            vision_images.append(visual)
++            ref_latents.append(latent)
++        conditioning = self.text_processing_engine_qwen(prompt, images=vision_images)
++        dynamic_args.ref_latents = ref_latents
++        dynamic_args.image_slots = list(self.text_processing_engine_qwen.image_slots)
++        return conditioning
+ 
+     @torch.inference_mode()
+-    def encode_vision(self, image: torch.Tensor, resolution: int = 1024) -> tuple[torch.Tensor, torch.Tensor]:
+-        samples = image[:1].movedim(-1, 1)  # b, c, h, w
+-
+-        if resolution > 0:
+-            ratio = samples.shape[3] / samples.shape[2]
+-            width = round(math.sqrt(resolution * resolution * ratio) / 32) * 32
+-            height = round(math.sqrt(resolution * resolution / ratio) / 32) * 32
+-        else:
+-            width, height = round(samples.shape[3] / 32) * 32, round(samples.shape[2] / 32) * 32
+-
+-        if (width, height) == (samples.shape[3], samples.shape[2]):
+-            s = image[:1]
+-        else:
+-            s = torch.nn.functional.interpolate(samples, size=(height, width), mode="area").movedim(1, -1)
+-
+-        rgb = s[:, :, :, :3]
+-        if s.shape[-1] > 3:
+-            rgb = rgb * s[:, :, :, 3:] + (1.0 - s[:, :, :, 3:])
+-
+-        sample = self.forge_objects.vae.encode(s)
+-        _latent = self.forge_objects.vae.first_stage_model.process_in(sample)
+-
+-        return (rgb, _latent)
++    def encode_vision(self, image):
++        samples = image.movedim(-1, 1)
++        total = 768 * 768
++        scale = math.sqrt(total / (samples.shape[-1] * samples.shape[-2]))
++        vision_width = max(16, round(samples.shape[-1] * scale / 16) * 16)
++        vision_height = max(16, round(samples.shape[-2] * scale / 16) * 16)
++        vision = torch.nn.functional.interpolate(samples[:, :3], size=(vision_height, vision_width), mode="area").movedim(1, -1)
++
++        width = max(16, round(samples.shape[-1] / 16) * 16)
++        height = max(16, round(samples.shape[-2] / 16) * 16)
++        vae_image = torch.nn.functional.interpolate(samples[:, :3], size=(height, width), mode="area").movedim(1, -1)
++        latent = self.forge_objects.vae.encode(vae_image)
++        latent = self.forge_objects.vae.first_stage_model.process_in(latent)
++        return vision, latent
+ 
+     @torch.inference_mode()
+-    def get_prompt_lengths_on_ui(self, prompt: str) -> tuple[int, int]:
+-        token_count = len(self.text_processing_engine_qwen.tokenize(prompt))
++    def get_prompt_lengths_on_ui(self, prompt):
++        token_count = len(self.text_processing_engine_qwen.tokenize([prompt])[0])
+         return token_count, max(999, token_count)
+ 
+     @torch.inference_mode()
+-    def encode_first_stage(self, x: torch.Tensor):
+-        if x.size(1) == 3:
+-            a = torch.ones((1, 1, x.size(2), x.size(3)), dtype=x.dtype, device=x.device)
+-            x = torch.cat([x, a], dim=1)
+-
+-        if opts.qwen21_do_reference:
++    def encode_first_stage(self, x):
++        if dynamic_args.edit:
+             start_image = x[0].movedim(0, -1).mul(0.5).add(0.5).unsqueeze(0)
+             if dynamic_args.is_referencing:
+                 self.ref_latents.append(start_image.cpu())
+             else:
+                 self.ini_latent = start_image.cpu()
+-
+         return super().encode_first_stage(x)
++
++    def clear_references(self):
++        super().clear_references()
++        self.ini_latent = None
++        diffusion_model = self.forge_objects.unet.model.diffusion_model
++        if hasattr(diffusion_model, "reset_prefix_cache"):
++            diffusion_model.reset_prefix_cache(dynamic_args.qwen21_prefix_cache)
+diff --git a/backend/huggingface/briaai/Fibo-2.0-edit-turbo/model_index.json b/backend/huggingface/briaai/Fibo-2.0-edit-turbo/model_index.json
+new file mode 100644
+index 0000000..bff174b
+--- /dev/null
++++ b/backend/huggingface/briaai/Fibo-2.0-edit-turbo/model_index.json
+@@ -0,0 +1,7 @@
++{
++  "_class_name": "BriaFibo2Pipeline",
++  "text_encoder": ["transformers", "Qwen3VLModel"],
++  "tokenizer": ["transformers", "Qwen2Tokenizer"],
++  "transformer": ["diffusers", "Fibo2Transformer2DModel"],
++  "vae": ["diffusers", "AutoencoderKLFlux2"]
++}
+diff --git a/backend/huggingface/briaai/Fibo-2.0-edit-turbo/text_encoder/config.json b/backend/huggingface/briaai/Fibo-2.0-edit-turbo/text_encoder/config.json
+new file mode 100644
+index 0000000..2590919
+--- /dev/null
++++ b/backend/huggingface/briaai/Fibo-2.0-edit-turbo/text_encoder/config.json
+@@ -0,0 +1,66 @@
++{
++  "architectures": [
++    "Qwen3VLModel"
++  ],
++  "dtype": "bfloat16",
++  "image_token_id": 151655,
++  "model_type": "qwen3_vl",
++  "text_config": {
++    "attention_bias": false,
++    "attention_dropout": 0.0,
++    "bos_token_id": 151643,
++    "dtype": "bfloat16",
++    "eos_token_id": 151645,
++    "head_dim": 128,
++    "hidden_act": "silu",
++    "hidden_size": 2560,
++    "initializer_range": 0.02,
++    "intermediate_size": 9728,
++    "max_position_embeddings": 262144,
++    "model_type": "qwen3_vl_text",
++    "num_attention_heads": 32,
++    "num_hidden_layers": 36,
++    "num_key_value_heads": 8,
++    "pad_token_id": null,
++    "rms_norm_eps": 1e-06,
++    "rope_parameters": {
++      "mrope_interleaved": true,
++      "mrope_section": [
++        24,
++        20,
++        20
++      ],
++      "rope_theta": 5000000,
++      "rope_type": "default"
++    },
++    "tie_word_embeddings": true,
++    "use_cache": true,
++    "vocab_size": 151936
++  },
++  "tie_word_embeddings": true,
++  "transformers_version": "5.2.0",
++  "video_token_id": 151656,
++  "vision_config": {
++    "deepstack_visual_indexes": [
++      5,
++      11,
++      17
++    ],
++    "depth": 24,
++    "dtype": "bfloat16",
++    "hidden_act": "gelu_pytorch_tanh",
++    "hidden_size": 1024,
++    "in_channels": 3,
++    "initializer_range": 0.02,
++    "intermediate_size": 4096,
++    "model_type": "qwen3_vl",
++    "num_heads": 16,
++    "num_position_embeddings": 2304,
++    "out_hidden_size": 2560,
++    "patch_size": 16,
++    "spatial_merge_size": 2,
++    "temporal_patch_size": 2
++  },
++  "vision_end_token_id": 151653,
++  "vision_start_token_id": 151652
++}
+diff --git a/backend/huggingface/briaai/Fibo-2.0-edit-turbo/vae/config.json b/backend/huggingface/briaai/Fibo-2.0-edit-turbo/vae/config.json
+new file mode 100644
+index 0000000..c3f38eb
+--- /dev/null
++++ b/backend/huggingface/briaai/Fibo-2.0-edit-turbo/vae/config.json
+@@ -0,0 +1,40 @@
++{
++  "_class_name": "AutoencoderKLFlux2",
++  "_diffusers_version": "0.37.0.dev0",
++  "_name_or_path": "black-forest-labs/FLUX.2-dev",
++  "act_fn": "silu",
++  "batch_norm_eps": 0.0001,
++  "batch_norm_momentum": 0.1,
++  "block_out_channels": [
++    128,
++    256,
++    512,
++    512
++  ],
++  "down_block_types": [
++    "DownEncoderBlock2D",
++    "DownEncoderBlock2D",
++    "DownEncoderBlock2D",
++    "DownEncoderBlock2D"
++  ],
++  "force_upcast": true,
++  "in_channels": 3,
++  "latent_channels": 32,
++  "layers_per_block": 2,
++  "mid_block_add_attention": true,
++  "norm_num_groups": 32,
++  "out_channels": 3,
++  "patch_size": [
++    2,
++    2
++  ],
++  "sample_size": 1024,
++  "up_block_types": [
++    "UpDecoderBlock2D",
++    "UpDecoderBlock2D",
++    "UpDecoderBlock2D",
++    "UpDecoderBlock2D"
++  ],
++  "use_post_quant_conv": true,
++  "use_quant_conv": true
++}
+diff --git a/backend/loader.py b/backend/loader.py
+index 4b6a8f1..dd0e253 100644
+--- a/backend/loader.py
++++ b/backend/loader.py
+@@ -18,6 +18,7 @@ from backend.diffusion_engine.chroma import Chroma
+ from backend.diffusion_engine.ernie import ErnieImage
+ from backend.diffusion_engine.flux import Flux
+ from backend.diffusion_engine.flux2 import Flux2
++from backend.diffusion_engine.fibo2 import Fibo2
+ from backend.diffusion_engine.krea import Krea2
+ from backend.diffusion_engine.lumina import Lumina2
+ from backend.diffusion_engine.mugen import Mugen
+@@ -44,7 +45,7 @@ from backend.utils import (
+ )
+ from modules_forge.packages.comfy.utils import convert_diffusers_mmdit
+ 
+-possible_models: tuple["ForgeDiffusionEngine"] = (StableDiffusion, StableDiffusionXLRefiner, StableDiffusionXL, Mugen, Chroma, Flux, Flux2, Wan, QwenImage, QwenImage21, Krea2, Lumina2, ZImage, Anima, ErnieImage, PiD)
++possible_models: tuple["ForgeDiffusionEngine"] = (StableDiffusion, StableDiffusionXLRefiner, StableDiffusionXL, Mugen, Chroma, Flux, Flux2, Wan, QwenImage, QwenImage21, Krea2, Fibo2, Lumina2, ZImage, Anima, ErnieImage, PiD)
+ 
+ logger = logging.getLogger("loader")
+ setup_logger(logger)
+@@ -64,7 +65,10 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
+             return cls.from_pretrained(os.path.join(repo_path, component_name))
+         if component_name.startswith("tokenizer"):
+             cls = getattr(importlib.import_module(lib_name), cls_name)
+-            comp = cls.from_pretrained(os.path.join(repo_path, component_name))
++            tokenizer_path = os.path.join(repo_path, component_name)
++            if guess.huggingface_repo == "briaai/Fibo-2.0-edit-turbo":
++                tokenizer_path = os.path.join(HF, "krea", "Krea-2-Raw", "tokenizer")
++            comp = cls.from_pretrained(tokenizer_path)
+             comp._eventual_warn_about_too_long_sequence = lambda *args, **kwargs: None
+             return comp
+ 
+@@ -331,7 +335,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
+ 
+         # region UNet / DiT
+ 
+-        if cls_name in ["UNet2DConditionModel", "FluxTransformer2DModel", "Flux2Transformer2DModel", "ChromaTransformer2DModel", "WanTransformer3DModel", "QwenImageTransformer2DModel", "QwenImage21Transformer2DModel", "Lumina2Transformer2DModel", "ZImageTransformer2DModel", "CosmosTransformer3DModel", "ErnieImageTransformer2DModel", "PiDTransformer2DModel", "Krea2Transformer2DModel"]:
++        if cls_name in ["UNet2DConditionModel", "FluxTransformer2DModel", "Flux2Transformer2DModel", "ChromaTransformer2DModel", "WanTransformer3DModel", "QwenImageTransformer2DModel", "QwenImage21Transformer2DModel", "Lumina2Transformer2DModel", "ZImageTransformer2DModel", "CosmosTransformer3DModel", "ErnieImageTransformer2DModel", "PiDTransformer2DModel", "Krea2Transformer2DModel", "Fibo2Transformer2DModel"]:
+             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have model state dict!"
+             pre_func: Callable[[torch.nn.Module], torch.nn.Module] = lambda mdl: mdl
+             model_loader = None
+@@ -397,6 +401,10 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
+                 from backend.nn.pixeldit.pid import PidNet
+ 
+                 model_loader = lambda c: PidNet(**c)
++            elif cls_name == "Fibo2Transformer2DModel":
++                from backend.nn.fibo2 import Fibo2 as Fibo2Transformer
++
++                model_loader = lambda c: Fibo2Transformer(**c)
+             elif cls_name == "Krea2Transformer2DModel":
+                 from backend.nn.krea import SingleStreamDiT
+ 
+@@ -856,6 +864,8 @@ def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = No
+     backend.args.dynamic_args.kontext = "kontext" in str(sd).lower()
+     backend.args.dynamic_args.edit = "qwen" in str(sd).lower() and "edit" in str(sd).lower()
+     backend.args.dynamic_args.qwen21 = "Qwen-Image-2.1" in repo_name
++    backend.args.dynamic_args.fibo2 = repo_name == "briaai/Fibo-2.0-edit-turbo"
++    backend.args.dynamic_args.edit |= backend.args.dynamic_args.qwen21 or backend.args.dynamic_args.fibo2
+     backend.args.dynamic_args.nunchaku = getattr(estimated_config, "nunchaku", False)
+     backend.args.dynamic_args.klein = "klein" in repo_name
+     backend.args.dynamic_args.wan = "Wan" in repo_name
+diff --git a/backend/nn/fibo2.py b/backend/nn/fibo2.py
+new file mode 100644
+index 0000000..c190f02
+--- /dev/null
++++ b/backend/nn/fibo2.py
+@@ -0,0 +1,230 @@
++# Port of ComfyUI Fibo 2.0 (GPL-3.0), commit e3699a745d513941f17ecbc9a3c58d00fc7768cb.
++# https://github.com/Comfy-Org/ComfyUI/pull/17240
++# Uses Forge's memory-managed operations and attention; no ComfyUI installation needed.
++import math
++
++import torch
++import torch.nn.functional as F
++from torch import nn
++
++from backend.args import dynamic_args
++from backend.attention import attention_function
++from backend.nn.flux import EmbedND
++from backend.nn.lumina import FinalLayer, JointAttention, TimestepEmbedder
++from backend.sampling.condition import repeat_to_batch_size
++from backend.utils import fp16_fix as clamp_fp16
++
++
++def residual(x, y, gate=None):
++    return x + y if gate is None else torch.addcmul(x, y, gate)
++
++
++def apply_gate(gate, x, timestep_zero_index=None):
++    if timestep_zero_index is None:
++        return x * gate
++    batch = gate.shape[0] // 2
++    start = 0
++    parts = []
++    for left, right in timestep_zero_index:
++        parts.extend((x[:, start:left] * gate[:batch], x[:, left:right] * gate[batch:]))
++        start = right
++    parts.append(x[:, start:] * gate[:batch])
++    return torch.cat(parts, dim=1)
++
++
++def modulate(x, scale, timestep_zero_index=None):
++    return apply_gate(1 + scale.unsqueeze(1), x, timestep_zero_index)
++
++
++def pos_ids_x(plane, height, width, batch, device, transformer_options=None):
++    ids = torch.zeros((batch, height * width, 3), dtype=torch.float32, device=device)
++    ids[:, :, 0] = plane
++    ids[:, :, 1] = torch.arange(height, device=device).repeat_interleave(width)
++    ids[:, :, 2] = torch.arange(width, device=device).repeat(height)
++    return ids
++
++
++def gist_count(text_len, max_gist):
++    # 256 gist tokens up to 256 text tokens, rising linearly to max_gist at 2048, in steps of 64
++    ratio = min(1.0, max(0.0, (text_len - 256) / (2048 - 256)))
++    return max(256, min(max_gist, math.ceil((256 + ratio * (max_gist - 256)) / 64) * 64))
++
++
++class Attention(nn.Module):
++    # no RoPE: the cross-attention to the text, and the Perceiver's self-attention
++    def __init__(self, dim, n_heads, kv_dim, norm_eps, dtype=None, device=None, operations=None):
++        super().__init__()
++
++        self.n_heads = n_heads
++        self.to_q = operations.Linear(dim, dim, bias=False, dtype=dtype, device=device)
++        self.to_kv = operations.Linear(kv_dim, 2 * dim, bias=False, dtype=dtype, device=device)
++        self.to_out = operations.Linear(dim, dim, bias=False, dtype=dtype, device=device)
++        self.norm_q = operations.RMSNorm(dim // n_heads, eps=norm_eps, dtype=dtype, device=device)
++        self.norm_k = operations.RMSNorm(dim // n_heads, eps=norm_eps, dtype=dtype, device=device)
++
++    def forward(self, x, context, transformer_options={}):
++        q = self.norm_q(self.to_q(x).unflatten(-1, (self.n_heads, -1)))
++        k, v = self.to_kv(context).unflatten(-1, (2, self.n_heads, -1)).unbind(2)
++        k = self.norm_k(k)
++        q, k, v = (t.movedim(1, 2) for t in (q, k, v))
++        return self.to_out(attention_function(q, k, v, self.n_heads, skip_reshape=True, transformer_options=transformer_options))
++
++
++class FeedForward(nn.Module):
++    # SwiGLU; fused files carry w1 and w3 as one w13, the hidden width zero padded to a multiple of 256 so int8 weights quantize swiglu(x) inside w2's GEMM
++    def __init__(self, dim, hidden_dim, fused, dtype=None, device=None, operations=None):
++        super().__init__()
++        self.fused = fused
++        if fused:
++            self.w13 = operations.Linear(dim, 2 * hidden_dim, bias=False, dtype=dtype, device=device)
++        else:
++            self.w1 = operations.Linear(dim, hidden_dim, bias=False, dtype=dtype, device=device)
++            self.w3 = operations.Linear(dim, hidden_dim, bias=False, dtype=dtype, device=device)
++        self.w2 = operations.Linear(hidden_dim, dim, bias=False, dtype=dtype, device=device)
++
++    def forward(self, x):
++        if self.fused:
++            gate, value = self.w13(x).chunk(2, dim=-1)
++            return self.w2(F.silu(gate) * value)
++        return self.w2(F.silu(self.w1(x)) * self.w3(x))
++
++
++class Block(nn.Module):
++    # Z-Image's block with in place residuals; an injection block also cross-attends to its own text bundle
++    def __init__(self, dim, n_heads, ffn_dim, fused_ffn, norm_eps, cap_feat_dim=None, operation_settings={}):
++        super().__init__()
++        operations, device, dtype = operation_settings["operations"], operation_settings["device"], operation_settings["dtype"]
++        self.attention = JointAttention(dim, n_heads, None, True)
++        self.attention.q_norm.eps = self.attention.k_norm.eps = norm_eps
++        self.feed_forward = FeedForward(dim, ffn_dim, fused_ffn, dtype=dtype, device=device, operations=operations)
++        self.attention_norm1 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.ffn_norm1 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.attention_norm2 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.ffn_norm2 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.adaLN_modulation = nn.Sequential(operations.Linear(256, 4 * dim, bias=True, dtype=dtype, device=device))
++        self.cross_attention = None
++        if cap_feat_dim is not None:
++            self.cross_attn_norm1 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++            self.cross_attention = Attention(dim, n_heads, cap_feat_dim, norm_eps, dtype=dtype, device=device, operations=operations)
++            self.cross_attn_norm2 = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++            self.cross_attn_gate = nn.Parameter(torch.empty(1, dtype=dtype, device=device))
++
++    def forward(self, x, freqs_cis, adaln_input, timestep_zero_index=None, context=None, transformer_options={}):
++        scale_msa, gate_msa, scale_mlp, gate_mlp = self.adaLN_modulation(adaln_input).chunk(4, dim=1)
++        y = self.attention(modulate(self.attention_norm1(x), scale_msa, timestep_zero_index=timestep_zero_index), None, freqs_cis, transformer_options=transformer_options)
++        x = residual(x, apply_gate(gate_msa.unsqueeze(1).tanh(), self.attention_norm2(clamp_fp16(y)), timestep_zero_index=timestep_zero_index))
++        if self.cross_attention is not None:
++            y = self.cross_attention(self.cross_attn_norm1(x), context, transformer_options)
++            x = residual(x, self.cross_attn_norm2(y), self.cross_attn_gate.to(y).tanh())
++        y = self.feed_forward(modulate(self.ffn_norm1(x), scale_mlp, timestep_zero_index=timestep_zero_index))
++        return residual(x, apply_gate(gate_mlp.unsqueeze(1).tanh(), self.ffn_norm2(clamp_fp16(y)), timestep_zero_index=timestep_zero_index))
++
++
++class PerceiverLayer(nn.Module):
++    def __init__(self, dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, norm_eps, operation_settings={}):
++        super().__init__()
++        operations, device, dtype = operation_settings["operations"], operation_settings["device"], operation_settings["dtype"]
++        self.cross_attn_norm = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.cross_attention = Attention(dim, n_heads, cap_feat_dim, norm_eps, dtype=dtype, device=device, operations=operations)
++        self.self_attn_norm = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.self_attention = Attention(dim, n_heads, dim, norm_eps, dtype=dtype, device=device, operations=operations)
++        self.ffn_norm = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++        self.ffn = FeedForward(dim, ffn_dim, fused_ffn, dtype=dtype, device=device, operations=operations)
++
++    def forward(self, x, context, transformer_options={}):
++        x = x + self.cross_attention(self.cross_attn_norm(x), context, transformer_options)
++        y = self.self_attn_norm(x)
++        x = x + self.self_attention(y, y, transformer_options)
++        return x + self.ffn(self.ffn_norm(x))
++
++
++class Perceiver(nn.Module):
++    # squeezes the text encoder's hidden states into gist tokens
++    def __init__(self, dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, num_queries, num_layers, norm_eps, operation_settings={}):
++        super().__init__()
++        operations, device, dtype = operation_settings["operations"], operation_settings["device"], operation_settings["dtype"]
++        self.latent_queries = nn.Parameter(torch.empty(num_queries, dim, dtype=dtype, device=device))
++        self.layers = nn.ModuleList([PerceiverLayer(dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, norm_eps, operation_settings=operation_settings) for _ in range(num_layers)])
++        self.norm_out = operations.RMSNorm(dim, eps=norm_eps, dtype=dtype, device=device)
++
++    def forward(self, context, num_gist, transformer_options={}):
++        x = self.latent_queries[:num_gist].to(context).unsqueeze(0).expand(context.shape[0], -1, -1)
++        for layer in self.layers:
++            x = layer(x, context, transformer_options)
++        return self.norm_out(x)
++
++
++class Fibo2(nn.Module):
++    def __init__(self, in_channels=128, dim=3584, n_heads=28, n_layers=44, n_refiner_layers=2, injection_layers=(6, 14, 22, 30, 38), cap_feat_dim=7680,
++                 perceiver_layers=2, max_gist_tokens=512, ffn_dim=9728, fused_ffn=True, norm_eps=1e-5, image_model=None, dtype=None, device=None, operations=None):
++        super().__init__()
++        operations = operations or nn
++        self.in_channels = self.out_channels = in_channels
++        self.dtype = dtype
++        operation_settings = {"operations": operations, "device": device, "dtype": dtype}
++        self.max_gist_tokens = max_gist_tokens
++        self.injection_layers = injection_layers
++
++        self.x_embedder = operations.Linear(in_channels, dim, bias=True, dtype=dtype, device=device)
++        self.t_embedder = TimestepEmbedder(1024, output_size=256)
++        self.noise_refiner = nn.ModuleList([Block(dim, n_heads, ffn_dim, fused_ffn, norm_eps, operation_settings=operation_settings) for _ in range(n_refiner_layers)])
++        self.perceiver = Perceiver(dim, n_heads, ffn_dim, fused_ffn, cap_feat_dim, max_gist_tokens, perceiver_layers, norm_eps, operation_settings=operation_settings)
++        self.layers = nn.ModuleList([Block(dim, n_heads, ffn_dim, fused_ffn, norm_eps, cap_feat_dim if i in injection_layers else None, operation_settings=operation_settings) for i in range(n_layers)])
++        self.final_layer = FinalLayer(dim, 1, in_channels, z_image_modulation=True)
++        self.rope_embedder = EmbedND(dim=dim // n_heads, theta=256.0, axes_dim=[32, 48, 48])
++
++    def forward(self, x, timestep, context, transformer_options=None, ref_latents=None, **kwargs):
++        transformer_options = transformer_options or {}
++        if ref_latents is None:
++            ref_latents = dynamic_args.ref_latents
++        ref_latents = [ref.to(x) for ref in ref_latents]
++        B, C, H, W = x.shape
++        dtype, device = x.dtype, x.device
++        transformer_options = transformer_options.copy()
++
++        # the image and the reference tokens are noisy and clean: the second half of the adaln batch modulates the image
++        adaln_mixed = self.t_embedder(torch.cat((torch.zeros_like(timestep), timestep * 1000)), dtype)
++        adaln_noisy = adaln_mixed[B:]
++
++        # gist tokens on rope planes 1..num_gist, the image on plane max_gist_tokens + 1 whatever the gist count, reference k on the k-th plane after it
++        num_gist = gist_count(context.shape[1], self.max_gist_tokens)
++        plane = self.max_gist_tokens + 1
++        tokens = [x.flatten(2).transpose(1, 2)]
++        ids = [torch.zeros(1, num_gist, 3, dtype=torch.float32, device=device), pos_ids_x(plane, H, W, 1, device, transformer_options=transformer_options)]
++        ids[0][0, :, 0] = torch.arange(1, num_gist + 1, dtype=torch.float32, device=device)
++        for k, ref in enumerate(ref_latents):
++            tokens.append(repeat_to_batch_size(ref, B).flatten(2).transpose(1, 2))
++            ids.append(pos_ids_x(plane + 1 + k, ref.shape[-2], ref.shape[-1], 1, device, transformer_options=transformer_options))
++        img = self.x_embedder(torch.cat(tokens, dim=1))
++        freqs_cis = self.rope_embedder(torch.cat(ids, dim=1)).movedim(1, 2)
++        del tokens
++
++        n_img = H * W
++        refiner_adaln, refiner_index = (adaln_mixed, [(0, n_img)]) if len(ref_latents) > 0 else (adaln_noisy, None)
++        for block in self.noise_refiner:
++            img = block(img, freqs_cis[:, num_gist:], refiner_adaln, refiner_index, transformer_options=transformer_options)
++
++        # the Perceiver reads the first text bundle, each injection block its own
++        bundles = context.chunk(1 + len(self.injection_layers), dim=-1)
++        gist = self.perceiver(bundles[0], num_gist, transformer_options)
++        text = dict(zip(self.injection_layers, bundles[1:]))
++
++        # allocated outside the memory compiler region, the blocks update it in place
++        x = torch.cat((gist, img), dim=1)
++        del gist, img
++        image_index = [(num_gist, num_gist + n_img)]
++
++        blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
++        transformer_options["total_blocks"] = len(self.layers)
++        transformer_options["block_type"] = "single"
++        for i, block in enumerate(self.layers):
++            transformer_options["block_index"] = i
++            if ("single_block", i) in blocks_replace:
++                def block_wrap(args):
++                    return {"img": block(args["img"], args["pe"], args["vec"], image_index, text.get(i), args["transformer_options"])}
++                x = blocks_replace[("single_block", i)]({"img": x, "vec": adaln_mixed, "pe": freqs_cis, "transformer_options": transformer_options}, {"original_block": block_wrap})["img"]
++            else:
++                x = block(x, freqs_cis, adaln_mixed, image_index, text.get(i), transformer_options)
++
++        out = self.final_layer(x[:, num_gist:num_gist + n_img], adaln_noisy)
++        return out.transpose(1, 2).reshape(B, C, H, W)
+diff --git a/backend/nn/qwen21.py b/backend/nn/qwen21.py
+index 328bea4..2d2887e 100644
+--- a/backend/nn/qwen21.py
++++ b/backend/nn/qwen21.py
+@@ -1,53 +1,73 @@
+-# https://github.com/Comfy-Org/ComfyUI/blob/master/comfy/ldm/qwen_image21/model.py
++# Qwen-Image 2.1 transformer support.
++# Architecture adapted from the Apache-2.0 Diffusers implementation and
++# ComfyUI's day-one integration.
+ 
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+ 
+-from backend import memory_management
+-from backend.args import dynamic_args
+ from backend.attention import attention_function
++from backend.args import dynamic_args
+ from backend.nn.flux import EmbedND, timestep_embedding
+-from backend.nn.qwen import TimestepEmbedding
+-from backend.operations import main_stream_worker, weights_manual_cast
+-from backend.operations_mixed_precision import linear_input_act
+-from backend.quant_ops import ck
+-from backend.utils import fp16_fix
++
++
++def apply_rotary_emb(x: torch.Tensor, freqs_cis: torch.Tensor) -> torch.Tensor:
++    if x.shape[1] == 0:
++        return x
++    paired = x.reshape(*x.shape[:-1], -1, 1, 2)
++    out = freqs_cis[..., 0] * paired[..., 0] + freqs_cis[..., 1] * paired[..., 1]
++    return out.reshape_as(x)
+ 
+ 
+ class ZeroCenteredRMSNorm(nn.Module):
+-    def __init__(self, dim, eps=1e-6):
++    """RMSNorm whose checkpoint stores (scale - 1)."""
++
++    def __init__(self, dim: int, eps: float = 1e-6):
+         super().__init__()
+         self.weight = nn.Parameter(torch.empty(dim))
+         self.eps = eps
+ 
+-    def forward(self, x):
+-        w = memory_management.cast_to(self.weight, dtype=x.dtype, device=x.device) + 1.0
+-        return F.rms_norm(x.float(), w.shape, w, self.eps).to(x.dtype)
++    def forward(self, x: torch.Tensor) -> torch.Tensor:
++        weight = self.weight.float() + 1.0
++        return F.rms_norm(x.float(), (x.shape[-1],), weight, self.eps).to(x.dtype)
+ 
+ 
+ class TextProjection(nn.Module):
+-    def __init__(self, in_dim, hidden_size, eps=1e-6):
++    def __init__(self, in_dim: int, hidden_size: int, eps: float = 1e-6):
+         super().__init__()
++        # Qwen-Image 2.1 stores (scale - 1) for this RMSNorm.
+         self.text_norm = ZeroCenteredRMSNorm(in_dim, eps=eps)
+         self.in_layer = nn.Linear(in_dim, hidden_size, bias=False)
+         self.out_layer = nn.Linear(hidden_size, hidden_size, bias=False)
+ 
+-    def forward(self, x):
++    def forward(self, x: torch.Tensor) -> torch.Tensor:
+         return self.out_layer(F.gelu(self.in_layer(self.text_norm(x)), approximate="tanh"))
+ 
+ 
+-class TimestepProjEmbeddings(nn.Module):
+-    def __init__(self, embedding_dim):
++class TimestepMLP(nn.Module):
++    def __init__(self, hidden_size: int):
+         super().__init__()
+-        self.timestep_embedder = TimestepEmbedding(in_channels=256, time_embed_dim=embedding_dim, sample_proj_bias=False)
++        self.linear_1 = nn.Linear(256, hidden_size, bias=False)
++        self.linear_2 = nn.Linear(hidden_size, hidden_size, bias=False)
+ 
+-    def forward(self, timestep, dtype):
+-        return self.timestep_embedder(timestep_embedding(timestep.float(), 256).to(dtype))
++    def forward(self, x: torch.Tensor) -> torch.Tensor:
++        return self.linear_2(F.silu(self.linear_1(x)))
++
++
++class TimestepEmbedding(nn.Module):
++    def __init__(self, hidden_size: int):
++        super().__init__()
++        # Preserve the official checkpoint path:
++        # time_text_embed.timestep_embedder.linear_{1,2}.weight
++        self.timestep_embedder = TimestepMLP(hidden_size)
++
++    def forward(self, t: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
++        x = timestep_embedding(t.float(), 256).to(dtype)
++        return self.timestep_embedder(x)
+ 
+ 
+ class SwiGLUFeedForward(nn.Module):
+-    def __init__(self, dim, hidden_dim, fused=True):
++    def __init__(self, dim: int, hidden_dim: int, fused: bool = True):
+         super().__init__()
+         self.fused = fused
+         if fused:
+@@ -57,14 +77,15 @@ class SwiGLUFeedForward(nn.Module):
+             self.gate_layer = nn.Linear(dim, hidden_dim, bias=False)
+         self.out = nn.Linear(hidden_dim, dim, bias=False)
+ 
+-    def forward(self, x):
++    def forward(self, x: torch.Tensor) -> torch.Tensor:
+         if self.fused:
+-            return linear_input_act(self.out, self.gate_up(x), "swiglu")
++            gate, up = self.gate_up(x).chunk(2, dim=-1)
++            return self.out(F.silu(gate) * up)
+         return self.out(F.silu(self.gate_layer(x)) * self.proj(x))
+ 
+ 
+ class Attention(nn.Module):
+-    def __init__(self, dim, heads, dim_head, eps=1e-6):
++    def __init__(self, dim: int, heads: int, dim_head: int, eps: float = 1e-6):
+         super().__init__()
+         self.heads = heads
+         inner_dim = heads * dim_head
+@@ -75,38 +96,76 @@ class Attention(nn.Module):
+         self.norm_q = nn.RMSNorm(dim_head, eps=eps)
+         self.norm_k = nn.RMSNorm(dim_head, eps=eps)
+ 
+-    def forward(self, x, pe, attn_fn, prefix_len, transformer_options={}):
+-        B, N, _ = x.shape
+-        q = self.to_q(x).view(B, N, self.heads, -1)
+-        k = self.to_k(x).view(B, N, self.heads, -1)
+-        v = self.to_v(x).view(B, N, self.heads, -1)
+-
+-        q_scale, _, q_stream = weights_manual_cast(self.norm_q, q)
+-        k_scale, _, k_stream = weights_manual_cast(self.norm_k, k)
+-        with main_stream_worker(q_scale, None, q_stream), main_stream_worker(k_scale, None, k_stream):
+-            q, k = ck.rms_rope(q, k, pe, q_scale, k_scale, self.norm_q.eps)
+-
+-        return self.to_out[0](attn_fn(q, k, v, self.heads))
+-
+-
+-def _split_rows(p):
+-    return p[-1:].unsqueeze(1), p[:-1].unsqueeze(1)
+-
+-
+-def _modulated_norm(norm, x, scale, prefix_len, zero):
+-    s_prefix, s_target = scale
+-    out = ck.adaln(x, s_target, zero, norm.eps)
++    def project(self, x, pe):
++        batch, tokens, _ = x.shape
++        q = self.norm_q(self.to_q(x).view(batch, tokens, self.heads, -1))
++        k = self.norm_k(self.to_k(x).view(batch, tokens, self.heads, -1))
++        v = self.to_v(x).view(batch, tokens, self.heads, -1)
++        # The rotary table is kept in fp32 for positional accuracy.  Cast the
++        # rotated queries/keys back to the activation dtype before SDPA so Q,
++        # K and V remain compatible on CUDA.
++        q = apply_rotary_emb(q, pe).to(v.dtype).flatten(2)
++        k = apply_rotary_emb(k, pe).to(v.dtype).flatten(2)
++        v = v.flatten(2)
++        return q, k, v
++
++    def attend_segments(self, q, k, v, segments, transformer_options=None):
++        transformer_options = transformer_options or {}
++        outputs = []
++        for start, end, mask in segments:
++            outputs.append(
++                attention_function(
++                    q[:, start:end],
++                    k[:, :end],
++                    v[:, :end],
++                    self.heads,
++                    mask,
++                    transformer_options=transformer_options,
++                )
++            )
++        return self.to_out[0](torch.cat(outputs, dim=1))
++
++    def forward(self, x, pe, segments, transformer_options=None):
++        q, k, v = self.project(x, pe)
++        return self.attend_segments(q, k, v, segments, transformer_options)
++
++    def forward_with_prefix(self, x, pe, prefix_k, prefix_v, transformer_options=None):
++        q, k, v = self.project(x, pe)
++        out = attention_function(
++            q,
++            torch.cat([prefix_k, k], dim=1),
++            torch.cat([prefix_v, v], dim=1),
++            self.heads,
++            None,
++            transformer_options=transformer_options or {},
++        )
++        return self.to_out[0](out)
++
++
++def _split_rows(value: torch.Tensor):
++    # The final row is t=0 for text/reference tokens. Other rows are target t.
++    return value[-1:].unsqueeze(1), value[:-1].unsqueeze(1)
++
++
++def _modulated_norm(norm, x, scale, prefix_len):
++    prefix_scale, target_scale = scale
++    out = norm(x)
+     if prefix_len:
+-        out[:, :prefix_len] = ck.adaln(x[:, :prefix_len], s_prefix, zero, norm.eps)
+-    return out
++        return torch.cat(
++            [out[:, :prefix_len] * (1 + prefix_scale), out[:, prefix_len:] * (1 + target_scale)],
++            dim=1,
++        )
++    return out * (1 + target_scale)
+ 
+ 
+ def _gated_residual(x, y, gate, prefix_len):
+-    g_prefix, g_target = gate
+-    x[:, prefix_len:].addcmul_(y[:, prefix_len:], g_target)
++    prefix_gate, target_gate = gate
+     if prefix_len:
+-        x[:, :prefix_len].addcmul_(y[:, :prefix_len], g_prefix)
+-    return x
++        return torch.cat(
++            [x[:, :prefix_len] + y[:, :prefix_len] * prefix_gate, x[:, prefix_len:] + y[:, prefix_len:] * target_gate],
++            dim=1,
++        )
++    return x + y * target_gate
+ 
+ 
+ class QwenImage21TransformerBlock(nn.Module):
+@@ -117,32 +176,50 @@ class QwenImage21TransformerBlock(nn.Module):
+         self.img_norm2 = nn.LayerNorm(dim, elementwise_affine=False, eps=eps)
+         self.img_mlp = SwiGLUFeedForward(dim, dim * mlp_ratio, fused=fused_mlp)
+ 
+-    def forward(self, x, mod, pe, attn_fn, prefix_len, transformer_options={}):
+-        scale1, gate1, scale2, gate2, zero = mod
+-        x = _gated_residual(x, self.attn(_modulated_norm(self.img_norm1, x, scale1, prefix_len, zero), pe, attn_fn, prefix_len, transformer_options), gate1, prefix_len)
+-        x = _gated_residual(x, self.img_mlp(_modulated_norm(self.img_norm2, x, scale2, prefix_len, zero)), gate2, prefix_len)
+-
+-        return fp16_fix(x)
++    def forward(self, x, mod, pe, segments, prefix_len, transformer_options=None):
++        scale1, gate1, scale2, gate2 = mod
++        attn_in = _modulated_norm(self.img_norm1, x, scale1, prefix_len)
++        x = _gated_residual(x, self.attn(attn_in, pe, segments, transformer_options), gate1, prefix_len)
++        mlp_in = _modulated_norm(self.img_norm2, x, scale2, prefix_len)
++        x = _gated_residual(x, self.img_mlp(mlp_in), gate2, prefix_len)
++        if x.dtype == torch.float16:
++            x = x.clip(-65504, 65504)
++        return x
++
++    def forward_prefix_and_cache(self, x, mod, pe, segments, transformer_options=None):
++        scale1, gate1, scale2, gate2 = mod
++        prefix_len = x.shape[1]
++        attn_in = _modulated_norm(self.img_norm1, x, scale1, prefix_len)
++        q, k, v = self.attn.project(attn_in, pe)
++        attn_out = self.attn.attend_segments(q, k, v, segments, transformer_options)
++        x = _gated_residual(x, attn_out, gate1, prefix_len)
++        mlp_in = _modulated_norm(self.img_norm2, x, scale2, prefix_len)
++        x = _gated_residual(x, self.img_mlp(mlp_in), gate2, prefix_len)
++        if x.dtype == torch.float16:
++            x = x.clip(-65504, 65504)
++        return x, k.detach(), v.detach()
++
++    def forward_target_with_prefix(self, x, mod, pe, prefix_k, prefix_v, transformer_options=None):
++        scale1, gate1, scale2, gate2 = mod
++        attn_in = _modulated_norm(self.img_norm1, x, scale1, 0)
++        attn_out = self.attn.forward_with_prefix(attn_in, pe, prefix_k, prefix_v, transformer_options)
++        x = _gated_residual(x, attn_out, gate1, 0)
++        mlp_in = _modulated_norm(self.img_norm2, x, scale2, 0)
++        x = _gated_residual(x, self.img_mlp(mlp_in), gate2, 0)
++        if x.dtype == torch.float16:
++            x = x.clip(-65504, 65504)
++        return x
+ 
+ 
+ class LastLayer(nn.Module):
+-    def __init__(self, dim, eps=1e-6):
++    def __init__(self, dim: int, eps: float = 1e-6):
+         super().__init__()
+         self.linear = nn.Linear(dim, dim, bias=False)
+-        self.norm = nn.LayerNorm(dim, eps, elementwise_affine=False)
++        self.norm = nn.LayerNorm(dim, eps=eps, elementwise_affine=False)
+ 
+     def forward(self, x, temb):
+         scale = self.linear(F.silu(temb)).unsqueeze(1)
+-        return ck.adaln(x, scale, torch.zeros_like(scale[:1]), self.norm.eps)
+-
+-
+-def block_causal_attention(segments, transformer_options={}):
+-
+-    def attn(q, k, v, heads, preferred_attention=None):
+-        outs = [attention_function(q[:, start:end].flatten(2), k[:, :end].flatten(2), v[:, :end].flatten(2), heads, mask=mask, causal=mask is not None, transformer_options=transformer_options, preferred_attention=preferred_attention) for start, end, mask in segments]
+-        return torch.cat(outs, dim=1) if len(outs) > 1 else outs[0]
+-
+-    return attn
++        return self.norm(x) * (1 + scale)
+ 
+ 
+ class QwenImage21Transformer2DModel(nn.Module):
+@@ -158,93 +235,170 @@ class QwenImage21Transformer2DModel(nn.Module):
+         axes_dims_rope=(16, 56, 56),
+         eps=1e-6,
+         fused_mlp=True,
++        image_model=None,
++        **kwargs,
+     ):
+         super().__init__()
+-
+         self.out_channels = out_channels
+         self.inner_dim = num_attention_heads * attention_head_dim
+-
+         self.pe_embedder = EmbedND(dim=attention_head_dim, theta=10000, axes_dim=list(axes_dims_rope))
+-        self.time_text_embed = TimestepProjEmbeddings(self.inner_dim)
++        self.time_text_embed = TimestepEmbedding(self.inner_dim)
+         self.txt_in = TextProjection(context_in_dim, self.inner_dim, eps=eps)
+         self.img_in = nn.Linear(in_channels, self.inner_dim, bias=False)
+-
+         self.modulation = nn.Sequential(nn.SiLU(), nn.Linear(self.inner_dim, 4 * self.inner_dim, bias=False))
+-
+-        self.transformer_blocks = nn.ModuleList([QwenImage21TransformerBlock(self.inner_dim, num_attention_heads, attention_head_dim, mlp_ratio=mlp_ratio, eps=eps, fused_mlp=fused_mlp) for _ in range(num_layers)])
+-
++        self.transformer_blocks = nn.ModuleList(
++            [
++                QwenImage21TransformerBlock(
++                    self.inner_dim,
++                    num_attention_heads,
++                    attention_head_dim,
++                    mlp_ratio=mlp_ratio,
++                    eps=eps,
++                    fused_mlp=fused_mlp,
++                )
++                for _ in range(num_layers)
++            ]
++        )
+         self.norm_out = LastLayer(self.inner_dim, eps=eps)
+         self.proj_out = nn.Linear(self.inner_dim, out_channels, bias=False)
+-
+-    def build_sequence(self, x: torch.Tensor, context: torch.Tensor, ref_latents: list[torch.Tensor], image_slots: list[int]):
++        # K/V for text and reference images are independent of the denoising
++        # timestep. Keep at most two slots (normally positive and negative).
++        self.prefix_cache_enabled = True
++        self.prefix_cache = {}
++        self.prefix_cache_order = []
++        self.prefix_cache_limit_bytes = int(2.5 * 1024**3)
++        self.prefix_cache_hits = 0
++        self.prefix_cache_fills = 0
++        self.prefix_cache_skips = 0
++
++    def reset_prefix_cache(self, enabled=True):
++        self.prefix_cache.clear()
++        self.prefix_cache_order.clear()
++        self.prefix_cache_enabled = bool(enabled)
++        self.prefix_cache_hits = 0
++        self.prefix_cache_fills = 0
++        self.prefix_cache_skips = 0
++
++    @staticmethod
++    def _prefix_cache_key(x, context, ref_latents, image_slots):
++        def tensor_id(t):
++            flat = t.detach().reshape(-1)
++            if flat.numel() == 0:
++                sample = ()
++                checksum = 0.0
++            else:
++                count = min(12, flat.numel())
++                indices = torch.linspace(0, flat.numel() - 1, count, device=flat.device).long()
++                sample = tuple(flat[indices].float().cpu().tolist())
++                checksum = float(flat.float().sum().item())
++            return (tuple(t.shape), str(t.dtype), str(t.device), sample, checksum)
++
++        return (
++            tensor_id(context),
++            tuple(tensor_id(r) for r in ref_latents),
++            tuple(image_slots),
++            tuple(x.shape[-2:]),
++        )
++
++    def _remember_prefix(self, key, values):
++        self.prefix_cache[key] = values
++        self.prefix_cache_order.append(key)
++        while len(self.prefix_cache_order) > 2:
++            old = self.prefix_cache_order.pop(0)
++            self.prefix_cache.pop(old, None)
++
++    def build_sequence(self, x, context, ref_latents, image_slots):
+         txt = self.txt_in(context)
+-        slots = (image_slots + [txt.shape[1]] * len(ref_latents))[: len(ref_latents)]
++        slots = (list(image_slots) + [txt.shape[1]] * len(ref_latents))[: len(ref_latents)]
+         bounds = [0] + slots + [txt.shape[1]]
+-
+         parts, ids, segments = [], [], []
+-        pos, length = 0, 0
+-        for (start, end), img in zip(zip(bounds[:-1], bounds[1:]), ref_latents + [x]):
+-            n = end - start
+-            if n > 0:
++        pos = length = 0
++
++        for (start, end), image in zip(zip(bounds[:-1], bounds[1:]), ref_latents + [x]):
++            count = end - start
++            if count > 0:
+                 parts.append(txt[:, start:end])
+-                ids.append(torch.arange(pos, pos + n, device=x.device, dtype=torch.float32).unsqueeze(1).expand(n, 3))
+-                segments.append((length, length + n, torch.ones((n, length + n), dtype=torch.bool, device=x.device).tril(length)))
+-                pos += n
+-                length += n
+-            h, w = img.shape[-2:]
+-
+-            if x.size(0) > 1 and img is not x:
+-                img = img.expand(x.shape[0], *img.shape[1:])
+-
+-            parts.append(self.img_in(img.flatten(2).transpose(1, 2).to(x)))
+-            hh = torch.arange(h, device=x.device, dtype=torch.float32) - (h - h // 2) + 0.5 * (h % 2 - x.shape[-2] % 2)
+-            ww = torch.arange(w, device=x.device, dtype=torch.float32) - (w - w // 2) + 0.5 * (w % 2 - x.shape[-1] % 2)
+-            ids.append(torch.stack([torch.full((h, w), pos, device=x.device, dtype=torch.float32), hh[:, None].expand(h, w), ww[None, :].expand(h, w)], dim=-1).flatten(0, 1))
+-            segments.append((length, length + h * w, None))
+-            pos += max(h, w)
+-            length += h * w
++                ids.append(torch.arange(pos, pos + count, device=x.device, dtype=torch.float32).unsqueeze(1).expand(count, 3))
++                segments.append(
++                    (
++                        length,
++                        length + count,
++                        torch.ones((count, length + count), dtype=torch.bool, device=x.device).tril(length),
++                    )
++                )
++                pos += count
++                length += count
++
++            height, width = image.shape[-2:]
++            parts.append(self.img_in(image.flatten(2).transpose(1, 2)))
++            yy = torch.arange(height, device=x.device, dtype=torch.float32) - (height - height // 2) + 0.5 * (height % 2 - x.shape[-2] % 2)
++            xx = torch.arange(width, device=x.device, dtype=torch.float32) - (width - width // 2) + 0.5 * (width % 2 - x.shape[-1] % 2)
++            ids.append(
++                torch.stack(
++                    [
++                        torch.full((height, width), pos, device=x.device, dtype=torch.float32),
++                        yy[:, None].expand(height, width),
++                        xx[None, :].expand(height, width),
++                    ],
++                    dim=-1,
++                ).flatten(0, 1)
++            )
++            segments.append((length, length + height * width, None))
++            pos += max(height, width)
++            length += height * width
+ 
+         pe = self.pe_embedder(torch.cat(ids, dim=0).unsqueeze(0)).transpose(1, 2).contiguous()
+         return torch.cat(parts, dim=1), pe, segments
+ 
+-    def forward(self, x, timesteps, context, ref_latents=None, image_slots=None, transformer_options={}, **kwargs):
+-        B, C, H, W = x.shape
++    def forward(self, x, timesteps, context, ref_latents=None, image_slots=None, transformer_options=None, **kwargs):
++        batch, _channels, height, width = x.shape
+         dtype = x.dtype
+-        ref_latents = list(dynamic_args.ref_latents or [])
+-        image_slots = list(dynamic_args.image_slots or [])
+-
++        if ref_latents is None:
++            ref_latents = dynamic_args.ref_latents
++        if image_slots is None:
++            image_slots = dynamic_args.image_slots
++        ref_latents = [r.to(x) for r in ref_latents]
+         hidden_states, pe, segments = self.build_sequence(x, context, ref_latents, image_slots)
+-        prefix_len = hidden_states.shape[1] - H * W
+-        patches = transformer_options.get("patches", {})
+-        for p in patches.get("post_input", []):
+-            out = p({"img": hidden_states, "pe": pe, "transformer_options": transformer_options})
+-            hidden_states, pe = out["img"], out.get("pe", pe)
++        prefix_len = hidden_states.shape[1] - height * width
+ 
++        # The reference implementation rounds t at the model compute dtype.
+         t = ((timesteps * 1000).to(dtype) / 1000).to(dtype)
+         temb = self.time_text_embed(torch.cat([t, t.new_zeros(1)]), dtype)
+         scale1, gate1, scale2, gate2 = self.modulation(temb).chunk(4, dim=-1)
+-        mod = (_split_rows(scale1), _split_rows(gate1.tanh()), _split_rows(scale2), _split_rows(gate2.tanh()), torch.zeros_like(scale1[:1, None]))
+-
+-        blocks_replace = transformer_options.get("patches_replace", {}).get("dit", {})
+-
+-        transformer_options["total_blocks"] = len(self.transformer_blocks)
+-        transformer_options["block_type"] = "single"
+-
+-        for i, block in enumerate(self.transformer_blocks):
+-            transformer_options["block_index"] = i
+-            attn_fn = block_causal_attention(segments, transformer_options)
+-            if ("single_block", i) in blocks_replace:
+-
+-                def block_wrap(args):
+-                    return {"img": block(args["img"], mod, args["pe"], attn_fn, prefix_len, args["transformer_options"])}
+-
+-                args = {"img": hidden_states, "vec": temb, "pe": pe, "mod": mod, "attn_fn": attn_fn, "prefix_len": prefix_len, "transformer_options": transformer_options}
+-                hidden_states = blocks_replace[("single_block", i)](args, {"original_block": block_wrap})["img"]
+-            else:
+-                hidden_states = block(hidden_states, mod, pe, attn_fn, prefix_len, transformer_options)
+-            for p in patches.get("single_block", []):
+-                hidden_states = p({"img": hidden_states, "x": x, "block_index": i, "transformer_options": transformer_options})["img"]
++        mod = (_split_rows(scale1), _split_rows(gate1.tanh()), _split_rows(scale2), _split_rows(gate2.tanh()))
++
++        options = transformer_options or {}
++        cache_key = self._prefix_cache_key(x, context, ref_latents, image_slots)
++        cached = self.prefix_cache.get(cache_key) if self.prefix_cache_enabled and prefix_len else None
++        cache_bytes = 2 * len(self.transformer_blocks) * batch * prefix_len * self.inner_dim * hidden_states.element_size()
++        can_fill_cache = self.prefix_cache_enabled and prefix_len and cache_bytes <= self.prefix_cache_limit_bytes
++
++        if cached is not None:
++            self.prefix_cache_hits += 1
++            hidden_states = hidden_states[:, prefix_len:]
++            pe = pe[:, prefix_len:]
++            for block, (prefix_k, prefix_v) in zip(self.transformer_blocks, cached):
++                hidden_states = block.forward_target_with_prefix(hidden_states, mod, pe, prefix_k, prefix_v, options)
++            prefix_len = 0
++        elif can_fill_cache:
++            self.prefix_cache_fills += 1
++            prefix_states = hidden_states[:, :prefix_len]
++            hidden_states = hidden_states[:, prefix_len:]
++            prefix_pe = pe[:, :prefix_len]
++            pe = pe[:, prefix_len:]
++            cache_values = []
++            for block in self.transformer_blocks:
++                prefix_states, prefix_k, prefix_v = block.forward_prefix_and_cache(prefix_states, mod, prefix_pe, segments[:-1], options)
++                cache_values.append((prefix_k, prefix_v))
++                hidden_states = block.forward_target_with_prefix(hidden_states, mod, pe, prefix_k, prefix_v, options)
++            self._remember_prefix(cache_key, cache_values)
++            prefix_len = 0
++        else:
++            if self.prefix_cache_enabled and prefix_len:
++                self.prefix_cache_skips += 1
++            for block in self.transformer_blocks:
++                hidden_states = block(hidden_states, mod, pe, segments, prefix_len, options)
+ 
+         hidden_states = self.norm_out(hidden_states[:, prefix_len:], temb[:-1])
+         hidden_states = self.proj_out(hidden_states)
+-        return hidden_states.transpose(1, 2).reshape(B, self.out_channels, H, W)
++        return hidden_states.transpose(1, 2).reshape(batch, self.out_channels, height, width)
+diff --git a/backend/patcher/vae.py b/backend/patcher/vae.py
+index fe0ace3..c348537 100644
+--- a/backend/patcher/vae.py
++++ b/backend/patcher/vae.py
+@@ -178,6 +178,7 @@ class VAE:
+ 
+         self.patcher = ModelPatcher(self.first_stage_model, load_device=self.device, offload_device=offload_device)
+         self.is_wan = is_wan
++        self.is_qwen21 = is_qwen21
+ 
+     def clone(self):
+         n = VAE(no_init=True)
+@@ -191,6 +192,7 @@ class VAE:
+         n.vae_dtype = self.vae_dtype
+         n.output_device = self.output_device
+         n.is_wan = self.is_wan
++        n.is_qwen21 = self.is_qwen21
+         return n
+ 
+     def decode_tiled_(self, samples, tile_x=64, tile_y=64, overlap=16):
+@@ -270,6 +272,8 @@ class VAE:
+             return self.encode_tiled(pixel_samples)
+ 
+         _samples = pixel_samples.movedim(-1, 1)
++        if self.is_qwen21 and _samples.shape[1] == 3:
++            _samples = torch.cat([_samples, torch.ones_like(_samples[:, :1])], dim=1)
+         if self.is_wan and _samples.ndim < 5:
+             _samples = _samples.movedim(1, 0).unsqueeze(0)
+ 
+@@ -301,6 +305,8 @@ class VAE:
+ 
+     def encode_tiled(self, pixel_samples: torch.Tensor, tile_x: int = 512, tile_y: int = 512, overlap: int = 64):
+         pixel_samples = pixel_samples.movedim(-1, 1)
++        if self.is_qwen21 and pixel_samples.shape[1] == 3:
++            pixel_samples = torch.cat([pixel_samples, torch.ones_like(pixel_samples[:, :1])], dim=1)
+         if self.is_wan:
+             pixel_samples = pixel_samples.movedim(1, 0).unsqueeze(0)
+ 
+diff --git a/backend/sampling/condition.py b/backend/sampling/condition.py
+index 850ba97..0fac64e 100644
+--- a/backend/sampling/condition.py
++++ b/backend/sampling/condition.py
+@@ -93,11 +93,16 @@ def compile_conditions(cond):
+     if cond is None:
+         return None
+ 
++    # Fibo's Perceiver gist count depends on true token length, so CFG must
++    # not repeat-pad differently sized positive and negative captions.
++    from backend.args import dynamic_args
++    cross_attention_type = Condition if dynamic_args.fibo2 else ConditionCrossAttn
++
+     if isinstance(cond, torch.Tensor):
+         result = dict(
+             cross_attn=cond,
+             model_conds=dict(
+-                c_crossattn=ConditionCrossAttn(cond),
++                c_crossattn=cross_attention_type(cond),
+             ),
+         )
+         return [
+diff --git a/backend/text_processing/fibo2_engine.py b/backend/text_processing/fibo2_engine.py
+new file mode 100644
+index 0000000..3365cc8
+--- /dev/null
++++ b/backend/text_processing/fibo2_engine.py
+@@ -0,0 +1,182 @@
++# Prompt preprocessing from ComfyUI Fibo 2.0, GPL-3.0, e3699a745d513941f17ecbc9a3c58d00fc7768cb.
++import json
++import math
++
++import numpy as np
++import torch
++from PIL import Image, ImageDraw, ImageFont
++
++from backend.text_processing.qwen21_engine import QwenImage21TextProcessingEngine
++
++VISION_MARKER = "<|vision_start|><|image_pad|><|vision_end|>"
++TEMPLATE = "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
++
++# the null caption training used for classifier-free guidance, a whole chat turn so the tokenizer takes it as it is, uncleaned
++NULL_CAPTION = TEMPLATE.format('{"short_description":"","objects":[],"background_setting":"","lighting":{},"aesthetics":{},"photographic_characteristics":{},"style_medium":"","context":"","artistic_style":""}')
++
++BUNDLE_LAYERS = ((9, 20, 31), (5, 16, 27), (7, 18, 29), (9, 20, 31), (11, 22, 33), (13, 24, 35))
++TAP_LAYERS = sorted({layer for bundle in BUNDLE_LAYERS for layer in bundle})
++BUNDLE_INDEX = [TAP_LAYERS.index(layer) for bundle in BUNDLE_LAYERS for layer in bundle]
++
++SCORES = ("aesthetic_score", "preference_score")
++
++
++def dumps(value):
++    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
++
++
++def empty(value):
++    if isinstance(value, float):
++        return math.isnan(value)
++    return value is None or (isinstance(value, (str, dict, list)) and not value)
++
++
++def clean(value):
++    if isinstance(value, dict):
++        value = {k: clean(v) for k, v in value.items()}
++        return {k: v for k, v in value.items() if not empty(v)}
++    if isinstance(value, list):
++        return [v for v in map(clean, value) if not empty(v)]
++    return value
++
++
++def parse_prompt(prompt):
++    # the caption as training saw it, and the edit instruction; a prompt that isn't a JSON object comes back as it is
++    try:
++        caption = json.loads(prompt)
++    except json.JSONDecodeError:
++        return prompt, None
++    if not isinstance(caption, dict):
++        return prompt, None
++    instruction = caption.pop("edit_instruction", None)
++    if "structured_caption" in caption:
++        caption = caption.pop("structured_caption")
++        if not isinstance(caption, dict):
++            return caption or None, instruction
++
++    keys = set(caption)
++    caption = clean({key: {k: v for k, v in value.items() if k not in SCORES} if isinstance(value, dict) else value
++                     for key, value in caption.items() if key not in SCORES})
++    # exactly a short_description and a text_render list keeps both, the list even when empty: the image has no text
++    if keys == {"short_description", "text_render"}:
++        caption = {"short_description": caption.get("short_description") or "", "text_render": caption.get("text_render") or []}
++    return caption or None, instruction
++
++
++def has_glyph(font, notdef, character):
++    # a font without the glyph draws its notdef box, the one it draws for U+FFFE, which no font has
++    try:
++        mask = font.getmask(character)
++    except (OSError, ValueError):  # as in training, a font that can't say is taken to have the glyph
++        return True
++    return not (mask.size == notdef.size and bytes(mask) == bytes(notdef))
++
++
++def draw_text_image(text, font):
++    # Pillow's built-in font, black on white, whitespace collapsed, split every 256 characters (training's non-ASCII fallback fonts aren't shipped)
++    line = " ".join(text.split())
++    lines = [line[i:i + 256] for i in range(0, len(line), 256)] or [""]
++    notdef = font.getmask(chr(0xFFFE))
++    if all(ord(c) < 128 or has_glyph(font, notdef, c) for c in set(line)):
++        # each line placed by its bounding box, at least as tall as "Ag"
++        min_box = font.getbbox("Ag")
++        boxes = [font.getbbox(line or " ") for line in lines]
++        heights = [max(1, min_box[3] - min_box[1], box[3] - box[1]) for box in boxes]
++        width = max([1] + [box[2] - box[0] for box in boxes])
++        origins, anchor = [(2 - box[0], -box[1]) for box in boxes], None
++    else:
++        # a character the font lacks (drawn as its notdef box) puts every line on the baseline, as tall as the font
++        ascent, descent = font.getmetrics()
++        lines = [line or " " for line in lines]
++        heights = [max(1, ascent + descent)] * len(lines)
++        width = max(max(1, round(font.getlength(line))) for line in lines)
++        origins, anchor = [(2.0, ascent)] * len(lines), "ls"
++
++    image = Image.new("RGB", (width + 4, sum(heights) + 4 * len(lines)), "white")
++    draw = ImageDraw.Draw(image)
++    y = 2
++    for line, (x, dy), height in zip(lines, origins, heights):
++        draw.text((x, y + dy), line, font=font, fill=(0, 0, 0), anchor=anchor)
++        y += height + 4
++    return torch.from_numpy(np.array(image)).float().div(255.0).unsqueeze(0)
++
++
++def resize_8bit(image, height, width):
++    # antialiased bicubic rounded to 8 bit, as PIL and Qwen3-VL's processor resize
++    image = torch.nn.functional.interpolate(image.movedim(-1, 1), size=(height, width), mode="bicubic", antialias=True)
++    return image.mul(255.0).round().clamp(0, 255).div(255.0).movedim(1, -1)
++
++
++def thumbnail(image, size=768):
++    # Qwen3-VL sees each image to edit at most 768 pixels a side, as in training
++    scale = size / max(image.shape[1], image.shape[2])
++    if scale >= 1:
++        return image
++    return resize_8bit(image, max(1, round(image.shape[1] * scale)), max(1, round(image.shape[2] * scale)))
++
++
++def to_qwen_grid(image):
++    # the processor's 32 pixel grid, so ComfyUI's own bilinear resize is a no-op
++    h, w = image.shape[1], image.shape[2]
++    height, width = round(h / 32) * 32, round(w / 32) * 32
++    if height * width > 1605632:
++        beta = math.sqrt(h * w / 1605632)
++        height, width = max(32, math.floor(h / beta / 32) * 32), max(32, math.floor(w / beta / 32) * 32)
++    elif height * width < 3136:
++        beta = math.sqrt(3136 / (h * w))
++        height, width = math.ceil(h * beta / 32) * 32, math.ceil(w * beta / 32) * 32
++    return resize_8bit(image, height, width)
++
++
++class Fibo2TextProcessingEngine(QwenImage21TextProcessingEngine):
++    """Preserve complete Qwen chat/image tokens and collect Fibo's six layer bundles."""
++
++    def __init__(self, text_encoder, tokenizer):
++        super().__init__(text_encoder, tokenizer)
++        self.font = ImageFont.load_default(size=20)
++
++    def prepare_prompt(self, text, images=None):
++        images = images or []
++        if not text.strip():
++            return NULL_CAPTION, []
++        caption, instruction = parse_prompt(text)
++        if images and instruction is None:
++            caption, instruction = None, text
++        entries = [e for e in caption.get('text_render') or []
++                   if isinstance(e, dict) and isinstance(e.get('text'), str) and e['text']] if isinstance(caption, dict) else []
++        for entry in entries:
++            entry['image_tokens'] = VISION_MARKER
++        if images:
++            edit = {'image': VISION_MARKER} if len(images) == 1 else {f'image_{k}': VISION_MARKER for k in range(1, len(images) + 1)}
++            if caption:
++                edit['structured_caption'] = caption
++            edit['edit_instruction'] = instruction
++            text = dumps(edit)
++        elif not isinstance(caption, str):
++            text = dumps(caption or {})
++        prepared = [thumbnail(image[..., :3]) for image in images]
++        prepared += [draw_text_image(entry['text'], self.font) for entry in entries]
++        return TEMPLATE.format(text), [to_qwen_grid(image) for image in prepared]
++
++    def tokenize(self, texts, image_count=0):
++        return self.tokenizer([self.prepare_prompt(text)[0] for text in texts])['input_ids']
++
++    @torch.inference_mode()
++    def __call__(self, texts, images=None):
++        results = []
++        for text in texts:
++            wrapped, visual_images = self.prepare_prompt(text, images)
++            tokens = self.tokenizer(wrapped)['input_ids']
++            image_index = 0
++            for i, token in enumerate(tokens):
++                if token == self.id_image and image_index < len(visual_images):
++                    tokens[i] = {'type': 'image', 'data': visual_images[image_index], 'original_type': 'image'}
++                    image_index += 1
++            embeds, mask, count, info = self.process_embeds([tokens])
++            _, hidden = self.text_encoder(None, embeds=embeds, attention_mask=mask,
++                num_tokens=count, embeds_info=info, intermediate_output=TAP_LAYERS,
++                final_layer_norm_intermediate=False)
++            hidden = torch.nn.functional.rms_norm(hidden.float(), (hidden.shape[-1],), eps=1e-6).to(torch.bfloat16)
++            bundled = hidden[:, BUNDLE_INDEX].permute(0, 2, 1, 3).flatten(2)
++            results.append(bundled[0])
++        return results
+diff --git a/backend/text_processing/qwen21_engine.py b/backend/text_processing/qwen21_engine.py
+new file mode 100644
+index 0000000..5280e0e
+--- /dev/null
++++ b/backend/text_processing/qwen21_engine.py
+@@ -0,0 +1,165 @@
++# Qwen-Image 2.1 prompt encoder using Qwen3-VL 8B.
++
++import torch
++
++from backend import memory_management
++from backend.args import dynamic_args
++from backend.text_processing import emphasis, parsing
++from modules.shared import opts
++
++
++VISION_BLOCK = "<|vision_start|><|image_pad|><|vision_end|>"
++SYSTEM_PROMPT = "<|im_start|>system\nComprehend and analyze the provided prompt.<|im_end|>\n"
++T2I_TEMPLATE = SYSTEM_PROMPT + "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
++
++
++class PromptChunk:
++    def __init__(self):
++        self.tokens = []
++        self.multipliers = []
++
++
++class QwenImage21TextProcessingEngine:
++    def __init__(self, text_encoder, tokenizer):
++        self.emphasis = emphasis.get_current_option(opts.emphasis)()
++        self.text_encoder = text_encoder
++        self.tokenizer = tokenizer
++        self.max_length = 99999999
++        self.min_length = 1
++        self.id_pad = 151643
++        self.id_template = 151644
++        self.id_image = 151655
++        self.image_slots = []
++
++    def tokenize(self, texts, image_count=0):
++        prompts = []
++        for text in texts:
++            if image_count:
++                refs = " ".join(f"<image{i + 1}>{VISION_BLOCK}" for i in range(image_count))
++                text = f"{refs} {text.strip()}"
++            prompts.append(T2I_TEMPLATE.format(text.strip()))
++        return self.tokenizer(prompts)["input_ids"]
++
++    def tokenize_line(self, line, images=None):
++        images = images or []
++        parsed = parsing.parse_prompt_attention(line, self.emphasis.name)
++        tokenized = self.tokenize([text for text, _ in parsed], len(images))
++        chunk = PromptChunk()
++        for tokens, (_text, weight) in zip(tokenized, parsed):
++            embed_count = 0
++            for token in tokens:
++                if token == self.id_image and embed_count < len(images):
++                    token = {"type": "image", "data": images[embed_count], "original_type": "image"}
++                    embed_count += 1
++                chunk.tokens.append(token)
++                chunk.multipliers.append(weight)
++        return [chunk]
++
++    def __call__(self, texts, images=None):
++        images = images or []
++        self.emphasis = emphasis.EmphasisNone() if images else emphasis.get_current_option(opts.emphasis)()
++        if any(emphasis.uses_emphasis(x) for x in texts):
++            dynamic_args.last_extra_generation_params["Emphasis"] = self.emphasis.name
++
++        result = []
++        self.image_slots = []
++        for line in texts:
++            for chunk in self.tokenize_line(line, images):
++                z, info = self.process_tokens([chunk.tokens], [chunk.multipliers])
++                z, slots = self.strip_template_and_images(z, chunk.tokens, info)
++                self.image_slots = slots
++                result.append(z[0])
++        return result
++
++    def strip_template_and_images(self, out, tokens, embeds_info):
++        im_starts = [i for i, token in enumerate(tokens) if not isinstance(token, dict) and int(token) == self.id_template]
++        source_cut = im_starts[1] if len(im_starts) > 1 else 0
++        expanded_cut = source_cut + sum(
++            entry["size"] - 1 for entry in embeds_info if entry.get("original_index", 0) < source_cut
++        )
++
++        keep = torch.ones(out.shape[1], dtype=torch.bool, device=out.device)
++        keep[:expanded_cut] = False
++        slots = []
++        for entry in embeds_info:
++            if entry.get("type") != "image":
++                continue
++            start, size = entry["index"], entry["size"]
++            slots.append(int(keep[:start].sum().item()))
++            keep[start : start + size] = False
++        return out[:, keep], slots
++
++    def process_embeds(self, batch_tokens):
++        device = memory_management.text_encoder_device()
++        embeds_out, attention_masks, num_tokens = [], [], []
++        all_info = []
++
++        for tokens in batch_tokens:
++            attention_mask, integer_tokens, other_embeds = [], [], []
++            eos = False
++            for index, token in enumerate(tokens):
++                try:
++                    token_id = int(token)
++                    attention_mask.append(0 if eos else 1)
++                    integer_tokens.append(token_id)
++                    if not eos and token_id == self.id_pad:
++                        eos = True
++                except TypeError:
++                    other_embeds.append((index, token))
++
++            token_tensor = torch.tensor([integer_tokens], device=device, dtype=torch.long)
++            token_embeds = self.text_encoder.get_input_embeddings()(token_tensor)
++            offset = 0
++            embeds_info = []
++            for original_index, embed in other_embeds:
++                visual, extra = self.text_encoder.preprocess_embed(embed, device=device)
++                if visual is None:
++                    offset -= 1
++                    continue
++                insert_at = original_index + offset
++                visual = visual.view(1, -1, visual.shape[-1]).to(device=device, dtype=torch.float32)
++                size = visual.shape[1]
++                token_embeds = torch.cat([token_embeds[:, :insert_at], visual, token_embeds[:, insert_at:]], dim=1)
++                attention_mask = attention_mask[:insert_at] + [1] * size + attention_mask[insert_at:]
++                offset += size - 1
++                embeds_info.append(
++                    {
++                        "type": embed.get("type"),
++                        "index": insert_at,
++                        "original_index": original_index,
++                        "size": size,
++                        "extra": extra,
++                    }
++                )
++
++            embeds_out.append(token_embeds)
++            attention_masks.append(attention_mask)
++            num_tokens.append(sum(attention_mask))
++            all_info.extend(embeds_info)
++
++        return (
++            torch.cat(embeds_out),
++            torch.tensor(attention_masks, device=device, dtype=torch.long),
++            num_tokens,
++            all_info,
++        )
++
++    def process_tokens(self, batch_tokens, batch_multipliers):
++        embeds, mask, count, info = self.process_embeds(batch_tokens)
++        if embeds.size(1) == len(batch_multipliers[0]):
++            self.emphasis.tokens = batch_tokens
++            self.emphasis.multipliers = torch.asarray(batch_multipliers).to(embeds)
++            self.emphasis.z = embeds
++            self.emphasis.after_transformers()
++            embeds = self.emphasis.z
++
++        _final, hidden = self.text_encoder(
++            None,
++            embeds=embeds,
++            attention_mask=mask,
++            num_tokens=count,
++            embeds_info=info,
++            intermediate_output=-1,
++            final_layer_norm_intermediate=False,
++        )
++        return hidden, info
+diff --git a/modules_forge/main_entry.py b/modules_forge/main_entry.py
+index 110ff4a..bbdf9e0 100644
+--- a/modules_forge/main_entry.py
++++ b/modules_forge/main_entry.py
+@@ -1,5 +1,6 @@
+ import logging
+ import os.path
++from functools import partial
+ from typing import Callable
+ 
+ import gradio as gr
+@@ -258,7 +259,8 @@ def forge_main_entry():
+         ui_img2img_batch_size,
+     ]
+ 
+-    ui_forge_preset.change(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False).success(
++    ui_forge_preset.change(partial(on_preset_change, layout_only=True), inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False)
++    ui_forge_preset.input(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False).success(
+         fn=_load_presets,
+         inputs=[ui_checkpoint, ui_vae, ui_forge_unet_dtype, ui_forge_preset],
+         queue=False,
+@@ -273,10 +275,13 @@ def forge_main_entry():
+ def _load_presets(ui_checkpoint: str, ui_vae: list[str], ui_forge_unet_dtype: str, ui_forge_preset: str):
+     dtype_change(ui_forge_unet_dtype, ui_forge_preset, save=False, refresh=False)
+     modules_change(ui_vae, ui_forge_preset, save=False, refresh=False)
+-    checkpoint_change(ui_checkpoint, ui_forge_preset, save=True, refresh=True)
++    checkpoint_change(ui_checkpoint, ui_forge_preset, save=False, refresh=False)
++    # Components can change even when the checkpoint stays the same.
++    shared.opts.save(shared.config_filename)
++    refresh_model_loading_parameters()
+ 
+ 
+-def on_preset_change(preset: str):
++def on_preset_change(preset: str, *, layout_only=False):
+     assert preset is not None
+     shared.opts.set("forge_preset", preset)
+     shared.opts.save(shared.config_filename)
+@@ -296,6 +301,11 @@ def on_preset_change(preset: str):
+     batch_args_i2i = batch_args_t2i.copy()
+     batch_args_i2i["value"] = getattr(shared.opts, f"{preset}_i2i_batch_size", 1)
+ 
++    if layout_only:
++        batch_args_t2i.pop("value", None)
++        batch_args_i2i.pop("value", None)
++        return [gr.skip() for _ in range(17)] + [gr.update(**d_args) for _ in range(3)] + [gr.update(**batch_args_t2i), gr.update(**batch_args_i2i)]
++
+     modules_value = [os.path.basename(m) for m in getattr(shared.opts, f"forge_additional_modules_{preset}", [])]
+     if not shared.opts.sd_modules_dropdown_use_short:
+         modules_value = [module_map[m] for m in modules_value]
+diff --git a/modules_forge/packages/huggingface_guess/detection.py b/modules_forge/packages/huggingface_guess/detection.py
+index 4fe486d..d1339ad 100644
+--- a/modules_forge/packages/huggingface_guess/detection.py
++++ b/modules_forge/packages/huggingface_guess/detection.py
+@@ -40,6 +40,19 @@ def calculate_transformer_depth(prefix, state_dict_keys, state_dict):
+ def detect_unet_config(state_dict: dict, key_prefix: str) -> dict:
+     state_dict_keys = list(state_dict.keys())
+ 
++    if f"{key_prefix}perceiver.latent_queries" in state_dict and f"{key_prefix}layers.0.attention.qkv.weight" in state_dict:
++        max_gist, dim = state_dict[f"{key_prefix}perceiver.latent_queries"].shape
++        layers = count_blocks(state_dict_keys, key_prefix + "layers.{}.")
++        fused = f"{key_prefix}layers.0.feed_forward.w13.weight" in state_dict
++        ffn = state_dict[f"{key_prefix}layers.0.feed_forward.{'w13' if fused else 'w1'}.weight"].shape[0]
++        return dict(image_model="fibo2", max_gist_tokens=max_gist, dim=dim, n_heads=dim // 128,
++                    in_channels=state_dict[f"{key_prefix}final_layer.linear.weight"].shape[0],
++                    n_layers=layers, n_refiner_layers=count_blocks(state_dict_keys, key_prefix + "noise_refiner.{}."),
++                    perceiver_layers=count_blocks(state_dict_keys, key_prefix + "perceiver.layers.{}."),
++                    injection_layers=[i for i in range(layers) if f"{key_prefix}layers.{i}.cross_attn_gate" in state_dict],
++                    ffn_dim=ffn // 2 if fused else ffn, fused_ffn=fused)
++
++
+     if "{}cap_embedder.1.weight".format(key_prefix) in state_dict_keys and ("{}noise_refiner.0.attention.k_norm.weight".format(key_prefix) in state_dict_keys or "{}layers.0.attention.to_out.0.qweight".format(key_prefix) in state_dict_keys):  # Lumina 2
+         dit_config = {}
+         dit_config["image_model"] = "lumina2"
+@@ -262,7 +275,22 @@ def detect_unet_config(state_dict: dict, key_prefix: str) -> dict:
+             dit_config["mlp_ratio"] = int(gate_up.shape[0]) // 2 // inner_dim
+         else:
+             dit_config["mlp_ratio"] = int(state_dict["{}transformer_blocks.0.img_mlp.proj.weight".format(key_prefix)].shape[0]) // inner_dim
+-        dit_config["fused_mlp"] = gate_up is not None
++        # GGUF repacks may fuse gate/up, while official BF16/ConvRot files
++        # retain separate gate_layer/proj matrices. Match the stored layout
++        # instead of letting the transformer's fused_mlp=True default drop
++        # every separate MLP input weight under non-strict loading.
++        mlp_layouts = set()
++        for block in range(dit_config["num_layers"]):
++            mlp_prefix = f"{key_prefix}transformer_blocks.{block}.img_mlp."
++            fused = f"{mlp_prefix}gate_up.weight" in state_dict_keys
++            gate = f"{mlp_prefix}gate_layer.weight" in state_dict_keys
++            up = f"{mlp_prefix}proj.weight" in state_dict_keys
++            if (fused and (gate or up)) or (not fused and not (gate and up)):
++                raise ValueError(f"Incomplete or ambiguous Qwen-Image 2.1 MLP weights in block {block}")
++            mlp_layouts.add(fused)
++        if len(mlp_layouts) != 1:
++            raise ValueError("Qwen-Image 2.1 requires a consistent MLP weight layout across blocks")
++        dit_config["fused_mlp"] = mlp_layouts.pop()
+ 
+         return dit_config
+ 
+diff --git a/modules_forge/packages/huggingface_guess/model_list.py b/modules_forge/packages/huggingface_guess/model_list.py
+index 9886bf7..afe9d85 100644
+--- a/modules_forge/packages/huggingface_guess/model_list.py
++++ b/modules_forge/packages/huggingface_guess/model_list.py
+@@ -626,6 +626,16 @@ class Krea2(BASE):
+         return ModelType.FLUX
+ 
+ 
++class Fibo2(Krea2):
++    huggingface_repo = "briaai/Fibo-2.0-edit-turbo"
++    unet_config = {"image_model": "fibo2"}
++    unet_extra_config = {}
++    sampling_settings = {"shift": 1.15}
++    latent_format = latent.Flux2
++    memory_usage_factor = 17.0
++    supported_inference_dtypes = [torch.bfloat16, torch.float32]
++
++
+ class ErnieImage(BASE):
+     huggingface_repo = "baidu/ERNIE-Image"
+ 
+@@ -705,6 +715,7 @@ models = [
+     QwenImage,
+     QwenImage21,
+     Krea2,
++    Fibo2,
+     ErnieImage,
+     PiD,
+ ]
+diff --git a/modules_forge/presets.py b/modules_forge/presets.py
+index 7241ac9..7a4b6f3 100644
+--- a/modules_forge/presets.py
++++ b/modules_forge/presets.py
+@@ -15,6 +15,7 @@ class PresetArch(Enum):
+     pid = 11  # PiD
+     krea = 12  # Krea2
+     qwen21 = 13  # Qwen-Image-2.1
++    fibo2 = 14  # Fibo 2.0
+ 
+     @staticmethod
+     def choices() -> list[str]:
+@@ -35,6 +36,7 @@ SAMPLERS = {
+     PresetArch.pid: "LCM",
+     PresetArch.krea: "Euler",
+     PresetArch.qwen21: "Euler",
++    PresetArch.fibo2: "Euler",
+ }
+ 
+ SCHEDULERS = {
+@@ -51,6 +53,7 @@ SCHEDULERS = {
+     PresetArch.pid: "Simple",
+     PresetArch.krea: "Simple",
+     PresetArch.qwen21: "Simple",
++    PresetArch.fibo2: "Simple",
+ }
+ 
+ STEPS = {
+@@ -67,6 +70,7 @@ STEPS = {
+     PresetArch.pid: 4,
+     PresetArch.krea: 8,
+     PresetArch.qwen21: 32,
++    PresetArch.fibo2: 4,
+ }
+ 
+ CFG = {
+@@ -83,6 +87,7 @@ CFG = {
+     PresetArch.pid: 1.0,
+     PresetArch.krea: 1.0,
+     PresetArch.qwen21: 2.5,
++    PresetArch.fibo2: 1.0,
+ }
+ 
+ DISTILL = {
+@@ -98,6 +103,7 @@ SHIFT = {
+     PresetArch.ernie: 3.0,
+     PresetArch.pid: -1.5,
+     PresetArch.krea: -1.15,
++    PresetArch.fibo2: 1.15,
+ }
+ 
+ FRAMES = {
