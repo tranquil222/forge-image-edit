@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.4.1 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.4.2 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -97,6 +97,23 @@ support, including source alpha, remain exactly unchanged. Blending feathers
 inward. Resolution controls crop detail; final dimensions stay original.
 This is model-specific reference preparation plus compositing, not a guarantee
 of seamless repairs. Paint a larger border if necessary.
+
+### Contrast drift and fine texture
+
+**Match source brightness / contrast** optionally reduces global tone drift after
+an object edit, for both Qwen and Fibo. It estimates one neutral gain/offset from
+mostly unchanged content and applies it without blurring or sharpening. Leave it
+off for intentional lighting/contrast changes or major scene changes. It defaults
+off; PNG recipes and **Send to Image Edit** retain the setting and recipes record
+the applied correction. In painted mode the selected area is excluded from the
+estimate, and compositing still keeps outside pixels exact.
+
+Qwen 2.1's stock VAE has a documented fine checkerboard artifact. The optional
+[texture-fix VAE](MODELS.md#qwen-21-texture-fix-vae) addresses that decoder artifact;
+it is not a Fibo VAE. Neither tone matching nor this decoder guarantees original
+fine-detail preservation. Whole-image edits can regenerate texture even when the
+instruction names only one object. For exact preservation elsewhere, **paint an
+edit area** and work from the original instead of repeatedly editing the output.
 
 ## Native saving and metadata
 

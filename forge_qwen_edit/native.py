@@ -20,6 +20,7 @@ from .workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_s
 from .masking import canonical_image, composite_patch, context_box, extract_mask, fibo_masked_instruction, fibo_masked_reference, location_guide, scoped_instruction
 from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
+from .tone import match_source_tone
 
 
 class EditCancelled(Exception):
@@ -186,7 +187,7 @@ def isolated_options(checkpoint, modules, storage_dtype="Automatic"):
             setattr(dynamic_args, key, value)
 
 
-def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None):
+def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False):
     adapter = get_adapter(model_family)
     guidance = adapter.guidance if guidance is None else float(guidance)
     if not 1 <= guidance <= 15 or (adapter.guidance == 1 and guidance != 1):
@@ -265,6 +266,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "prefix_cache": bool(prefix_cache),
         "result_description": result_description,
         "keep_original_metadata": bool(keep_original_metadata), "storage_dtype": storage_dtype,
+        "preserve_tone": bool(preserve_tone),
         "reference_sha256": [image_digest(im) for im in references],
         "reference_sizes": [list(im.size) for im in references],
         "area_only": bool(area_only), "source_sha256": image_digest(original),
@@ -293,6 +295,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
                 "Edit references": len(references), "Prefix cache": bool(prefix_cache),
                 "Edit mode": "Reference / empty latent", "Edit quality preset": recipe["quality_preset"],
                 "Painted area": bool(area_only),
+                "Preserve source tone": bool(preserve_tone),
             },
         )
         p.edit_references = references
@@ -307,6 +310,10 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         if shared.state.interrupted or shared.state.skipped or not result.images:
             return None, None, "", "Edit cancelled. No completed image was saved."
         output = result.images[0]
+        if preserve_tone:
+            tone_source = original.crop(crop) if area_only else original
+            tone_exclude = mask.crop(crop) if area_only else None
+            output, recipe["tone_match"] = match_source_tone(tone_source, output, tone_exclude)
         if area_only:
             output = composite_patch(original, output, mask, crop, feather)
         recipe["output_size"] = list(output.size)

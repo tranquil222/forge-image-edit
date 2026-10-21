@@ -1,5 +1,5 @@
 {
-  "version": "0.4.1",
+  "version": "0.4.2",
   "status": "tested beta",
   "date": "2026-10-20",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 40,
+    "extension_python_tests": 47,
     "javascript_tests": 5,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -300,6 +300,27 @@
           "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
         }
       ]
+    },
+    "tone_and_texture_update": {
+      "version": "0.4.2",
+      "tone_matching": "Unit checks recover a known affine contrast change with a new object, repeated synthetic drift correction, alpha/flat-image handling, painted exclusion, exact outside-mask compositing and old/new PNG recipes. Default off.",
+      "live_fibo": "Fibo Turbo INT8, 768, 4 steps, CFG 1, seed 42: raw and corrected runs; corrected pixels exactly match applying the helper to the same-seed raw output. PNG import and IIB handoff retain the setting. Blue-hat edit visually checked.",
+      "live_qwen": "Qwen 2.1 Turbo INT8 with texture-fix BF16 VAE and tone matching, 768, 8 official Euler steps, CFG 1, seed 42: generated 928x640 output; PNG import retains both VAE and tone setting. Selection note/link, incompatible Fibo selection and correction-button preservation verified via API.",
+      "gpu_api_environment": {
+        "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+        "torch": "2.14.0+cu130",
+        "gpu": "RTX 3090 24 GiB"
+      },
+      "decoder_comparison": {
+        "method": "Same locally encoded benign image latent, native Forge VAE loader, BF16 decode, 608x416. Phase-locked two-pixel lattice peak-to-peak metric from ComfyUI-DeGrid; measurement only, no filter applied.",
+        "metric_source": "https://github.com/lunaaispace-eng/ComfyUI-DeGrid/tree/42ba59d7dec0bdafd80adce8bbe824744c8113de",
+        "torch": "2.10.0+cu130",
+        "stock_grid_255": 1.34791279,
+        "texture_fix_grid_255": 0.08496644,
+        "interpretation": "Single decoder diagnostic, not a universal sharpness, fidelity or artifact-free guarantee."
+      },
+      "download": "Optional VAE pinned by publisher revision, byte count and SHA-256; installed-file verification passed. No weights redistributed.",
+      "scope": "Tone matching does not remove grid patterns or restore generated detail. Qwen replacement VAE is not compatible with Fibo. No unverified Fibo texture filter is applied."
     }
   },
   "limitations": [
@@ -312,6 +333,7 @@
     "No universal image-editing quality guarantee; Turbo extra steps are experimental.",
     "CFG 1 models ignore negative prompts; Dev uses text-only unconditional conditioning.",
     "Model weights and their licenses are separate; no weights, example images or private settings are in this release.",
-    "Lower-VRAM validation uses simulated 12/16 GiB budgets on a 24 GiB GPU, not physical 12/16 GiB cards. Quantization validation covers the exact listed files, not every GGUF, FP4, AWQ/GPTQ or language-only encoder."
+    "Lower-VRAM validation uses simulated 12/16 GiB budgets on a 24 GiB GPU, not physical 12/16 GiB cards. Quantization validation covers the exact listed files, not every GGUF, FP4, AWQ/GPTQ or language-only encoder.",
+    "Whole-image edits can regenerate fine texture. Optional tone matching targets global brightness/contrast only; it is off by default for intentional relighting. The community Qwen texture-fix VAE targets its decoder grid, not exact reconstruction. No Fibo-specific decoder fix is included."
   ]
 }

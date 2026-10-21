@@ -54,6 +54,15 @@ def selection_status(value, modules):
     try:
         checkpoint, adapter, encoder, vae = resolve_selection(value, modules)
         message = f"**{adapter.label} · ready to edit**"
+        if adapter.key == "qwen21":
+            if basename(vae).lower() == "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors":
+                message += "\n\nQwen texture-fix VAE selected. Reduces the decoder's fine grid; whole-image edits can still change texture."
+            else:
+                message += ("\n\nFor Qwen's fine checkerboard, use the optional "
+                            "[texture-fix VAE](https://huggingface.co/madebyollin/texture-fix-vae-for-qwen-image-2.1/blob/main/texture_fix_vae_for_qwen_image_2.1_bf16.safetensors). "
+                            "Put it in `models/VAE`, refresh, then select it **instead of** the stock VAE in the top **VAE / Text Encoder** field. Keep your Qwen3-VL 8B encoder.")
+        else:
+            message += "\n\nFibo uses `flux2-vae.safetensors`. Qwen's texture-fix VAE is not compatible."
         return message, gr.update(interactive=True)
     except ValueError as error:
         if str(error).startswith("Backend setup required"):
@@ -162,12 +171,12 @@ def import_recipe(file, current_checkpoint, modules):
             gr.update(choices=list(adapter.schedules), value=recipe["schedule"]), choice, [encoder, vae], adapter.key, dtype,
             note, gr.update(choices=[*profiles_for(adapter, checkpoint.name), "Custom"], value="Custom"), "Imported edit recipe.", family,
             gr.update(value=bool(recipe.get("prefix_cache", adapter.prefix_cache)) and adapter.prefix_cache, interactive=adapter.prefix_cache),
-            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"])
+            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], bool(recipe.get("preserve_tone", False)))
 
 
 def import_handoff(image, checkpoint, modules):
     if image is None or not any(key in image.info for key in ("image_edit", "qwen_edit")):
-        return tuple(gr.update() for _ in range(20))
+        return tuple(gr.update() for _ in range(21))
     # read_recipe accepts PIL images as well as uploaded paths; no stored paths opened.
     return import_recipe(image, checkpoint, modules)
 
@@ -199,11 +208,11 @@ def bind(ui, controls):
     ui.correct_components.click(apply_components, [checkpoint, modules, dtype], [modules, preset], show_progress="hidden", api_name="image_edit_correct_components")
     ui.profile.input(apply_profile, [ui.profile, checkpoint], [ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.guidance], show_progress="hidden", api_name="image_edit_preset")
     recipe_outputs = [ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed, ui.sampler, ui.schedule, checkpoint, modules, preset, dtype,
-                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance]
+                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone]
     ui.import_button.click(import_recipe, [ui.recipe_file, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_import")
     ui.handoff.change(import_handoff, [ui.handoff, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_handoff")
     ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[None, None, ""]),
         [ui.task_id, ui.source, ui.reference2, ui.reference3, ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed,
          ui.sampler, ui.schedule, checkpoint, modules, dtype, ui.prefix_cache, ui.area_only, ui.mask_editor.foreground,
-         ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance],
+         ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone],
         [ui.result, ui.download, ui.last_seed, ui.status], js="qwenEditSubmit", api_name="image_edit_generate")

@@ -42,6 +42,27 @@ to overwrite different files. Custom directories can be passed with
 Face cache, so allow disk space for both the cache and installed weights.
 Authentication or publisher terms, if required, are handled through Hugging Face.
 
+### Qwen 2.1 texture-fix VAE
+
+Optional replacement for Qwen 2.1 base or Turbo, with either tested checkpoint
+quantization and the same Qwen3-VL 8B encoder:
+
+- [texture_fix_vae_for_qwen_image_2.1_bf16.safetensors (675.5 MB)](https://huggingface.co/madebyollin/texture-fix-vae-for-qwen-image-2.1/blob/main/texture_fix_vae_for_qwen_image_2.1_bf16.safetensors) → `models/VAE/`
+
+Refresh Forge's model list. In the top **VAE / Text Encoder** field, replace the
+stock Qwen VAE with this file; keep your encoder and select only one VAE.
+**Use matching encoder / VAE** retains it once selected. The optional helper
+choice `--model qwen21-texture-fix-vae --download` installs just this VAE, without
+replacing the stock file or downloading a checkpoint/encoder.
+
+[Comfy's documentation](https://github.com/Comfy-Org/docs/blob/main/tutorials/image/qwen/qwen-image-2-1.mdx#vae-decoding-artifacts)
+identifies the stock VAE's fine checkerboard as a decoder artifact. This is a
+community decoder finetune, not an official Qwen weight update; the publisher
+reports cleaner texture with a small reconstruction-accuracy tradeoff. It does
+not restore original detail lost during editing. See the
+[publisher's model card and weight license](https://huggingface.co/madebyollin/texture-fix-vae-for-qwen-image-2.1).
+**Fibo still requires `flux2-vae.safetensors`; do not use this Qwen VAE for Fibo.**
+
 ### Smaller Qwen download
 
 The optional `--model qwen21-turbo-q4` set uses these files:

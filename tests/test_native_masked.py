@@ -20,6 +20,7 @@ from forge_qwen_edit.workflow import QUALITY_PRESETS, fibo_result_prompt, image_
 from forge_qwen_edit.adapters import get_adapter
 from forge_qwen_edit.metadata import build_metadata, preserve_binary_metadata
 from forge_qwen_edit.selection import validate_components
+from forge_qwen_edit.tone import match_source_tone
 
 
 class NativeMaskedTests(unittest.TestCase):
@@ -35,7 +36,10 @@ class NativeMaskedTests(unittest.TestCase):
     def test_masked_output_drops_original_metadata_when_disabled(self):
         self.check_masked_job("Replace / remove", "Fibo 2.0 Edit Turbo", False)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True):
+    def test_tone_option_keeps_mask_boundary_and_records_recipe(self):
+        self.check_masked_job("Replace / remove", "Fibo 2.0 Edit Turbo", preserve_tone=True)
+
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -88,7 +92,7 @@ class NativeMaskedTests(unittest.TestCase):
             ImageDraw.Draw(layer).rectangle((200, 100, 290, 220), fill=(0, 255, 0, 255))
             editor["layers"] = [layer]
             output, filename, seed, message = namespace["generate"](
-                source, None, None, "Remove the stray object.", "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, True, editor, 8, mode, family, "", keep_metadata)
+                source, None, None, "Remove the stray object.", "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, True, editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone)
             self.assertEqual(output.size, source.size)
             outside = np.array(layer)[..., 3] == 0
             np.testing.assert_array_equal(np.array(output)[outside], np.array(source)[outside])
@@ -108,6 +112,8 @@ class NativeMaskedTests(unittest.TestCase):
                 self.assertEqual("Author" in saved.info, keep_metadata)
                 recipe = json.loads(saved.info["image_edit"])
                 self.assertEqual(recipe["model_family"], family)
+                self.assertEqual(recipe["preserve_tone"], preserve_tone)
+                self.assertEqual("tone_match" in recipe, preserve_tone)
                 self.assertEqual("qwen_edit" in saved.info, not fibo)
                 self.assertTrue(recipe["area_only"])
                 self.assertEqual(recipe["prompt"], "Remove the stray object.")

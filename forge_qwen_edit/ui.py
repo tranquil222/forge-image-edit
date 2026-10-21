@@ -90,11 +90,11 @@ def toggle_area(enabled):
 
 
 def run_canvas_edit(task_id, *args):
-    *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance = args
+    *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
-                    adapter.label, result_description, keep_metadata, dtype, guidance)
+                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone)
 
 
 def custom_settings(family=DEFAULT_FAMILY):
@@ -168,6 +168,8 @@ def create_tab():
                 profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
                 resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
             profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
+            preserve_tone = gr.Checkbox(value=False, label="Match source brightness / contrast", elem_id="image_edit_preserve_tone",
+                info="Reduce global tone drift after an object edit. Does not prevent texture changes; paint an edit area to keep the rest exact. Leave off for lighting or contrast changes.")
             with gr.Row():
                 generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
                 cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
@@ -199,7 +201,7 @@ def create_tab():
                 import_status = gr.Markdown()
             handoff = MetadataImage(visible=False, numpy=False, elem_id="image_edit_handoff")
             task_id = gr.Textbox(visible=False)
-            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather):
+            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather):
                 component.do_not_save_to_config = True
             for component in (steps, sampler, schedule, guidance, prefix_cache):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")

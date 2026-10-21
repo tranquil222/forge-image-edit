@@ -127,5 +127,18 @@
         "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994"
       }
     ]
+  },
+  "qwen21-texture-fix-vae": {
+    "repository": "madebyollin/texture-fix-vae-for-qwen-image-2.1",
+    "revision": "702909b4d408912c7a28fadea06e8b7fdb38ef0c",
+    "model_card": "https://huggingface.co/madebyollin/texture-fix-vae-for-qwen-image-2.1",
+    "files": [
+      {
+        "source": "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors",
+        "kind": "vae",
+        "bytes": 675509688,
+        "sha256": "36f56608b02077a50a08ea3dbcdb88351298ceba49948f41f9f87186378e6908"
+      }
+    ]
   }
 }

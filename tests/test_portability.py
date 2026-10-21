@@ -71,6 +71,22 @@ class PortabilityTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Required"):
                 validate_components(adapter, ["qwen3vl_4b_int8_convrot.safetensors", selected[1]], available)
 
+    def test_qwen_texture_fix_selection_is_retained_and_rejected_for_fibo(self):
+        qwen = get_adapter("Qwen Image 2.1")
+        fibo = get_adapter("Fibo 2.0 Edit Turbo")
+        fixed = "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors"
+        with tempfile.TemporaryDirectory() as temporary:
+            available = {}
+            for name in (*qwen.defaults[1:], *fibo.defaults[1:], fixed):
+                path = Path(temporary) / name
+                path.touch()
+                available[name] = str(path)
+            selected = [qwen.defaults[1], fixed]
+            self.assertEqual(suggested_components(qwen, selected, available), selected)
+            self.assertEqual(validate_components(qwen, selected, available), tuple(selected))
+            with self.assertRaisesRegex(ValueError, "Required"):
+                validate_components(fibo, [fibo.defaults[1], fixed], available)
+
     def test_dev_uses_separate_guidance_defaults_and_recipe_validation(self):
         adapter = adapter_for_checkpoint("fibo2_dev_int8_convrot.safetensors")
         self.assertEqual(adapter.guidance, 5)
