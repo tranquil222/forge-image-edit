@@ -2,18 +2,22 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.17 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.18 beta**. No ComfyUI server or cloud image service.
 
-## Fibo Shift and high-resolution RoPE
+## Main controls, Fibo Shift and RoPE
 
-Fibo has two independent experimental controls:
+Edit mode, Generate / Cancel, Seed / Batch, and Speed / quality / Resolution are grouped
+below the result. Expanding sizing or crop controls does not move Generate down.
 
-- **Shift**, below the result/download buttons, changes the sampling schedule and
+Fibo has two independent experimental controls in this group:
+
+- **Shift** changes the sampling schedule and
   can affect contrast and texture. Manual **1.15** preserves the existing
   default. **Image-size adjusted** computes Shift from the actual model working
   dimensions, not the saved canvas size. It is not inherently better for outpainting.
-- **High-resolution RoPE**, inside the expanded **Custom output size** section,
-  uses the spatial-coordinate scaling from
+- **RoPE adjustment** is independent of output size and available for whole-image,
+  painted and crop/outpaint edits. It can affect contrast, texture and detail at
+  any resolution. It uses the spatial-coordinate scaling from
   [reverentelusarca's 2K workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope):
   **X 0.85 / Y 0.80**, applied to both output and reference positions. It generates
   at the selected resolution directly; there is no upscale-and-downscale pass.
@@ -21,7 +25,7 @@ Fibo has two independent experimental controls:
 
 To approximate that workflow, use **Fibo Edit Turbo**, **Resolution 2048**
 (roughly 4 MP), **8 steps**, **CFG 1**, **Euler / Simple**, **Manual Shift 1.15**,
-and enable **High-resolution RoPE**. Our aspect-preserving sizing/grid and Forge
+and enable **RoPE adjustment**. Our aspect-preserving sizing/grid and Forge
 backend differ from ComfyUI, so matching the RoPE trick does not promise identical
 images. Larger model images need more memory and time. The workflow targets
 high-resolution stretching; neither control is an established contrast fix.
@@ -30,8 +34,8 @@ Both controls are saved in the PNG recipe. Older PNGs restore Manual 1.15 and
 RoPE off. Qwen ignores these Fibo-only controls. Existing 4-step Turbo defaults
 and low-resolution behavior are unchanged unless you enable a control.
 
-For exact dimensions, enable **Custom output size** immediately below Edit mode,
-above the whole-image output summary.
+The shared **Output size** section holds sizing controls. For exact whole-image
+dimensions, enable **Custom output size**.
 **Resize to** provides linked Width / Height sliders; **Resize by** scales from
 the loaded source (for example, 2× doubles each dimension). This sets the actual
 whole-image inference/output size, not a post-generation enlargement. It overrides
@@ -40,6 +44,11 @@ Sizes are limited to 32–4096 pixels per edge. Loading a new source resets the
 dimensions and scale, but keeps your checkbox preference. The controls are hidden
 for painted and crop/outpaint edits, which retain their existing canvas geometry.
 Use Crop / outpaint to change the aspect ratio or add content outside the image.
+In that mode, the same Output size section shows **Resize by** percentages for
+the complete canvas (formerly Shrink by); **50%** halves width and height.
+Canvas scaling only reduces size; enlarge the canvas with the edge controls.
+An unchanged, unpainted canvas disables Generate and explains what to change.
+Painting still enables generation with every edge set to zero.
 
 ## Install
 
@@ -249,12 +258,12 @@ pixels crop that edge.** Left/right and top/bottom are independent, so a single
 operation can crop one side and expand another. The resulting canvas dimensions
 are shown automatically. **Reset edges** returns to the original bounds.
 
-**Shrink by** reduces the whole planned canvas before generation and saves at
-that smaller size. For example, a 3072 × 2048 canvas at **2×** becomes
-1536 × 1024 (half the width and height, one quarter of the pixels). Choose
-1× (off), 1.5×, 2×, 3× or 4×. Edge values remain in loaded-source pixels; the
+**Output size → Resize by** reduces the whole planned canvas before generation
+and saves at that smaller size. For example, a 3072 × 2048 canvas at **50%**
+becomes 1536 × 1024 (half the width and height, one quarter of the pixels).
+Choose 100% (original size), 67%, 50%, 33% or 25%. Edge values remain in loaded-source pixels; the
 summary shows the reduced output and model-image dimensions. The loaded source
-and its strokes are untouched. Shrink stays selected across source changes;
+and its strokes are untouched. The scale stays selected across source changes;
 Reset edges resets only the four edges.
 
 **Resolution** already limits model working size independently of the saved
@@ -276,8 +285,8 @@ and Clear painted area affect only the strokes, not the automatically selected b
 the original after generation (default 32 pixels, adjustable 0–128). Fibo still
 receives a hard grey mask; no spatial blur is applied to either image. Added pixels
 are fully generated, never blended with the grey padding. Pixels outside painting
-and this overlap stay exact (relative to the downscaled original when Shrink by
-is enabled). Shrinking resamples the retained photo separately from the grey
+and this overlap stay exact (relative to the downscaled original when canvas scaling
+is used). Shrinking resamples the retained photo separately from the grey
 border, so grey does not bleed into it. Set 0 for a hard boundary. Crossfading can soften tone
 seams, but mismatched geometry or texture may remain visible or look softer in the overlap.
 
@@ -313,20 +322,14 @@ guarantee a seamless join. Large extensions are often easier in smaller stages.
 
 ### Contrast drift and fine texture
 
-**Auto-correct global brightness / contrast** optionally reduces global tone drift after
-an object edit, for both Qwen and Fibo. It estimates one neutral gain/offset from
-mostly unchanged content and applies it without blurring or sharpening. Leave it
-off for intentional lighting/contrast changes or major scene changes. It defaults
-off; PNG recipes and **Send to Image Edit** retain the setting and recipes record
-the applied correction. In painted mode the selected area is excluded from the
-estimate, and compositing still keeps outside pixels exact. This runs on the next
-generation, not the result already on screen. The save status reports a negligible
-estimate, a skipped estimate, or the gain/offset applied. It cannot repair localized
-contrast changes or texture loss; use Curves for a manual correction.
+For Fibo, try **Shift** and **RoPE adjustment**, or open the result’s **Curves**
+for manual tonal corrections. The auto-correction checkbox has been removed;
+importing an older PNG does not re-enable it. Neither sampling control guarantees
+that an edit will preserve the original contrast or texture.
 
 Qwen 2.1's stock VAE has a documented fine checkerboard artifact. The optional
 [texture-fix VAE](MODELS.md#qwen-21-texture-fix-vae) addresses that decoder artifact;
-it is not a Fibo VAE. Neither tone matching nor this decoder guarantees original
+it is not a Fibo VAE. This decoder does not guarantee original
 fine-detail preservation. Whole-image edits can regenerate texture even when the
 instruction names only one object. For exact preservation elsewhere, **paint an
 edit area** and work from the original instead of repeatedly editing the output.

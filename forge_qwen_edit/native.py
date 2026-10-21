@@ -249,7 +249,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     custom_size = None
     if output_resize is not None:
         if area_only or canvas_edges is not None:
-            raise ValueError("Custom output size is for whole-image edits. Painted edits preserve the source canvas; use Crop / outpaint edges and Shrink by for canvas edits.")
+            raise ValueError("Custom output size is for whole-image edits. Painted edits preserve the source canvas; use Crop / outpaint edges and Output size for canvas edits.")
         custom_size = output_resize_size(original.size, output_resize)
     mask, crop = None, None
     plan = None

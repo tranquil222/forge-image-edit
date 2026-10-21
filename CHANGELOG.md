@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.18 beta
+
+- Group Edit mode, Generate / Cancel, Seed / Batch and Speed / quality / Resolution
+  below the result. Optional canvas and sizing controls no longer push Generate down.
+- Make RoPE adjustment independent of sizing and available for whole-image, painted
+  and crop/outpaint edits. Shift and RoPE retain their existing sampling behavior.
+- Consolidate sizing in Output size; canvas Shrink by is now Resize by percentages.
+- Remove the auto-correction checkbox; older recipes do not silently restore it.
+- Link Width / Height immediately in the browser, avoiding stale server responses
+  during fast drags; immediate generation submits the latest linked dimensions.
+- Disable generation on unchanged, unpainted canvases with an actionable hint.
+  Painting at zero edges remains supported; crop/shrink still work without a model.
+
 ## 0.5.17 beta
 
 - Move Fibo Shift into the right-hand space below the result/download buttons;

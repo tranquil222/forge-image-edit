@@ -1,5 +1,6 @@
 function qwenEditSubmit(...args) {
     if (window.imageEditCurvesBusy) throw new Error("Wait for the curves adjustment to finish saving.");
+    window.ImageEditOutputSize?.submit(args);
     // Gradio appends current output values after the inputs in JS callbacks.
     if (window.imageEditReferencePayloads) [args[31], args[32]] = window.imageEditReferencePayloads();
     const id = randomId();

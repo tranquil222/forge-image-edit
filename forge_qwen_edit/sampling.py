@@ -21,7 +21,7 @@ def validate_fibo_sampling(mode, shift, rope=False):
     if not math.isfinite(shift) or not 0.1 <= shift <= 5:
         raise ValueError("Fibo Shift must be between 0.1 and 5.")
     if not isinstance(rope, bool):
-        raise ValueError("High-resolution RoPE must be on or off.")
+        raise ValueError("RoPE adjustment must be on or off.")
     return mode, shift, rope
 
 
@@ -50,7 +50,7 @@ def fibo_rope_context(sd_model, enabled=False):
     model = sd_model.forge_objects.unet.model.diffusion_model
     embedder = getattr(model, "rope_embedder", None)
     if embedder is None or not hasattr(embedder, "register_forward_pre_hook"):
-        raise ValueError("This Fibo backend does not expose RoPE coordinates. Update the backend before enabling High-resolution RoPE.")
+        raise ValueError("This Fibo backend does not expose RoPE coordinates. Update the backend before enabling RoPE adjustment.")
 
     def scale_positions(module, inputs):
         ids = inputs[0].clone()

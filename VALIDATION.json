@@ -1,5 +1,5 @@
 {
-  "version": "0.5.17",
+  "version": "0.5.18",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 117,
-    "javascript_tests": 13,
+    "extension_python_tests": 120,
+    "javascript_tests": 15,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -543,7 +543,16 @@
       "scope": "Layout only; inference, API generation inputs and recipe fields unchanged from 0.5.16.",
       "browser": "Verified at 1800px and 650px: Shift beneath result/download actions; Custom output size below Edit mode and above output summary; RoPE nested inside expanded custom sizing; collapse/reopen preserves control values; auto/manual Shift interactivity works; no workspace overflow.",
       "model_visibility": "Production callback checked for Qwen, Fibo Turbo and Fibo Dev; Shift/RoPE remain Fibo-only.",
-      "javascript_errors": "No Image Edit errors. Existing unrelated errors from dynamic-prompts, scramble-prompts and openOutpaint remain outside this change."
+      "javascript_errors": "No Image Edit errors. Existing unrelated errors from dynamic-prompts, scramble-prompts and openOutpaint remain outside this change.",
+      "version": "0.5.17"
+    },
+    "main_controls_layout": {
+      "version": "0.5.18",
+      "browser": "Edge at 1800px and 650px: grouped Edit mode, Generate/Cancel, Seed/Batch, Speed/quality/Resolution; no Generate movement when custom sizing expands or crop/outpaint toggles; no workspace overflow. RoPE remains visible and checked for whole-image, painted and canvas editing. Auto-correction control removed.",
+      "sizing": "Rapid mouse dragging followed by 500 width stays 500 x 500. Source replacement with a 512 x 640 image and height 600 yields 480 x 600. Submit-time normalization covered by JavaScript regression test. Shared Output size contains whole-image controls or canvas Resize by percentages.",
+      "canvas_actions": "Unchanged/unpainted canvas disables Generate with an actionable hint; expansion enables Generate outpaint; 50% with zero edges selects Apply shrink; painting at zero edges enables generation and clearing paint disables it again. Model readiness remains a separate prerequisite for generation; crop/shrink need no model.",
+      "compatibility": "41 generation input slots retained. Removed tone flag is hidden and false; old recipe import forces it off. Existing CPU integration tests cover RoPE/Shift for global, paint and outpaint. No new GPU generation was needed for this controls update.",
+      "javascript_errors": "No Image Edit errors; unrelated dynamic-prompts, scramble-prompts and openOutpaint errors remain outside this change."
     }
   },
   "limitations": [
@@ -557,6 +566,6 @@
     "CFG 1 models ignore negative prompts; Dev uses text-only unconditional conditioning.",
     "Model weights and their licenses are separate; no weights, example images or private settings are in this release.",
     "Lower-VRAM validation uses simulated 12/16 GiB budgets on a 24 GiB GPU, not physical 12/16 GiB cards. Quantization validation covers the exact listed files, not every GGUF, FP4, AWQ/GPTQ or language-only encoder.",
-    "Whole-image edits can regenerate fine texture. Optional tone matching targets global brightness/contrast only; it is off by default for intentional relighting. The community Qwen texture-fix VAE targets its decoder grid, not exact reconstruction. No Fibo-specific decoder fix is included."
+    "Whole-image edits can regenerate fine texture. The removed auto-correction UI is not restored by older recipes. The community Qwen texture-fix VAE targets its decoder grid, not exact reconstruction. No Fibo-specific decoder fix is included."
   ]
 }

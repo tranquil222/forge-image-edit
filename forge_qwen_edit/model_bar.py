@@ -59,20 +59,20 @@ def selection_status(value, modules):
         adapter = None
     if adapter is None:
         return ("Choose a **Qwen Image 2.1** or **Fibo 2.0** checkpoint in the top model bar. "
-                "[Exact model files](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), gr.update(interactive=False)
+                "[Exact model files](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), False
     try:
         checkpoint, adapter, encoder, vae = resolve_selection(value, modules)
         message = component_summary(checkpoint.filename, encoder, vae)
         if adapter.key == "qwen21" and basename(vae).lower() != "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors":
             message += "\n\nFine checkerboard? [Optional Qwen texture-fix VAE](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md#qwen-21-texture-fix-vae)."
-        return message, gr.update(interactive=True)
+        return message, True
     except ValueError as error:
         if str(error).startswith("Backend setup required"):
             return ("**Backend setup required.** Fully close and relaunch Forge after installation. "
-                    "[Setup guide](https://github.com/tranquil222/forge-image-edit/blob/main/COMPATIBILITY.md)."), gr.update(interactive=False)
+                    "[Setup guide](https://github.com/tranquil222/forge-image-edit/blob/main/COMPATIBILITY.md)."), False
         requirements = component_summary(checkpoint.filename, *adapter.defaults[1:])
         return (requirements + "\n\n**Required files above.** Select the encoder and VAE in the top model bar, or use the matching-components button. "
-                "[Downloads](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), gr.update(interactive=False)
+                "[Downloads](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), False
 
 
 def observe_checkpoint(value, modules, previous):
@@ -185,7 +185,7 @@ def import_recipe(file, current_checkpoint, modules):
             gr.update(choices=list(adapter.schedules), value=recipe["schedule"]), choice, [encoder, vae], adapter.key, dtype,
             note, gr.update(choices=[*profiles_for(adapter, checkpoint.name), "Custom"], value="Custom"), "Imported edit recipe.", family,
             gr.update(value=bool(recipe.get("prefix_cache", adapter.prefix_cache)) and adapter.prefix_cache, interactive=adapter.prefix_cache),
-            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], bool(recipe.get("preserve_tone", False)), gr.update(choices=modes, value=mode),
+            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], False, gr.update(choices=modes, value=mode),
             recipe.get("fibo_shift_mode", "Manual") if adapter.key == "fibo2" else "Manual",
             gr.update(value=recipe.get("fibo_shift", 1.15) if adapter.key == "fibo2" else 1.15, interactive=recipe.get("fibo_shift_mode", "Manual") == "Manual" or adapter.key != "fibo2"),
             recipe.get("fibo_rope", False) if adapter.key == "fibo2" else False,
@@ -219,9 +219,9 @@ def bind(ui, controls):
     from modules.call_queue import wrap_gradio_gpu_call
     from .ui import run_canvas_edit
     checkpoint, modules, preset, dtype = [controls[key] for key in ("checkpoint", "modules", "preset", "dtype")]
-    outputs = [ui.family, ui.profile, ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.backend_label, ui.generate, ui.selection_signature, ui.guidance]
+    outputs = [ui.family, ui.profile, ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.backend_label, ui.model_ready, ui.selection_signature, ui.guidance]
     checkpoint.change(observe_checkpoint, [checkpoint, modules, ui.selection_signature], outputs, show_progress="hidden", api_name="image_edit_selection")
-    modules.change(selection_status, [checkpoint, modules], [ui.backend_label, ui.generate], show_progress="hidden", api_name="image_edit_validate")
+    modules.change(selection_status, [checkpoint, modules], [ui.backend_label, ui.model_ready], show_progress="hidden", api_name="image_edit_validate")
     Context.root_block.load(observe_checkpoint, [checkpoint, modules, ui.selection_signature], outputs, show_progress="hidden")
     ui.correct_components.click(apply_components, [checkpoint, modules, dtype], [modules, preset], show_progress="hidden", api_name="image_edit_correct_components")
     ui.profile.input(apply_profile, [ui.profile, checkpoint], [ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.guidance], show_progress="hidden", api_name="image_edit_preset")
