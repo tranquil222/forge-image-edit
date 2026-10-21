@@ -6,10 +6,24 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from forge_qwen_edit.masking import composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, has_painted_area
+from forge_qwen_edit.masking import composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, has_painted_area, edit_modes, camera_angle_instruction
 
 
 class MaskingTests(unittest.TestCase):
+    def test_camera_is_a_whole_scene_choice_for_both_models(self):
+        for family in ('Qwen Image 2.1', 'Fibo 2.0 Edit Turbo', 'Fibo 2.0 Dev'):
+            self.assertEqual(edit_modes(family), ['Standard', 'Camera angle'])
+            self.assertNotIn('Camera angle', edit_modes(family, True))
+
+    def test_camera_guidance_preserves_fibo_structured_caption_and_user_move(self):
+        import json
+        value = {'edit_instruction': 'Aerial view from above the cat.', 'structured_caption': {'short_description': 'same cat and room'}}
+        result = json.loads(camera_angle_instruction(json.dumps(value), fibo=True))
+        self.assertEqual(result['structured_caption'], value['structured_caption'])
+        self.assertTrue(result['edit_instruction'].startswith(value['edit_instruction']))
+        self.assertIn('<image_1>', result['edit_instruction'])
+        self.assertIn('world-space positions', result['edit_instruction'])
+
     def test_automatic_scope_uses_only_painted_alpha(self):
         self.assertFalse(has_painted_area(None))
         empty = Image.new('RGBA', (16, 16), (128, 128, 128, 0))

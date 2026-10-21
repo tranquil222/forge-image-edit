@@ -161,6 +161,11 @@ def import_recipe(file, current_checkpoint, modules):
         note += " Repaint the selection for a new model edit."
     if recipe.get("postprocessing"):
         note += " Manual curves are already in the pixels; they are not applied again."
+    from .masking import edit_modes
+    modes = edit_modes(family, bool(recipe.get("area_only")))
+    mode = recipe.get("edit_mode", recipe.get("masked_edit", {}).get("mode", modes[0]))
+    if mode not in modes:
+        mode = modes[0]
     choice = checkpoint.short_title if shared.opts.sd_checkpoint_dropdown_use_short else checkpoint.name
     # Deliberate import changes the visible main model selection too.
     dtype = recipe.get("storage_dtype", "Automatic")
@@ -173,12 +178,12 @@ def import_recipe(file, current_checkpoint, modules):
             gr.update(choices=list(adapter.schedules), value=recipe["schedule"]), choice, [encoder, vae], adapter.key, dtype,
             note, gr.update(choices=[*profiles_for(adapter, checkpoint.name), "Custom"], value="Custom"), "Imported edit recipe.", family,
             gr.update(value=bool(recipe.get("prefix_cache", adapter.prefix_cache)) and adapter.prefix_cache, interactive=adapter.prefix_cache),
-            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], bool(recipe.get("preserve_tone", False)))
+            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], bool(recipe.get("preserve_tone", False)), gr.update(choices=modes, value=mode))
 
 
 def import_handoff(image, checkpoint, modules):
     if image is None or not any(key in image.info for key in ("image_edit", "qwen_edit")):
-        return tuple(gr.update() for _ in range(21))
+        return tuple(gr.update() for _ in range(22))
     # read_recipe accepts PIL images as well as uploaded paths; no stored paths opened.
     return import_recipe(image, checkpoint, modules)
 
@@ -210,7 +215,7 @@ def bind(ui, controls):
     ui.correct_components.click(apply_components, [checkpoint, modules, dtype], [modules, preset], show_progress="hidden", api_name="image_edit_correct_components")
     ui.profile.input(apply_profile, [ui.profile, checkpoint], [ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.guidance], show_progress="hidden", api_name="image_edit_preset")
     recipe_outputs = [ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed, ui.sampler, ui.schedule, checkpoint, modules, preset, dtype,
-                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone]
+                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone, ui.area_mode]
     ui.import_button.click(import_recipe, [ui.recipe_file, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_import")
     ui.handoff.change(import_handoff, [ui.handoff, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_handoff")
     ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[None, None, ""]),

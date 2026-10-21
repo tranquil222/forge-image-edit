@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.5.2",
   "status": "tested beta",
   "date": "2026-10-20",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 56,
+    "extension_python_tests": 59,
     "javascript_tests": 9,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -339,6 +339,13 @@
       "browser_jobs": "Actual Gradio browser submission with CPU inference stand-in: blank canvas saved a whole-image recipe and 928x640 output without mask; painted canvas saved a painted recipe, saved selection and original 1248x864 dimensions. All outside-mask pixels matched the source exactly. Source replacement returned to whole-image scope. No GPU model loading or inference in these tests.",
       "unit_checks": "Automatic scope ignores hidden RGB in transparent pixels, handles clear/paint/erase and uses submitted strokes even when a transported scope flag is stale.",
       "ui_transport": "Derived mask presence uses a hidden noninteractive transport component to avoid Gradio 4 inserting State placeholders into JavaScript submit inputs. There is no user-controlled toggle."
+    },
+    "camera_angle_preset": {
+      "version": "0.5.2",
+      "behavior": "Whole-image Camera angle preset for Qwen and Fibo. The full clean source is supplied. A short user move is preserved while reusable camera/scene-preservation guidance is added to the effective model prompt. Painted modes remain separate.",
+      "unit_checks": "Clean uncropped references for both models, unchanged user prompt, expanded effective prompt, no mask/composite metadata, whole-scene requirement, Fibo structured-caption preservation and whole-versus-painted menu choices.",
+      "browser": "Actual Edge/Gradio UI, CPU inference fixture: Fibo close/ground-level and Qwen aerial submissions saved Camera angle mode with guidance exactly once. Both used one full-scene reference and produced 928x640 output. PNG import and IIB handoff restored the preset and short prompt. Painting switched to local controls; native clear restored Standard. No browser errors.",
+      "quality_scope": "No GPU model inference or camera-view quality benchmark was run for this prompt-preset update. It is guidance, not a trained camera-control adapter, 3D reconstruction, or guaranteed viewpoint/identity preservation."
     }
   },
   "limitations": [

@@ -22,6 +22,7 @@ from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
 from .tone import match_source_tone
 from .adjustments import MASK_KEY, encode_selection, remember_selection
+from .masking import camera_angle_instruction
 
 
 class EditCancelled(Exception):
@@ -229,6 +230,10 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     original = canonical_image(source)
     mask, crop = None, None
     effective_instruction = instruction
+    if area_mode == "Camera angle":
+        if area_only:
+            raise ValueError("Camera angle uses the whole scene. Clear the painted area first.")
+        effective_instruction = camera_angle_instruction(instruction, adapter.key == "fibo2")
     input_references = [original, *[im for im in (reference2, reference3) if im is not None]]
     if area_only:
         if adapter.key != "fibo2" and area_mode not in ("Replace / remove", "Refine / expression"):
@@ -275,6 +280,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "reference_sha256": [image_digest(im) for im in references],
         "reference_sizes": [list(im.size) for im in references],
         "area_only": bool(area_only), "source_sha256": image_digest(original),
+        "edit_mode": area_mode if area_only or area_mode == "Camera angle" else "Standard",
         "source_size": list(original.size),
     }
     if area_only:

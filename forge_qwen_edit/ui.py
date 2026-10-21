@@ -13,7 +13,7 @@ from modules import script_callbacks, sd_schedulers, shared
 from modules_forge import main_entry, main_thread
 
 from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_size
-from .masking import AREA_MODES, canonical_image, has_painted_area
+from .masking import AREA_MODES, WHOLE_MODES, canonical_image, has_painted_area, edit_modes
 from .canvas import EditCanvas, MetadataImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
@@ -33,12 +33,13 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0]):
                  "Describe what should replace it. Pixels outside the painted area are preserved by compositing."
                  if fibo else "Paint the whole object and a small border, then describe what should replace it. "
                  "**Green-replacement instructions are added automatically.** Unpainted pixels stay unchanged. For expressions, choose Refine / expression.")
-    modes = ["Fibo masked edit"] if fibo else list(AREA_MODES)
+    modes = edit_modes(family, area_only)
     selected = modes[0] if mode not in modes else mode
     return (gr.update(visible=fibo), reference_help,
             gr.update(interactive=not (fibo and area_only)), gr.update(interactive=not (fibo and area_only)),
-            gr.update(choices=modes, value=selected, interactive=not fibo, visible=area_only,
-                      info="Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original."),
+            gr.update(choices=modes, value=selected, interactive=len(modes) > 1, visible=True,
+                      label="Painted-area mode" if area_only else "Edit mode",
+                      info=("Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original.") if area_only else "Standard uses your instruction directly. Camera angle adds scene-preservation and viewpoint guidance."),
             gr.update(value=PAINT_KEYS + "\n\n" + help_text, visible=area_only),
             gr.update(info="Dev: 50 steps is the official starting point; 30 is a faster preview." if dev else "Turbo is trained for 4 steps. Other counts are experimental, not higher-quality presets." if fibo else "Number of sampling steps."),
             gr.update(info="1024 is closest to Fibo's roughly 1 MP training size. Smaller values are faster. Painted edits preserve the original canvas size; 0 uses native size." if fibo else "Independent of quality. In painted mode this controls crop detail. 0 uses native size."),
@@ -70,7 +71,7 @@ def register_schedule():
             sd_schedulers.schedulers_map[scheduler.label] = scheduler
 
 
-def dimensions(image, resolution, area_only=False):
+def dimensions(image, resolution, area_only=False, mode="Standard"):
     if image is None:
         return "Output follows the first image’s aspect ratio."
     if area_only:
@@ -78,7 +79,12 @@ def dimensions(image, resolution, area_only=False):
         detail = f"Crop resolution: {resolution if resolution else 'native'}."
         return f"**Painted-area edit** · Output stays **{image.width} × {image.height}**. {detail} Unpainted pixels are preserved."
     width, height = reference_size(*image.size, resolution)
-    return f"**Whole-image edit** · Output: **{width} × {height}** · source: {image.width} × {image.height} · no crop"
+    scope = "Camera-angle edit · whole image" if mode == "Camera angle" else "Whole-image edit"
+    return f"**{scope}** · Output: **{width} × {height}** · source: {image.width} × {image.height} · no crop"
+
+
+def camera_help(mode):
+    return gr.update(visible=mode == "Camera angle", value="Type just the camera move, for example: **Move closer to her face**, **Camera near the ground looking up**, or **Aerial view looking down**. Scene-preservation instructions are added automatically. Uses the whole clean source; leave the canvas unpainted. This is prompt guidance, not a 3D camera control.")
 
 
 def run_canvas_edit(task_id, *args):
@@ -169,7 +175,8 @@ def create_tab():
                     # Gradio 4 inserts State placeholders into JS submit inputs.
                     area_only = gr.Checkbox(value=False, visible=False, interactive=False)
                     gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
-                    area_mode = gr.Dropdown(list(AREA_MODES), value=AREA_MODES[0], label="Painted-area mode", info="Replace hides the painted content from the model. Refine also sends the clean original for identity and detail.", visible=False, elem_id="qwen_edit_area_mode")
+                    area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds scene-preservation and viewpoint guidance.", elem_id="qwen_edit_area_mode")
+                    camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
                     mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
                     size_label = gr.Markdown("Output follows the first image’s aspect ratio.")
                 with gr.Column(scale=1, min_width=350, elem_id="qwen_edit_result_container"):
@@ -230,8 +237,9 @@ def create_tab():
             for component in (steps, sampler, schedule, guidance, prefix_cache):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
             mask_editor.foreground.change(has_painted_area, [mask_editor.foreground], [area_only], show_progress="hidden", api_name=False)
-            for component in (source, resolution, area_only):
-                component.change(dimensions, [source, resolution, area_only], [size_label], show_progress="hidden")
+            for component in (source, resolution, area_only, area_mode):
+                component.change(dimensions, [source, resolution, area_only, area_mode], [size_label], show_progress="hidden")
+            area_mode.change(camera_help, [area_mode], [camera_note], show_progress="hidden")
             for component in (family, area_only):
                 component.change(model_controls, [family, area_only, area_mode],
                     [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance],

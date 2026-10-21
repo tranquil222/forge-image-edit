@@ -1,5 +1,5 @@
 {
-  "version": "0.5.1",
+  "version": "0.5.2",
   "files": [
     {
       "path": ".gitattributes",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 12555,
-      "sha256": "d5aee0e08c95a34675fc33bd11c2aa962f1924fd269c3dac9961ed68bb911b5f"
+      "bytes": 13547,
+      "sha256": "9c3ddcaeaf5f33259f990ec61b26f11c00962025f9ffe49c09dccf69da769a5d"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 18647,
-      "sha256": "593c104c88fa2c5ac731491c815ca7c634af4b3774d30a55d7c6e357830e3eb4"
+      "bytes": 19842,
+      "sha256": "fb541159258d73dfa787120db3104e2b81ae32373b5b47b2f38c076d17788198"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 77,
-      "sha256": "c79cf6231f34d477b9bf3e156b901e37fab9e17030f5b934932513b3de8cadb6"
+      "sha256": "8d4d04389362228c2ef47c218a76edb35cfa13df04f319fdb096de4c7952688e"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -103,8 +103,8 @@
     },
     {
       "path": "forge_qwen_edit/masking.py",
-      "bytes": 6991,
-      "sha256": "9b22fbbe7720f2a1c36cfb956f052e1bc66f4a011ed8c01cebf47ea54af69837"
+      "bytes": 9338,
+      "sha256": "93e81242068a21fea9bab23e85818392cf2aa05a4a9c74627c54929703fa2226"
     },
     {
       "path": "forge_qwen_edit/metadata.py",
@@ -113,13 +113,13 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 14027,
-      "sha256": "5729ad6da767257ca195398a8078dbb745ea57245942fa96bf814b64e253c06b"
+      "bytes": 14315,
+      "sha256": "bf554882aa28c759a38e4225bfc97f6c0fcd481967866ad6b1131827cc3f6337"
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 19139,
-      "sha256": "0b13afcdd77d443632b5bd3cec4f8140e0fa8d05cef051eba4cad438276db540"
+      "bytes": 19526,
+      "sha256": "62b80c0a81f696cabd6dd00cee3f21aa60ce54bfae6becf9bde65665059f9307"
     },
     {
       "path": "forge_qwen_edit/selection.py",
@@ -133,8 +133,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 18819,
-      "sha256": "807241146cac3fabaaf42d20f93963bda1525f848f90aaa70c02e8964e5460bb"
+      "bytes": 19704,
+      "sha256": "2835bb35f9431fd9d73a7bda4989af496151a48fe5895e39fe9e23ec03817de8"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -248,8 +248,8 @@
     },
     {
       "path": "tests/test_masking.py",
-      "bytes": 6242,
-      "sha256": "b10b2e07a05ca0405e5b30994006bb8447c2633cbaeedebccbb48ead29156cb8"
+      "bytes": 7218,
+      "sha256": "531f65b41b0ee93f37f37c08fe0ab7fe12bfabd8d8c54f3a0f18cea8d7f58cc0"
     },
     {
       "path": "tests/test_memory_staging.py",
@@ -263,8 +263,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 8060,
-      "sha256": "ef24f54f98717c28bfdef7a6ee5e9ba2203e41d23865684b963d77d3621b57b7"
+      "bytes": 9823,
+      "sha256": "1e98b1bf27f7c81326d1cffde3fc827b9305f1254955b13151b50ba9231daf9d"
     },
     {
       "path": "tests/test_portability.py",

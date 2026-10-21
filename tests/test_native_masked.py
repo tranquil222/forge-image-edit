@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 from PIL.PngImagePlugin import PngInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from forge_qwen_edit.masking import canonical_image, composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, fibo_masked_reference, fibo_masked_instruction
+from forge_qwen_edit.masking import canonical_image, composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, fibo_masked_reference, fibo_masked_instruction, camera_angle_instruction
 from forge_qwen_edit.workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference
 from forge_qwen_edit.adapters import get_adapter
 from forge_qwen_edit.metadata import build_metadata, preserve_binary_metadata
@@ -39,6 +39,11 @@ class NativeMaskedTests(unittest.TestCase):
 
     def test_tone_option_keeps_mask_boundary_and_records_recipe(self):
         self.check_masked_job("Replace / remove", "Fibo 2.0 Edit Turbo", preserve_tone=True)
+
+    def test_camera_uses_clean_full_scene_and_records_reusable_preset(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            with self.subTest(family=family):
+                self.check_masked_job("Camera angle", family)
 
     def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False):
         with tempfile.TemporaryDirectory() as temp:
@@ -92,8 +97,29 @@ class NativeMaskedTests(unittest.TestCase):
             layer = Image.new("RGBA", source.size)
             ImageDraw.Draw(layer).rectangle((200, 100, 290, 220), fill=(0, 255, 0, 255))
             editor["layers"] = [layer]
+            camera = mode == "Camera angle"
+            instruction = "Move the camera near the ground looking up at the subject." if camera else "Remove the stray object."
             output, filename, seed, message = namespace["generate"](
-                source, None, None, "Remove the stray object.", "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, True, editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone)
+                source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, not camera, editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone)
+            if camera:
+                clean = prepare_reference(source, 512)
+                self.assertEqual(output.size, clean.size)
+                self.assertEqual(len(calls[0].edit_references), 1)
+                self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(clean))
+                self.assertIn(instruction, calls[0].prompt)
+                self.assertIn("Move the camera, not the people or objects", calls[0].prompt)
+                from forge_qwen_edit.workflow import read_recipe
+                recipe = read_recipe(filename)
+                self.assertEqual(recipe["edit_mode"], "Camera angle")
+                self.assertEqual(recipe["prompt"], instruction)
+                self.assertEqual(recipe["effective_prompt"], calls[0].prompt)
+                self.assertFalse(recipe["area_only"])
+                self.assertNotIn("masked_edit", recipe)
+                with Image.open(filename) as saved:
+                    self.assertNotIn(MASK_KEY, saved.info)
+                with self.assertRaisesRegex(ValueError, "whole scene"):
+                    namespace["generate"](source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, True, editor, 8, mode, family)
+                return
             self.assertEqual(output.size, source.size)
             outside = np.array(layer)[..., 3] == 0
             np.testing.assert_array_equal(np.array(output)[outside], np.array(source)[outside])

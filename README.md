@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.1 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.2 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -80,6 +80,22 @@ The optional **Describe the finished image** field supplies a native structured
 result caption. It does not contact an LLM. Use either that field or your own
 structured JSON instruction, not both. More Turbo steps do not guarantee better
 instruction following. Dev is a separate optional checkpoint, not a Turbo switch.
+
+### Camera angle
+
+Leave the canvas unpainted and choose **Edit mode → Camera angle** (Qwen or Fibo).
+Type a short move, such as **Move closer to her face**, **Camera near the ground
+looking up**, or **Aerial view looking down**. The preset automatically adds
+guidance to move the camera rather than the subject, preserve the scene and its
+identities, clothing, poses, objects, lighting and style, and change perspective,
+framing and occlusion consistently. It uses the full clean source, without a mask
+or cropped/composited patch. Standard leaves your instruction unchanged.
+
+This is reusable prompt guidance, not a trained camera-control adapter or a 3D
+reconstruction. The model can still miss a requested view or invent unseen detail.
+The short instruction, expanded model prompt and chosen mode are saved in the PNG;
+recipe import and Send to Image Edit restore the mode without doubling the prompt.
+Painting switches to local edit modes; clear the mask to choose Camera angle again.
 
 ### Painted edits
 
