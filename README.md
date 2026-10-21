@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.3 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.4 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -42,6 +42,19 @@ compatible with a different Forge fork, GPU, or dependency set.
 2. Choose a model-appropriate speed/quality preset and resolution.
 3. Optionally paint an area or add reference images, then **Generate edit**.
 4. Use **Download PNG with recipe** or **Use result as source**.
+
+**Seed** and **Batch count** sit beside Generate/Cancel; in a narrow window the
+buttons move together onto the next line. **🎲** sets `-1` (a fresh random seed
+for every image). **♻️** copies the selected result's seed for prompt comparisons.
+
+Set **Batch count** to 1–64 for sequential variations of the submitted source,
+mask and instruction. This is not a chain of edits or a larger GPU batch size.
+A fixed seed increases by one per image; `-1` stays random. Each PNG is saved
+immediately to the native img2img output folder with its own seed and recipe.
+Thumbnails appear when the batch finishes or is cancelled; select one to view,
+download, reuse as source, adjust curves, or copy its seed. Cancel stops the
+remaining work and keeps completed files. A GPU operation already in progress
+may need to finish before cancellation takes effect.
 
 The **main model bar is the source of truth**. There is no hidden second model
 selection in the tab. Missing, incompatible, or extra encoder/VAE selections
@@ -93,7 +106,9 @@ It uses the full clean source, without a mask or cropped/composited patch.
 Standard leaves your instruction unchanged.
 
 The tip shown in Camera angle mode suggests describing what the new view should
-reveal. Optionally, give your source image and short request to ChatGPT or another
+reveal. **Do NOT say “keep things the same” or “keep everything unchanged”**;
+that can work against changing the perspective. Optionally, give your source
+image and short request to ChatGPT or another
 image-capable LLM, ask it to describe the reframed result, then paste that prompt
 into Edit instruction. This is a manual option, not an integrated LLM workflow:
 no extra model, API key, upload, or service is required by the extension.

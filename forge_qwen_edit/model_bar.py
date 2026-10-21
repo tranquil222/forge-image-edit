@@ -218,8 +218,8 @@ def bind(ui, controls):
                       ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone, ui.area_mode]
     ui.import_button.click(import_recipe, [ui.recipe_file, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_import")
     ui.handoff.change(import_handoff, [ui.handoff, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_handoff")
-    ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[None, None, ""]),
+    ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[gr.update() for _ in range(6)]),
         [ui.task_id, ui.source, ui.reference2, ui.reference3, ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed,
          ui.sampler, ui.schedule, checkpoint, modules, dtype, ui.prefix_cache, ui.area_only, ui.mask_editor.foreground,
-         ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone],
-        [ui.result, ui.download, ui.last_seed, ui.status], js="qwenEditSubmit", api_name="image_edit_generate")
+         ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone, ui.batch_count],
+        [ui.result, ui.download, ui.last_seed, ui.batch_gallery, ui.batch_items, ui.batch_source, ui.status], js="qwenEditSubmit", api_name="image_edit_generate")

@@ -175,6 +175,17 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
     }
 
     document.addEventListener("click", event => {
+        const thumbnail = event.target.closest?.("#image_edit_batch_gallery .thumbnail-item");
+        if (thumbnail) {
+            const app = gradioApp();
+            const index = Array.from(app.querySelectorAll("#image_edit_batch_gallery .thumbnail-item")).indexOf(thumbnail);
+            const selection = app.querySelector("#image_edit_batch_selection textarea");
+            if (selection && index >= 0) {
+                selection.value = JSON.stringify({ index, request: Date.now() });
+                updateInput(selection);
+            }
+            return;
+        }
         if (!event.target.closest?.("#qwen_edit_result") || event.target.closest(".icon-buttons, a")) return;
         // Gradio wraps the result image in a button; keep that click (and Enter).
         const image = event.target.closest("img") || event.target.closest("button")?.querySelector("img");
@@ -185,7 +196,8 @@ window.imageEditLoadImage = window.qwenEditLoadImage;
         editedUrl = image.currentSrc || image.src;
         frameWidth = image.naturalWidth || 0; frameHeight = image.naturalHeight || 0;
         const source = app.querySelector("#qwen_edit_source img");
-        originalUrl = originals.get(editedUrl) || source?.currentSrc || source?.src || "";
+        // The batch retains its submitted source even if the canvas changes later.
+        originalUrl = app.querySelector("#image_edit_batch_source textarea")?.value || originals.get(editedUrl) || source?.currentSrc || source?.src || "";
         originalButton.disabled = !originalUrl;
         const link = app.querySelector("#qwen_edit_download a[href]");
         download.href = link?.href || editedUrl;

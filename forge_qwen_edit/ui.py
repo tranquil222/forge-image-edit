@@ -10,6 +10,7 @@ import gradio as gr
 import torch
 
 from modules import script_callbacks, sd_schedulers, shared
+from modules.ui_components import ToolButton
 from modules_forge import main_entry, main_thread
 
 from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_size
@@ -17,6 +18,7 @@ from .masking import AREA_MODES, WHOLE_MODES, canonical_image, has_painted_area,
 from .canvas import EditCanvas, MetadataImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
+from .batching import run_batch, validate_count
 
 
 _active = False
@@ -84,10 +86,12 @@ def dimensions(image, resolution, area_only=False, mode="Standard"):
 
 
 def camera_help(mode):
-    return gr.update(visible=mode == "Camera angle", value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
+    return gr.update(visible=mode == "Camera angle", value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. **Do NOT say ‘keep things the same’ or ‘keep everything unchanged’**—this can work against the new perspective. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
 
 
 def run_canvas_edit(task_id, *args):
+    *args, batch_count = args
+    batch_count = validate_count(batch_count)
     *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
     # Derive this from the submitted strokes, not an asynchronously updated UI
@@ -95,7 +99,7 @@ def run_canvas_edit(task_id, *args):
     enabled = has_painted_area(foreground)
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
-                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone)
+                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, batch_count=batch_count)
 
 
 def custom_settings(family=DEFAULT_FAMILY):
@@ -105,18 +109,39 @@ def custom_settings(family=DEFAULT_FAMILY):
                       if family in EDIT_MODELS and get_adapter(family).key == "fibo2" else "Custom sampling settings. Quality presets leave resolution unchanged.")
 
 
-def run_edit(task_id, *args):
+def run_edit(task_id, *args, batch_count=1):
     global _active
     from .native import generate
     _active = True
     try:
-        result = main_thread.run_and_wait_result(generate, *args)
+        result = main_thread.run_and_wait_result(run_batch, generate, args, batch_count, shared.state)
         if result is None:
             raise RuntimeError(main_thread.last_exception or "The edit did not complete. See the Forge console.")
-        output, path, seed, message = result
-        return output, path, seed, f"<p>{html.escape(message)}</p>"
+        output, items, message = result
+        if not items:
+            # A validation failure or early cancel must not erase the previous result.
+            return (*[gr.update() for _ in range(6)], f"<p>{html.escape(message)}</p>")
+        gallery = [(item["path"], f"{i + 1} · seed {item['seed']}") for i, item in enumerate(items)]
+        return (output, items[-1]["path"], items[-1]["seed"],
+                gr.update(value=gallery, visible=batch_count > 1, selected_index=len(items) - 1),
+                items, args[0], f"<p>{html.escape(message)}</p>")
     finally:
         _active = False
+
+
+def select_batch_result(items, selection):
+    if _active:
+        return tuple(gr.update() for _ in range(4))
+    try:
+        index = json.loads(selection)["index"]
+    except (ValueError, TypeError, KeyError):
+        return tuple(gr.update() for _ in range(4))
+    if not isinstance(index, int) or not 0 <= index < len(items):
+        return tuple(gr.update() for _ in range(4))
+    item = items[index]
+    if not Path(item["path"]).is_file():
+        raise gr.Error("This saved image is no longer available.")
+    return item["path"], item["path"], item["seed"], f"<p>{html.escape(item['message'])}</p>"
 
 
 def cancel_edit():
@@ -184,9 +209,21 @@ def create_tab():
                     with gr.Row(elem_id="qwen_edit_result_actions"):
                         reuse = gr.Button("Use result as source", size="sm")
                         download = gr.File(label="Download PNG with recipe", interactive=False, height=72, elem_id="qwen_edit_download")
-            with gr.Row():
-                generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
-                cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
+                    batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
+                        object_fit="contain", preview=False, allow_preview=False, visible=False, elem_id="image_edit_batch_gallery")
+                    batch_items = gr.State([])
+                    batch_selection = gr.Textbox(visible=False, elem_id="image_edit_batch_selection")
+                    batch_source = MetadataImage(visible=False, numpy=False, elem_id="image_edit_batch_source")
+            with gr.Row(elem_id="image_edit_run_row"):
+                with gr.Row(elem_id="image_edit_seed_controls"):
+                    seed = gr.Textbox(value="-1", label="Seed", elem_id="qwen_edit_seed", min_width=150, scale=1)
+                    random_seed = ToolButton("🎲", elem_id="image_edit_random_seed", tooltip="Random seed (-1) for each edit")
+                    reuse_seed = ToolButton("♻️", elem_id="image_edit_reuse_seed", tooltip="Reuse the selected result's seed")
+                    batch_count = gr.Number(value=1, minimum=1, maximum=64, precision=0, step=1, label="Batch count", scale=0, min_width=100, elem_id="image_edit_batch_count")
+                with gr.Row(elem_id="image_edit_run_buttons"):
+                    generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
+                    cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
+            last_seed = gr.Textbox(value="", visible=False, elem_id="qwen_edit_last_seed")
             status = gr.HTML(elem_id="qwen_edit_status")
             instruction = gr.Textbox(label="Edit instruction", placeholder="Remove the stray object and reconstruct the background. Or: give this person a subtle, natural smile while keeping their identity.", lines=3, elem_id="qwen_edit_instruction")
             result_description = gr.Textbox(label="Describe the finished image (optional, Fibo)",
@@ -206,10 +243,6 @@ def create_tab():
                     reference3 = gr.Image(label="Image 3", type="pil", image_mode="RGBA", height=240)
             with gr.Accordion("Sampling settings", open=False):
                 feather = gr.Slider(0, 64, value=8, step=1, label="Painted edge blending", interactive=False, info="Only used with a painted area. Softens its inside edge; pixels outside the painting stay untouched.")
-                with gr.Row():
-                    seed = gr.Textbox(value="-1", label="Seed", info="-1 stays random for every edit.", elem_id="qwen_edit_seed")
-                    last_seed = gr.Textbox(value="", label="Last seed", interactive=False, elem_id="qwen_edit_last_seed")
-                    reuse_seed = gr.Button("Reuse last seed", size="sm")
                 with gr.Row():
                     steps = gr.Slider(1, 150, value=12, step=1, label="Steps")
                     sampler = gr.Dropdown(["Res Multistep", "Euler"], value="Res Multistep", label="Sampler")
@@ -232,7 +265,7 @@ def create_tab():
                     fn=None, inputs=[curves_receipt], outputs=[],
                     js="receipt => { window.imageEditCurvesSaved?.(receipt); }", api_name=False)
             task_id = gr.Textbox(visible=False)
-            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt):
+            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed):
                 component.do_not_save_to_config = True
             for component in (steps, sampler, schedule, guidance, prefix_cache):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
@@ -246,7 +279,11 @@ def create_tab():
                     js="(family, enabled, mode) => { qwenEditSetModel(family); return [family, enabled, mode]; }" if component is family else None,
                     show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])
-            reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed])
+            random_seed.click(lambda: "-1", outputs=[seed], queue=False, show_progress="hidden")
+            reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed], queue=False, show_progress="hidden")
+            # Send only a thumbnail index. Gradio 4 SelectData rejects Forge's
+            # native output paths because they deliberately bypass upload cache.
+            batch_selection.change(select_batch_result, [batch_items, batch_selection], [result, download, last_seed, status], show_progress="hidden", api_name=False)
             cancel.click(cancel_edit, outputs=[status], queue=False)
     model_bar.workspace = SimpleNamespace(**locals())
     # Retain the tab ID for existing canvas and image-browser handoffs.

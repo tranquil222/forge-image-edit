@@ -19,6 +19,7 @@ test("Gradio's button-wrapped result opens the viewer; compare and zoom use exis
     const thumbnail = { src: "/result.png" };
     const button = { querySelector: () => thumbnail };
     const target = { closest(selector) {
+        if (selector === "#image_edit_batch_gallery .thumbnail-item") return null;
         if (selector === "#qwen_edit_result") return {};
         if (selector === "img") return thumbnail;
         if (selector === "button") return button;
@@ -27,12 +28,17 @@ test("Gradio's button-wrapped result opens the viewer; compare and zoom use exis
     } };
     const document = { addEventListener: (name, fn) => listeners.set(name, fn), createElement: () => dialog, body: { appendChild() {} } };
     const window = { addEventListener() {} };
+    let submittedSource = null;
+    const selection = {}, thumbnails = [{}, {}, {}];
+    let selectionUpdates = 0;
     const app = { querySelector(selector) {
+        if (selector === "#image_edit_batch_source textarea") return submittedSource;
+        if (selector === "#image_edit_batch_selection textarea") return selection;
         if (selector === "#qwen_edit_source img") return original;
         if (selector === "#qwen_edit_download a[href]") return { href: "/recipe.png" };
         throw Error(`Unexpected control access: ${selector}`);
-    } };
-    vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../javascript/qwen_edit.js"), "utf8"), { window, document, gradioApp: () => app });
+    }, querySelectorAll: () => thumbnails };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../javascript/qwen_edit.js"), "utf8"), { window, document, gradioApp: () => app, updateInput: () => selectionUpdates++ });
     listeners.get("click")({ target, preventDefault() {} });
     assert.equal(dialog.open, true);
     assert.equal(picture.src, "/result.png");
@@ -58,4 +64,15 @@ test("Gradio's button-wrapped result opens the viewer; compare and zoom use exis
     assert.equal(viewport.scrollLeft, 123); assert.equal(viewport.scrollTop, 77);
     click("close");
     assert.equal(dialog.open, false);
+    submittedSource = { value: "data:image/png;base64,submitted-source" };
+    original.src = "/different-source.png";
+    listeners.get("click")({ target, preventDefault() {} });
+    click("original");
+    assert.equal(picture.src, submittedSource.value);
+    click("close");
+    // Thumbnail selection sends an index, never a client-controlled file path.
+    listeners.get("click")({ target: { closest: () => thumbnails[1] } });
+    assert.equal(JSON.parse(selection.value).index, 1);
+    assert.equal(selectionUpdates, 1);
+    assert.equal(JSON.parse(selection.value).path, undefined);
 });

@@ -1,5 +1,5 @@
 {
-  "version": "0.5.3",
+  "version": "0.5.4",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 59,
+    "extension_python_tests": 67,
     "javascript_tests": 9,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -355,6 +355,14 @@
       "quality_scope": "The experiment informs wording; it does not validate this exact combined wrapper as a reliable camera controller or establish Fibo quality. No additional GPU quality runs for this update. Model can change pose, grip, framing or scenery instead of a coherent viewpoint.",
       "unit_checks": "59 Python and 9 JavaScript checks passed. Existing native camera dispatch/metadata and Fibo JSON tests updated to verify the revised helper without depending on old prose.",
       "browser": "Actual Edge/Gradio UI in isolated QA instance. Tip appears in Camera angle, hides in Standard and painted modes, short instruction unchanged, clearing paint restores Standard, no JavaScript errors. No GPU inference or LLM calls."
+    },
+    "sequential_batches": {
+      "version": "0.5.4",
+      "behavior": "1-64 sequential edits from the submitted source, mask, references and settings. Batch size remains one. Fixed seeds increment with exact unsigned-64-bit arithmetic; random remains random per output. Native saves and recipes are retained for every completed item.",
+      "unit_checks": "67 Python and 9 JavaScript checks passed, including seed overflow, invalid input before inference, single-item compatibility, failure/cancellation preservation and original-source comparison after changing the canvas.",
+      "browser": "Isolated Edge/Gradio instance with CPU inference fixture: three-item Fibo whole-image camera batch; exact large-seed reuse and dice; selectable PNG downloads; cancellation during item two kept item one; invalid submission retained previous result; two-item Qwen painted random batch; wide 1800px and narrow 920px responsive action rows; no browser errors.",
+      "metadata_audit": "All three fixed seeds exact, matching source and effective prompts. Masked random seeds distinct; saved PNG pixels outside the painted support exactly match source.",
+      "scope": "UI, queue/control flow, metadata and native save/composite paths tested. No new GPU quality or physical lower-VRAM benchmark for this update; inference implementation unchanged."
     }
   },
   "limitations": [

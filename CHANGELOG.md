@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.4 — beta
+
+- Batch count: 1–64 sequential variations from the submitted source/mask, with
+  native per-image saves and a selectable result gallery. Cancellation or a
+  later failure keeps completed outputs.
+- Seed moves beside Generate/Cancel with native-style dice and reuse buttons.
+  Reuse copies the selected result's exact seed. Random stays random; fixed
+  seeds increment per image. Narrow layouts put the buttons on the next line.
+- Camera angle tip explicitly discourages “keep things the same” instructions.
+- Gradio generation endpoint adds Batch count as the final input and returns
+  gallery/source transport values before the final status HTML.
+
 ## 0.5.3 — beta
 
 - Shorter Camera angle guidance emphasizes redrawing visible surfaces and

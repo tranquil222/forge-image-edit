@@ -38,15 +38,15 @@ class MaskingTests(unittest.TestCase):
     def test_submitted_strokes_override_stale_scope_flag(self):
         import ast
         from types import SimpleNamespace
-        tree = ast.parse((Path(__file__).resolve().parents[1] / 'forge_qwen_edit/ui.py').read_text())
+        tree = ast.parse((Path(__file__).resolve().parents[1] / 'forge_qwen_edit/ui.py').read_text(encoding='utf-8'))
         method = next(n for n in tree.body if getattr(n, 'name', '') == 'run_canvas_edit')
-        ns = dict(has_painted_area=has_painted_area, run_edit=lambda *args: args,
+        ns = dict(has_painted_area=has_painted_area, run_edit=lambda *args, **kwargs: args, validate_count=lambda x: x,
             model_bar=SimpleNamespace(resolve_selection=lambda *a: (SimpleNamespace(name='checkpoint'), SimpleNamespace(label='Fibo'), 'encoder', 'vae')))
         exec(compile(ast.Module(body=[method], type_ignores=[]), 'scope_dispatch', 'exec'), ns)
         for old_flag, alpha, expected in ((False, 255, True), (True, 0, False)):
             foreground = Image.new('RGBA', (16, 16), (128, 128, 128, alpha))
             result = ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', [], 'Automatic', False,
-                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False)
+                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, 1)
             self.assertEqual(result[15], expected)
 
     def setUp(self):
