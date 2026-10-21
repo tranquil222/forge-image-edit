@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.15 — beta
+
+- Make outpaint guidance scene-focused: continue the visible content across the
+  full canvas instead of presenting the original as a separate photograph,
+  poster or framed object on a new background. Explicitly discourage an outline,
+  drop shadow, blank surround or new vignette at the old boundary.
+- Retain Fibo's neutral-grey mask and painted-area replacement guidance. Do not
+  add noise, blur the source or enlarge the editable area.
+- Clarify the finished-image description hint: describe the scene and what
+  continues into added space, including objects, setting, colors and surfaces.
+
 ## 0.5.14 — beta
 
 - Switch Crop / outpaint controls immediately in the browser, keeping the toggle

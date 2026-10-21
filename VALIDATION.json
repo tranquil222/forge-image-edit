@@ -1,5 +1,5 @@
 {
-  "version": "0.5.14",
+  "version": "0.5.15",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -438,6 +438,12 @@
     "layout_0514": {
       "method": "Headless Edge against isolated Forge, wide (1800px) and narrow (650px), with backend requests held during repeated checkbox toggles. No GPU inference or model behavior changes.",
       "checks": "Crop/outpaint panels switch before server responses; toggle position and expanded panel height remain stable while pending and after completion. Markdown remains fully visible. Repeated on/off/on retains Expression transfer and restores its tip. Source replacement resets edges without unchecking; clearing disables the checkbox and hides controls. Compact heading and exact model filenames verified. No browser errors. Python compilation, 109 Python tests and 13 JavaScript tests passed."
+    },
+    "outpaint_guidance_0515": {
+      "method": "Real Fibo Edit Turbo GPU runs, 4 steps, CFG 1, 768 resolution, with the user-linked digital artwork resized to the reported 554-square source size. Not byte-identical to the original upload; its failure was reproduced.",
+      "observations": "Original sparse caption/guidance reproduced a separate artwork on grey surround. A concrete scene caption fixed the example; revised automatic scene guidance also filled left and bottom with the original sparse caption at three tested seeds (two in the installed production path). Left-only production outpaint succeeded. A 24px input-overlap experiment still left grey patches and was not adopted.",
+      "checks": "Production effective prompt matched successful prototype byte-for-byte. Installed outpaint outputs preserve exact pixels outside the existing seam band. Input pixels, neutral-grey mask, geometry and compositing are unchanged. JSON captions and painted-area guidance remain intact. 109 Python tests, 13 JavaScript tests and Python compilation passed.",
+      "limits": "One-image quality investigation, not a general success-rate guarantee. Noise and image blur were not needed or introduced; Qwen prompt transport was unit-tested, not newly GPU-quality-tested."
     }
   },
   "limitations": [

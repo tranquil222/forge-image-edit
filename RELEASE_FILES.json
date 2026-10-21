@@ -1,5 +1,5 @@
 {
-  "version": "0.5.14",
+  "version": "0.5.15",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 10111,
-      "sha256": "31cde5f0ca02415ef1c35ae987b58a0693e5e3dcd682f6981c35dcd35408232a"
+      "bytes": 10728,
+      "sha256": "2f6f1cd0762696fbe91e5061f3867966f9a8ed79177a690cbd370a8f1a791c52"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -49,12 +49,12 @@
     {
       "path": "README.md",
       "bytes": 26165,
-      "sha256": "f92497e9fd65cb07817d4d832a1b52c7f5a1e69e1e428768dfd46cd7a153a7a0"
+      "sha256": "b1b3fa6839c4353bd628f7cbda42ed68288eba8443f0024c703c32c3f69c6c1c"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 36256,
-      "sha256": "138c74f753dec38305301782bf485abc15ee0f56c3bac5b6f62c163e3d443901"
+      "bytes": 37536,
+      "sha256": "86064d066704e527be3b80b6237d80bc732e7fa30eb1b05b8bc97d030a3302ed"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "dac09b85f8adba995d92abf12eb7ae9ab5f1acf56ce6f02a2d21933e5674639a"
+      "sha256": "90957587126bea8353a8d912856d8a6a38745f396f47e36f7a1152251ec24cf8"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -133,8 +133,8 @@
     },
     {
       "path": "forge_qwen_edit/outpaint.py",
-      "bytes": 9498,
-      "sha256": "1591cef3866969205782609aee8475d4d328628107625f71efee9e822264c7af"
+      "bytes": 10119,
+      "sha256": "a0a805f95bcebaf9fa5b7d4b51ce6798a46202b27427669c0a7d523690fe22f8"
     },
     {
       "path": "forge_qwen_edit/prompt_metadata.py",
@@ -158,8 +158,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 40556,
-      "sha256": "f1c5d86b3029f3172de781cfdc36e38877b32adcd8cee13195c2815f45ef73ee"
+      "bytes": 40605,
+      "sha256": "e2fece4d91ed2e94e4d4e6fe4fe811a7d55ef8218b24a21025cd382553d8d22d"
     },
     {
       "path": "forge_qwen_edit/workflow.py",

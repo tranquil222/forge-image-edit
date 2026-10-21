@@ -48,7 +48,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
         if not canvas_enabled:
             reference_help = "Use the first additional reference for the expression. The source supplies identity, appearance and scene. References are numbered in filled-slot order."
         help_text = "Paint the face to limit the final change. The model receives the clean source face and expression reference; unpainted pixels are preserved by compositing."
-    description_help = ("For outpaint, describe the complete expanded scene, not the grey border. Get prompt from metadata can fill a starting description."
+    description_help = ("For outpaint, describe the scene itself and what continues into the added space: objects, setting, colors and surfaces. Get prompt from metadata can supply a starting description."
                         if canvas_enabled else "Describe the result you want, not the original. Fibo receives this as a structured result caption alongside your instruction. Leave blank for a plain edit. No cloud service is used.")
     return (gr.update(visible=fibo, info=description_help), reference_help,
             gr.update(interactive=True), gr.update(interactive=True),

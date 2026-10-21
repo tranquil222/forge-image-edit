@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 from . import __version__
-from .masking import canonical_image
+from .masking import canonical_image, fibo_masked_instruction
 from .workflow import reference_content_box
 
 EDGES = ("left", "right", "top", "bottom")
@@ -130,13 +130,19 @@ def canvas_blend_mask(mask, plan):
 def outpaint_instruction(instruction, fibo, painted=False):
     marker = "neutral-grey" if fibo else "bright green"
     ref = "<image_1>" if fibo else "<image1>"
-    rules = (f"Extend the photograph in {ref} into the {marker} border outside its existing content. "
-             "The border is missing canvas, not an object. Continue the scene naturally across the image edges, "
-             "matching perspective, lighting, textures and scale. Fill every part of the border; leave no mask visible. "
-             "Do not add a frame, duplicate the photograph, or shrink the original content. "
-             + ("Also replace the painted areas inside the original photograph with the requested content. "
-                "For object removal, reconstruct the surrounding background instead of continuing the covered object into the new border. "
-                "Preserve only the unpainted parts of the retained photograph." if painted else "Preserve the retained photograph."))
+    # Calling the source a photograph can encourage a picture-on-background
+    # interpretation, especially with artwork/collages and a sparse caption.
+    rules = (f"Extend the existing scene in {ref} outward into every {marker} masked area. "
+             "The grey pixels are missing scene content, not a background around a separate picture. "
+             "Create one continuous edge-to-edge scene covering the entire canvas. Continue the actual objects, surfaces, colors, patterns and depth from the adjacent visible content into the missing area. "
+             "Match its visual style, scale, lighting and perspective. Do not turn the original content into a print, poster, framed picture or object on a wall or floor. "
+             "Do not add a rectangular outline, drop shadow, blank surround or new vignette at the old image boundary. Preserve the unmasked content.")
+    if not fibo:
+        rules = rules.replace("The grey pixels", "The bright green pixels")
+    if painted:
+        rules += (" Also replace the painted areas inside the original content with the requested content. "
+                  "For object removal, reconstruct the surrounding background instead of continuing the covered object into the new border. "
+                  "Preserve only the unpainted parts of the retained content.")
     instruction = (instruction or "").strip() or "Extend the surrounding scene naturally."
     if fibo:
         try:
@@ -145,8 +151,9 @@ def outpaint_instruction(instruction, fibo, painted=False):
             structured = None
         if isinstance(structured, dict):
             structured["edit_instruction"] = str(structured.get("edit_instruction", "")).strip() + "\n\n" + rules
-            return json.dumps(structured, ensure_ascii=False)
-    return instruction + "\n\n" + rules
+            return fibo_masked_instruction(json.dumps(structured, ensure_ascii=False))
+    result = instruction + "\n\n" + rules
+    return fibo_masked_instruction(result) if fibo else result
 
 
 def save_crop(source, edges, keep_metadata=True):
