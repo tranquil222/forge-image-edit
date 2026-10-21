@@ -1,7 +1,7 @@
 {
-  "version": "0.5.2",
+  "version": "0.5.3",
   "status": "tested beta",
-  "date": "2026-10-20",
+  "date": "2026-10-21",
   "environment": {
     "os": "Windows",
     "python": "3.13.1",
@@ -346,6 +346,15 @@
       "unit_checks": "Clean uncropped references for both models, unchanged user prompt, expanded effective prompt, no mask/composite metadata, whole-scene requirement, Fibo structured-caption preservation and whole-versus-painted menu choices.",
       "browser": "Actual Edge/Gradio UI, CPU inference fixture: Fibo close/ground-level and Qwen aerial submissions saved Camera angle mode with guidance exactly once. Both used one full-scene reference and produced 928x640 output. PNG import and IIB handoff restored the preset and short prompt. Painting switched to local controls; native clear restored Standard. No browser errors.",
       "quality_scope": "No GPU model inference or camera-view quality benchmark was run for this prompt-preset update. It is guidance, not a trained camera-control adapter, 3D reconstruction, or guaranteed viewpoint/identity preservation."
+    },
+    "camera_guidance_tip_update": {
+      "version": "0.5.3",
+      "behavior": "Replaces the long preservation-heavy camera wrapper with short reimagine/viewpoint/surface guidance, including hands and foreground objects. No hardcoded angle inference or scene-specific nouns. User instruction and existing recipe behavior retained.",
+      "tip": "Displayed only in Camera angle mode. Encourages describing visible surfaces and optionally asking an image-capable LLM using the source image and short request. Manual advice only; no new controls, LLM weights, API connection, or external upload.",
+      "prompt_experiment": "40 real Qwen Image 2.1 Q8_0 GPU outputs from 38 distinct prompts on one source image, including two additional-seed repeats. 1024 square, 12 steps, CFG 1, Res Multistep/CyberZit Quality. All PNGs audited against literal prompts and fixed per-group settings. User selected five preferred results; three used reusable wording. Images and prompts are private local artifacts, not shipped.",
+      "quality_scope": "The experiment informs wording; it does not validate this exact combined wrapper as a reliable camera controller or establish Fibo quality. No additional GPU quality runs for this update. Model can change pose, grip, framing or scenery instead of a coherent viewpoint.",
+      "unit_checks": "59 Python and 9 JavaScript checks passed. Existing native camera dispatch/metadata and Fibo JSON tests updated to verify the revised helper without depending on old prose.",
+      "browser": "Actual Edge/Gradio UI in isolated QA instance. Tip appears in Camera angle, hides in Standard and painted modes, short instruction unchanged, clearing paint restores Standard, no JavaScript errors. No GPU inference or LLM calls."
     }
   },
   "limitations": [

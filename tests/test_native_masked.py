@@ -107,7 +107,7 @@ class NativeMaskedTests(unittest.TestCase):
                 self.assertEqual(len(calls[0].edit_references), 1)
                 self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(clean))
                 self.assertIn(instruction, calls[0].prompt)
-                self.assertIn("Move the camera, not the people or objects", calls[0].prompt)
+                self.assertEqual(calls[0].prompt, camera_angle_instruction(instruction, fibo))
                 from forge_qwen_edit.workflow import read_recipe
                 recipe = read_recipe(filename)
                 self.assertEqual(recipe["edit_mode"], "Camera angle")

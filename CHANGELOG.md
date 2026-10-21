@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3 — beta
+
+- Shorter Camera angle guidance emphasizes redrawing visible surfaces and
+  foreground objects, rather than preserving the input projection.
+- Camera-only tip explains how to describe the reframed view and optionally ask
+  an image-capable LLM for help. No new controls, model downloads or LLM integration.
+- Standard mode and painted editing are unchanged.
+
 ## 0.4.0 — beta
 
 - Shared Image Edit workspace for Qwen 2.1 base/Turbo and Fibo 2.0 Turbo/Dev.

@@ -39,7 +39,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0]):
             gr.update(interactive=not (fibo and area_only)), gr.update(interactive=not (fibo and area_only)),
             gr.update(choices=modes, value=selected, interactive=len(modes) > 1, visible=True,
                       label="Painted-area mode" if area_only else "Edit mode",
-                      info=("Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original.") if area_only else "Standard uses your instruction directly. Camera angle adds scene-preservation and viewpoint guidance."),
+                      info=("Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original.") if area_only else "Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint."),
             gr.update(value=PAINT_KEYS + "\n\n" + help_text, visible=area_only),
             gr.update(info="Dev: 50 steps is the official starting point; 30 is a faster preview." if dev else "Turbo is trained for 4 steps. Other counts are experimental, not higher-quality presets." if fibo else "Number of sampling steps."),
             gr.update(info="1024 is closest to Fibo's roughly 1 MP training size. Smaller values are faster. Painted edits preserve the original canvas size; 0 uses native size." if fibo else "Independent of quality. In painted mode this controls crop detail. 0 uses native size."),
@@ -84,7 +84,7 @@ def dimensions(image, resolution, area_only=False, mode="Standard"):
 
 
 def camera_help(mode):
-    return gr.update(visible=mode == "Camera angle", value="Type just the camera move, for example: **Move closer to her face**, **Camera near the ground looking up**, or **Aerial view looking down**. Scene-preservation instructions are added automatically. Uses the whole clean source; leave the canvas unpainted. This is prompt guidance, not a 3D camera control.")
+    return gr.update(visible=mode == "Camera angle", value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
 
 
 def run_canvas_edit(task_id, *args):
@@ -175,7 +175,7 @@ def create_tab():
                     # Gradio 4 inserts State placeholders into JS submit inputs.
                     area_only = gr.Checkbox(value=False, visible=False, interactive=False)
                     gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
-                    area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds scene-preservation and viewpoint guidance.", elem_id="qwen_edit_area_mode")
+                    area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint.", elem_id="qwen_edit_area_mode")
                     camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
                     mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
                     size_label = gr.Markdown("Output follows the first image’s aspect ratio.")

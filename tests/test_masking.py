@@ -22,7 +22,7 @@ class MaskingTests(unittest.TestCase):
         self.assertEqual(result['structured_caption'], value['structured_caption'])
         self.assertTrue(result['edit_instruction'].startswith(value['edit_instruction']))
         self.assertIn('<image_1>', result['edit_instruction'])
-        self.assertIn('world-space positions', result['edit_instruction'])
+        self.assertNotEqual(result['edit_instruction'], value['edit_instruction'])
 
     def test_automatic_scope_uses_only_painted_alpha(self):
         self.assertFalse(has_painted_area(None))

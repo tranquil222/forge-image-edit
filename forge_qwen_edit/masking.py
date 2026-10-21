@@ -20,21 +20,11 @@ def camera_angle_instruction(instruction, fibo=False):
     """Reusable camera-only guidance; the user's requested move stays literal."""
     reference = "<image_1>" if fibo else "image 1"
     rules = (
-        f"Camera-angle edit: render a new view of the same scene shown in {reference}, "
-        "following the user's requested camera move. Interpret position, height, distance to a named "
-        "target and viewing direction as changes to the CAMERA, not changes to the subject or scene. "
-        "Move the camera, not the people or objects. Preserve the same identities, faces, clothing, "
-        "hairstyles, poses, expressions, objects, environment, materials, lighting, colors and rendering style. "
-        "Keep the subjects and objects in their original world-space positions and relationships. "
-        "Their positions and apparent sizes within the frame, perspective and occlusion must change "
-        "naturally with the requested viewpoint. For a closer view, approach the specified target; "
-        "do not physically enlarge it. For a low or ground-level view, lower the camera; do not lower "
-        "the subject. For an aerial or overhead view, place the camera above the scene looking down. "
-        "Apply only the camera placement requested by the user, not all of these example directions. "
-        "Reveal newly visible surfaces plausibly and consistently with the original scene; do not "
-        "redesign it or add unrelated objects. Do not substitute cropping, mirroring, flat image rotation "
-        "or turning the subject in place for a requested change in camera position. "
-        "The user's requested viewpoint and framing take priority over the original composition."
+        f"Reimagine the scene shown in {reference} from the requested viewpoint. "
+        "Re-render the subject, foreground objects and surroundings as seen from this new direction, "
+        "including hands and anything being held. Show the surfaces, foreshortening and overlaps "
+        "visible from that viewpoint. Preserve recognizable identity, clothing and scene contents, "
+        "not the original outlines or visible surfaces. Change the viewpoint, not the subject's physical pose."
     )
     if fibo:
         try:
