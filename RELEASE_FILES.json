@@ -1,5 +1,5 @@
 {
-  "version": "0.5.18",
+  "version": "0.5.19",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 13002,
-      "sha256": "1aaf82db6562ad447e3572554b6343b15da65ec138d29cf25f3f94fe6e12e3e7"
+      "bytes": 13538,
+      "sha256": "8081a4785ca9d1891889e5839c27e85eb72ef8954495be0b4b1b349d7deaa394"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 28948,
-      "sha256": "20f5eee63d85e12ab23bd8b37fa67ec5c202e29d11f1c64d2c3533d570dd0b58"
+      "bytes": 29239,
+      "sha256": "a1adc193f4a1e73054e8304cc6a29c9e3cb543c953c5f0f8b6645421b47221ac"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 43600,
-      "sha256": "07c1b887343c7eba9978768dd9f7ec34f54cfc06fb48efb9d1e5c06de6983346"
+      "bytes": 44523,
+      "sha256": "45d782eaed58f932a09c6cb5fab8084d30b9026b37dc306bd2770e7382bad57b"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "d21b293c468fdee229d6dbb4996207b530655168bdfb650e932cc10a17fc1bcc"
+      "sha256": "8eddacfc369b932800a4600cc2effad07ca592989682b7582f42fa86c44eb657"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -163,8 +163,8 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 47733,
-      "sha256": "304b6509c247c9e26a9f0e8946d7116ee8aad6745b885af7bb0cde11bb0ab103"
+      "bytes": 47980,
+      "sha256": "f63d652220ffce3a17cea2afc07eaa355c7a1f8c43c8f66605845bb602ddb23a"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -223,8 +223,8 @@
     },
     {
       "path": "javascript/qwen_canvas.js",
-      "bytes": 6743,
-      "sha256": "04e625df0b745d67f97dda6f08c92861b851cca789ab058083c33b45f56693a0"
+      "bytes": 7081,
+      "sha256": "495424680afc00c83c5a0227fa7ef00ff7c517a11cd9415b6e3c62387f679666"
     },
     {
       "path": "javascript/qwen_edit.js",
@@ -258,8 +258,8 @@
     },
     {
       "path": "style.css",
-      "bytes": 14094,
-      "sha256": "c548401cab4e1b1d4c505d498c8ffbfd14aa3c7e39aabdfd7ad69f62410f4389"
+      "bytes": 14211,
+      "sha256": "1fc143b543b9831311fe0928c5371bf7fb44243c9e3eea9e7f6cea37de5c5b77"
     },
     {
       "path": "tests/curves.test.cjs",

@@ -2,14 +2,18 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.18 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.19 beta**. No ComfyUI server or cloud image service.
 
 ## Main controls, Fibo Shift and RoPE
 
-Edit mode, Generate / Cancel, Seed / Batch, and Speed / quality / Resolution are grouped
-below the result. Expanding sizing or crop controls does not move Generate down.
+Generate / Cancel sit directly below the source image on the left, followed by
+the Crop / outpaint toggle, Seed / Batch, and Speed / quality / Resolution.
+Expanded canvas settings and Output size sit below these main controls.
+Edit mode, Shift and RoPE are on the right, below the result/download controls.
+The columns flow independently, so the result controls do not leave a gap under
+the source. Expanding sizing or crop controls does not move Generate down.
 
-Fibo has two independent experimental controls in this group:
+Fibo has two independent experimental controls on the right:
 
 - **Shift** changes the sampling schedule and
   can affect contrast and texture. Manual **1.15** preserves the existing

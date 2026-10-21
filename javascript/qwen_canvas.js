@@ -100,6 +100,9 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
         window.imageEditMaskColor || "#00ff00", true, 12, false, consistentBrush, 100, true, 0, true);
     window.qwenEditPaintCanvas = canvas;
     document.getElementById(`resetButton_${uuid}`).title = "Clear painted area [Ctrl + X]";
+    const paintHelp = "Paint an edit area to confine changes. Leave unpainted for a whole-image edit.";
+    document.getElementById(`scribbleWidthBlock_${uuid}`).title = `${paintHelp}\nW + scroll adjusts brush size. Shift + paint erases.`;
+    document.getElementById(`scribbleWidth_${uuid}`).setAttribute("aria-description", paintHelp);
 };
 
 window.qwenEditSetModel = function (family) {

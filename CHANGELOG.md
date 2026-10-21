@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.19 beta
+
+- Put Generate / Cancel directly below the source image on the left, followed by
+  Crop / outpaint, Seed / Batch and Speed / quality / Resolution. Expanded canvas
+  settings and Output size stay below the main controls.
+- Move the standalone painting guidance into a source-toolbar tooltip.
+- Keep Edit mode, Shift and RoPE on the right below the result actions.
+- Let each column flow independently, removing the gap previously reserved under
+  the source for the taller result/download section. No inference changes.
+
 ## 0.5.18 beta
 
 - Group Edit mode, Generate / Cancel, Seed / Batch and Speed / quality / Resolution

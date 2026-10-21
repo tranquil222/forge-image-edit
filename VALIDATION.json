@@ -1,5 +1,5 @@
 {
-  "version": "0.5.18",
+  "version": "0.5.19",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -553,6 +553,13 @@
       "canvas_actions": "Unchanged/unpainted canvas disables Generate with an actionable hint; expansion enables Generate outpaint; 50% with zero edges selects Apply shrink; painting at zero edges enables generation and clearing paint disables it again. Model readiness remains a separate prerequisite for generation; crop/shrink need no model.",
       "compatibility": "41 generation input slots retained. Removed tone flag is hidden and false; old recipe import forces it off. Existing CPU integration tests cover RoPE/Shift for global, paint and outpaint. No new GPU generation was needed for this controls update.",
       "javascript_errors": "No Image Edit errors; unrelated dynamic-prompts, scramble-prompts and openOutpaint errors remain outside this change."
+    },
+    "left_controls_layout": {
+      "version": "0.5.19",
+      "scope": "Layout and tooltip only; generation inputs, defaults and inference unchanged.",
+      "browser": "Edge at 1800px and 650px; empty and loaded source. Generate/Cancel immediately below source, Crop/outpaint between buttons and Seed/Batch, Quality/Resolution below seeds, expanded canvas and Output size below main controls. Edit mode/Shift/RoPE on right. Source-to-Generate gap is 16px, independent of result/download height. Expanding sizing or toggling outpaint leaves Generate in place.",
+      "painting_help": "Standalone instruction removed; guidance retained in source brush-width tooltip and accessible description.",
+      "preserved_behaviors": "Unchanged/unpainted outpaint disables generation with hint; expansion enables Generate outpaint; RoPE remains visible and checked. No horizontal overflow. No Image Edit JavaScript errors."
     }
   },
   "limitations": [

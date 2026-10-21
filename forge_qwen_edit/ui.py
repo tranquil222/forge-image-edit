@@ -390,90 +390,90 @@ def create_tab():
                     # Derived, hidden transport value, never a user toggle.
                     # Gradio 4 inserts State placeholders into JS submit inputs.
                     area_only = gr.Checkbox(value=False, visible=False, interactive=False)
-                with gr.Column(scale=1, min_width=350, elem_id="qwen_edit_result_container"):
-                    result = gr.Image(label="Edited result · click to enlarge", type="pil", image_mode="RGBA", format="png", interactive=False, height=420, elem_id="qwen_edit_result")
-                    with gr.Row(elem_id="qwen_edit_result_actions"):
-                        reuse = gr.Button("Use result as source", size="sm")
-                        with gr.Column(min_width=200, elem_id="image_edit_download_column"):
-                            download_button = gr.DownloadButton("Download PNG with settings", size="sm", interactive=False, elem_id="qwen_edit_download")
-                            gr.Markdown("Also saved automatically to Forge’s img2img output folder (or your custom output folder).", elem_id="image_edit_save_note")
-                    # Retain the full native saved-file path for reuse and curves.
-                    download = gr.File(label="Edited PNG", interactive=False, elem_id="image_edit_download_data")
-                    batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
-                        object_fit="contain", preview=False, allow_preview=False, visible=False, elem_id="image_edit_batch_gallery")
-                    batch_items = gr.State([])
-                    batch_selection = gr.Textbox(visible=False, elem_id="image_edit_batch_selection")
-                    batch_source = MetadataImage(visible=False, numpy=False, elem_id="image_edit_batch_source")
-            with gr.Row(equal_height=False, elem_id="image_edit_controls_row"):
-                with gr.Column(scale=1, min_width=350, elem_id="image_edit_canvas_settings"):
-                    canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled")
-                    canvas_source_size = gr.State([0, 0])
-                    # Both sections stay mounted. CSS switches them from the checkbox
-                    # in one frame, without queued visibility updates or moving the toggle.
-                    with gr.Column(elem_id="image_edit_canvas_controls"):
-                        gr.Markdown("**Added pixels per edge** · positive expands, negative crops. The green outline is the final canvas; it stays visible.")
-                        gr.Markdown("**Paint over edge objects to replace them while extending the scene.** Added space and painted areas are filled together.")
-                        with gr.Row(elem_id="image_edit_canvas_horizontal"):
-                            canvas_left = gr.Slider(-4096, 4096, value=0, step=1, label="Left", min_width=140, elem_id="image_edit_canvas_left")
-                            canvas_right = gr.Slider(-4096, 4096, value=0, step=1, label="Right", min_width=140, elem_id="image_edit_canvas_right")
-                        with gr.Row(elem_id="image_edit_canvas_vertical"):
-                            canvas_top = gr.Slider(-4096, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
-                            canvas_bottom = gr.Slider(-4096, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
-                        canvas_summary = gr.Markdown(elem_id="image_edit_canvas_summary")
+                    with gr.Column(elem_id="image_edit_generation_controls"):
+                        with gr.Column(elem_id="image_edit_run_row"):
+                            with gr.Row(elem_id="image_edit_run_buttons"):
+                                generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
+                                apply_crop = gr.Button("Apply crop", variant="primary", elem_id="image_edit_apply_crop", scale=3, visible=False)
+                                cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
+                            canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled")
+                            with gr.Row(elem_id="image_edit_seed_controls"):
+                                seed = gr.Textbox(value="-1", label="Seed", elem_id="qwen_edit_seed", min_width=150, scale=1)
+                                random_seed = ToolButton("🎲", elem_id="image_edit_random_seed", tooltip="Random seed (-1) for each edit")
+                                reuse_seed = ToolButton("♻️", elem_id="image_edit_reuse_seed", tooltip="Reuse the selected result's seed")
+                                batch_count = gr.Number(value=1, minimum=1, maximum=64, precision=0, step=1, label="Batch count", scale=0, min_width=100, elem_id="image_edit_batch_count")
+                        canvas_run_help = gr.Markdown(visible=False, elem_id="image_edit_canvas_run_help")
                         with gr.Row():
-                            seam_blend = gr.Slider(0, 128, value=32, step=1, label="Seam blending (output px)",
-                                info="Crossfade after generation inside the original. No image blur; 0 keeps a hard edge.",
-                                scale=2, min_width=220, elem_id="image_edit_seam_blend")
-                        canvas_reset = gr.Button("Reset edges", size="sm", elem_id="image_edit_canvas_reset")
-                    with gr.Column(elem_id="image_edit_standard_controls"):
-                        gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
-                        camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
-                        mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
-                        size_label = gr.Markdown("Output follows the first image’s aspect ratio.")
-                    with gr.Group(elem_id="image_edit_output_settings") as output_settings:
-                        gr.Markdown("**Output size**")
-                        with gr.Group() as output_size_section:
-                            output_size_enabled = gr.Checkbox(value=False, label="Custom output size", interactive=False, elem_id="image_edit_output_size_enabled")
-                            with gr.Group(visible=False, elem_id="image_edit_output_size") as output_size_controls:
-                                output_size_mode = gr.Radio(["Resize to", "Resize by"], value="Resize to", show_label=False, elem_id="image_edit_output_size_mode")
-                                with gr.Row() as output_size_edges:
-                                    output_width = gr.Slider(32, 4096, value=1024, step=1, label="Width", elem_id="image_edit_output_width")
-                                    output_height = gr.Slider(32, 4096, value=1024, step=1, label="Height", elem_id="image_edit_output_height")
-                                output_scale = gr.Slider(.25, 4, value=1, step=.05, label="Resize by", info="Multiplier: 0.5 halves width and height; 2 doubles them.", visible=False, elem_id="image_edit_output_scale")
-                                gr.Markdown("Proportions stay linked. Generates at this size, overriding Resolution for the source/output; extra references still use Resolution. For a different canvas shape, use Crop / outpaint. Larger sizes use more memory and time.")
-                            output_size_enabled.change(lambda enabled: gr.update(visible=enabled), [output_size_enabled], [output_size_controls], queue=False, show_progress="hidden", api_name=False)
-                            output_size_mode.change(lambda mode: (gr.update(visible=mode == "Resize to"), gr.update(visible=mode == "Resize by")), [output_size_mode], [output_size_edges, output_scale], queue=False, show_progress="hidden", api_name=False)
-                            source.change(reset_output_size, [source], [output_size_enabled, output_width, output_height, output_scale], queue=False, show_progress="hidden", api_name=False)
-                        with gr.Column(elem_id="image_edit_canvas_resize"):
-                            canvas_shrink = gr.Dropdown([("100% (original size)", 1), ("67%", 1.5), ("50%", 2), ("33%", 3), ("25%", 4)], value=1,
-                                label="Resize by", info="Scale the whole canvas, including added edges. 50% halves width and height. The loaded source stays untouched.", elem_id="image_edit_canvas_shrink")
-                with gr.Column(scale=1, min_width=350, elem_id="image_edit_generation_controls"):
-                    area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", elem_id="qwen_edit_area_mode")
-                    with gr.Column(elem_id="image_edit_run_row"):
-                        with gr.Row(elem_id="image_edit_run_buttons"):
-                            generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
-                            apply_crop = gr.Button("Apply crop", variant="primary", elem_id="image_edit_apply_crop", scale=3, visible=False)
-                            cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
-                        with gr.Row(elem_id="image_edit_seed_controls"):
-                            seed = gr.Textbox(value="-1", label="Seed", elem_id="qwen_edit_seed", min_width=150, scale=1)
-                            random_seed = ToolButton("🎲", elem_id="image_edit_random_seed", tooltip="Random seed (-1) for each edit")
-                            reuse_seed = ToolButton("♻️", elem_id="image_edit_reuse_seed", tooltip="Reuse the selected result's seed")
-                            batch_count = gr.Number(value=1, minimum=1, maximum=64, precision=0, step=1, label="Batch count", scale=0, min_width=100, elem_id="image_edit_batch_count")
-                    canvas_run_help = gr.Markdown(visible=False, elem_id="image_edit_canvas_run_help")
-                    with gr.Row():
-                        profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
-                        resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
-                    profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
-                    with gr.Group(visible=False, elem_id="image_edit_fibo_sampling") as fibo_sampling:
-                        with gr.Row():
-                            fibo_shift_mode = gr.Dropdown(list(FIBO_SHIFT_MODES), value="Manual", label="Shift mode", min_width=160, scale=1, elem_id="image_edit_fibo_shift_mode")
-                            fibo_shift = gr.Slider(0.1, 5, value=DEFAULT_FIBO_SHIFT, step=0.01, label="Shift", min_width=220, scale=2, elem_id="image_edit_fibo_shift")
-                        gr.Markdown("Can change contrast and texture. Default: **1.15**. Image-size adjusted follows the model's working dimensions.", elem_id="image_edit_shift_hint")
-                    fibo_shift_mode.change(lambda mode: gr.update(interactive=mode == "Manual"), [fibo_shift_mode], [fibo_shift], queue=False, show_progress="hidden", api_name=False)
-                    with gr.Group(visible=False, elem_id="image_edit_fibo_rope_options") as fibo_rope_options:
-                        fibo_rope = gr.Checkbox(value=False, label="RoPE adjustment", elem_id="image_edit_fibo_rope",
-                            info=None)
-                        gr.Markdown("X 0.85 / Y 0.80. Can affect contrast, texture and detail at any resolution, including painted edits and outpaint. Does not resize the image.", elem_id="image_edit_rope_hint")
+                            profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
+                            resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
+                        profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
+                    with gr.Column(elem_id="image_edit_canvas_settings"):
+                        canvas_source_size = gr.State([0, 0])
+                        # Both sections stay mounted. CSS switches them from the checkbox
+                        # in one frame, without queued visibility updates or moving the toggle.
+                        with gr.Column(elem_id="image_edit_canvas_controls"):
+                            gr.Markdown("**Added pixels per edge** · positive expands, negative crops. The green outline is the final canvas; it stays visible.")
+                            gr.Markdown("**Paint over edge objects to replace them while extending the scene.** Added space and painted areas are filled together.")
+                            with gr.Row(elem_id="image_edit_canvas_horizontal"):
+                                canvas_left = gr.Slider(-4096, 4096, value=0, step=1, label="Left", min_width=140, elem_id="image_edit_canvas_left")
+                                canvas_right = gr.Slider(-4096, 4096, value=0, step=1, label="Right", min_width=140, elem_id="image_edit_canvas_right")
+                            with gr.Row(elem_id="image_edit_canvas_vertical"):
+                                canvas_top = gr.Slider(-4096, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
+                                canvas_bottom = gr.Slider(-4096, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
+                            canvas_summary = gr.Markdown(elem_id="image_edit_canvas_summary")
+                            with gr.Row():
+                                seam_blend = gr.Slider(0, 128, value=32, step=1, label="Seam blending (output px)",
+                                    info="Crossfade after generation inside the original. No image blur; 0 keeps a hard edge.",
+                                    scale=2, min_width=220, elem_id="image_edit_seam_blend")
+                            canvas_reset = gr.Button("Reset edges", size="sm", elem_id="image_edit_canvas_reset")
+                        with gr.Column(elem_id="image_edit_standard_controls"):
+                            camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
+                            mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
+                            size_label = gr.Markdown("Output follows the first image’s aspect ratio.")
+                        with gr.Group(elem_id="image_edit_output_settings") as output_settings:
+                            gr.Markdown("**Output size**")
+                            with gr.Group() as output_size_section:
+                                output_size_enabled = gr.Checkbox(value=False, label="Custom output size", interactive=False, elem_id="image_edit_output_size_enabled")
+                                with gr.Group(visible=False, elem_id="image_edit_output_size") as output_size_controls:
+                                    output_size_mode = gr.Radio(["Resize to", "Resize by"], value="Resize to", show_label=False, elem_id="image_edit_output_size_mode")
+                                    with gr.Row() as output_size_edges:
+                                        output_width = gr.Slider(32, 4096, value=1024, step=1, label="Width", elem_id="image_edit_output_width")
+                                        output_height = gr.Slider(32, 4096, value=1024, step=1, label="Height", elem_id="image_edit_output_height")
+                                    output_scale = gr.Slider(.25, 4, value=1, step=.05, label="Resize by", info="Multiplier: 0.5 halves width and height; 2 doubles them.", visible=False, elem_id="image_edit_output_scale")
+                                    gr.Markdown("Proportions stay linked. Generates at this size, overriding Resolution for the source/output; extra references still use Resolution. For a different canvas shape, use Crop / outpaint. Larger sizes use more memory and time.")
+                                output_size_enabled.change(lambda enabled: gr.update(visible=enabled), [output_size_enabled], [output_size_controls], queue=False, show_progress="hidden", api_name=False)
+                                output_size_mode.change(lambda mode: (gr.update(visible=mode == "Resize to"), gr.update(visible=mode == "Resize by")), [output_size_mode], [output_size_edges, output_scale], queue=False, show_progress="hidden", api_name=False)
+                                source.change(reset_output_size, [source], [output_size_enabled, output_width, output_height, output_scale], queue=False, show_progress="hidden", api_name=False)
+                            with gr.Column(elem_id="image_edit_canvas_resize"):
+                                canvas_shrink = gr.Dropdown([("100% (original size)", 1), ("67%", 1.5), ("50%", 2), ("33%", 3), ("25%", 4)], value=1,
+                                    label="Resize by", info="Scale the whole canvas, including added edges. 50% halves width and height. The loaded source stays untouched.", elem_id="image_edit_canvas_shrink")
+                with gr.Column(scale=1, min_width=350, elem_id="image_edit_result_column"):
+                    with gr.Column(scale=1, min_width=350, elem_id="qwen_edit_result_container"):
+                        result = gr.Image(label="Edited result · click to enlarge", type="pil", image_mode="RGBA", format="png", interactive=False, height=420, elem_id="qwen_edit_result")
+                        with gr.Row(elem_id="qwen_edit_result_actions"):
+                            reuse = gr.Button("Use result as source", size="sm")
+                            with gr.Column(min_width=200, elem_id="image_edit_download_column"):
+                                download_button = gr.DownloadButton("Download PNG with settings", size="sm", interactive=False, elem_id="qwen_edit_download")
+                                gr.Markdown("Also saved automatically to Forge’s img2img output folder (or your custom output folder).", elem_id="image_edit_save_note")
+                        # Retain the full native saved-file path for reuse and curves.
+                        download = gr.File(label="Edited PNG", interactive=False, elem_id="image_edit_download_data")
+                        batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
+                            object_fit="contain", preview=False, allow_preview=False, visible=False, elem_id="image_edit_batch_gallery")
+                        batch_items = gr.State([])
+                        batch_selection = gr.Textbox(visible=False, elem_id="image_edit_batch_selection")
+                        batch_source = MetadataImage(visible=False, numpy=False, elem_id="image_edit_batch_source")
+                    with gr.Column(elem_id="image_edit_model_controls"):
+                        area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", elem_id="qwen_edit_area_mode")
+                        with gr.Group(visible=False, elem_id="image_edit_fibo_sampling") as fibo_sampling:
+                            with gr.Row():
+                                fibo_shift_mode = gr.Dropdown(list(FIBO_SHIFT_MODES), value="Manual", label="Shift mode", min_width=160, scale=1, elem_id="image_edit_fibo_shift_mode")
+                                fibo_shift = gr.Slider(0.1, 5, value=DEFAULT_FIBO_SHIFT, step=0.01, label="Shift", min_width=220, scale=2, elem_id="image_edit_fibo_shift")
+                            gr.Markdown("Can change contrast and texture. Default: **1.15**. Image-size adjusted follows the model's working dimensions.", elem_id="image_edit_shift_hint")
+                        fibo_shift_mode.change(lambda mode: gr.update(interactive=mode == "Manual"), [fibo_shift_mode], [fibo_shift], queue=False, show_progress="hidden", api_name=False)
+                        with gr.Group(visible=False, elem_id="image_edit_fibo_rope_options") as fibo_rope_options:
+                            fibo_rope = gr.Checkbox(value=False, label="RoPE adjustment", elem_id="image_edit_fibo_rope",
+                                info=None)
+                            gr.Markdown("X 0.85 / Y 0.80. Can affect contrast, texture and detail at any resolution, including painted edits and outpaint. Does not resize the image.", elem_id="image_edit_rope_hint")
             last_seed = gr.Textbox(value="", visible=False, elem_id="qwen_edit_last_seed")
             status = gr.HTML(elem_id="qwen_edit_status")
             instruction = gr.Textbox(label="Edit instruction", placeholder="Remove the stray object and reconstruct the background. Or: give this person a subtle, natural smile while keeping their identity.", lines=3, elem_id="qwen_edit_instruction")
