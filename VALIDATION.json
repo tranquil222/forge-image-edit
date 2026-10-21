@@ -1,5 +1,5 @@
 {
-  "version": "0.5.8",
+  "version": "0.5.9",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 93,
+    "extension_python_tests": 97,
     "javascript_tests": 11,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -384,6 +384,13 @@
       "preview": "Persistent green outline, grey added area, no source-byte modification, compact wide/narrow controls hidden by default. Moving signed edges previews the computed dimensions.",
       "workflow": "Generate outpaint and crop-only save verified, local curves recognize border mask, global Fibo default excluded, strokes restored on toggle off, result reuse resets signed edges.",
       "browser_errors": 0
+    },
+    "shrink_outpaint_059": {
+      "method": "Real Edge/Gradio UI in an isolated current-base Forge using a CPU inference stand-in. Native preprocessing, image resizing, masks, compositing, save and metadata paths. No new GPU quality or performance benchmark.",
+      "unit_checks": "97 Python and 11 JavaScript checks passed. Tall-to-landscape geometry, fractional shrink, alpha/mask alignment, invalid sizes, grey-edge isolation, no-upscale model preparation, independent lower resolution cap and shrink-only saves covered. Fibo and Qwen native dispatch verified.",
+      "browser_checks": "768x2048 source expands to 3072x2048, then saves 1536x1024 at 2x and 768x512 at 4x. Native and capped working sizes, painting, 1x restoration, reset edges, no-model shrink, crop/shrink, source reuse and wide/narrow layout passed; no browser errors.",
+      "pixel_checks": "Five downloaded PNGs audited: three model-path composites preserve all unselected downscaled original pixels exactly and retain the expected painted/overlap masks; two no-model saves match direct crop/resize exactly. QA uses Pillow 13.0.0; independent expected resizes use that same version. Local unit tests use Pillow 12.3.0.",
+      "scope": "Shrink reduces the saved canvas and prevents its upscaling for inference. It need not reduce inference cost if the existing Resolution setting already limits the working size. Loaded source is not resized. Additional-reference restrictions remain unchanged."
     },
     "painted_outpaint_058": {
       "method": "Isolated current-base Forge with CPU-only inference fixture and real Edge browser. Production mask preparation, compositing, native save and metadata paths; no new GPU seam-quality benchmark.",

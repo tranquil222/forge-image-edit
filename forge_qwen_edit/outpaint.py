@@ -8,6 +8,7 @@ from PIL import Image
 
 from . import __version__
 from .masking import canonical_image
+from .workflow import reference_content_box
 
 EDGES = ("left", "right", "top", "bottom")
 GREY = (128, 128, 128, 255)
@@ -15,6 +16,13 @@ GREY = (128, 128, 128, 255)
 
 def canvas_plan(size, edges):
     width, height = size
+    shrink = edges.get("shrink_by", 1)
+    try:
+        if isinstance(shrink, bool) or not 1 <= float(shrink) <= 4:
+            raise ValueError()
+        shrink = float(shrink)
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("Shrink by must be a number from 1 to 4; 1 keeps the original size.") from None
     blend = edges.get("seam_blend", 32)
     try:
         if isinstance(blend, bool) or int(blend) != float(blend) or not 0 <= int(blend) <= 128:
@@ -41,9 +49,31 @@ def canvas_plan(size, edges):
         raise ValueError("The canvas must be 1–16384 pixels per side and at most 64 megapixels.")
     position = (max(0, left), max(0, top))
     retained_size = (source_box[2] - source_box[0], source_box[3] - source_box[1])
-    return {"version": 1, "edges": values, "seam_blend": blend, "source_size": list(size), "output_size": list(output),
-            "source_box": list(source_box), "position": list(position),
-            "expand": retained_size != output, "changed": any(values.values())}
+    final_size = tuple(max(1, round(side / shrink)) for side in output)
+    # Scale the placement, not a grey-padded bitmap: grey must never bleed into
+    # the retained photo during resampling. Keep even small added edges present.
+    final_position, final_retained = [], []
+    for axis in range(2):
+        before, after = (left, right) if axis == 0 else (top, bottom)
+        length = final_size[axis]
+        start = max(1, round(position[axis] * length / output[axis])) if before > 0 else 0
+        end = min(length - 1, round((position[axis] + retained_size[axis]) * length / output[axis])) if after > 0 else length
+        if end <= start:
+            raise ValueError("Shrink by is too large for this canvas. Keep room for the original and added edges.")
+        final_position.append(start)
+        final_retained.append(end - start)
+    return {"version": 2, "edges": values, "seam_blend": blend, "shrink_by": shrink,
+            "source_size": list(size), "canvas_size": list(output), "output_size": list(final_size),
+            "source_box": list(source_box), "position": final_position, "retained_size": final_retained,
+            "expand": retained_size != output, "changed": any(values.values()) or shrink > 1}
+
+
+def canvas_reference_resolution(size, resolution, shrink_by=1):
+    """Keep the user's resolution cap, but never enlarge an explicitly shrunk canvas."""
+    box = reference_content_box(*size, resolution)
+    if shrink_by > 1 and (box[2] - box[0] > size[0] or box[3] - box[1] > size[1]):
+        return 0  # Native pixels; only model-grid padding is added.
+    return int(resolution)
 
 
 def canvas_images(source, plan, painted_mask=None):
@@ -51,6 +81,9 @@ def canvas_images(source, plan, painted_mask=None):
     if list(source.size) != plan["source_size"]:
         raise ValueError("The source changed. Set the canvas edges again.")
     retained = source.crop(plan["source_box"])
+    target_size = tuple(plan["retained_size"])
+    if retained.size != target_size:
+        retained = retained.resize(target_size, Image.Resampling.LANCZOS)
     output = Image.new("RGBA", plan["output_size"], GREY)
     output.paste(retained, tuple(plan["position"]))
     output.info = source.info.copy()
@@ -59,7 +92,10 @@ def canvas_images(source, plan, painted_mask=None):
     if painted_mask is not None:
         if painted_mask.size != source.size:
             raise ValueError("The painted area does not match the source image.")
-        mask.paste(painted_mask.convert("L").crop(plan["source_box"]), (x, y))
+        paint = painted_mask.convert("L").crop(plan["source_box"])
+        if paint.size != target_size:
+            paint = paint.resize(target_size, Image.Resampling.NEAREST)
+        mask.paste(paint, (x, y))
     else:
         mask.paste(0, (x, y, x + retained.width, y + retained.height))
     return output, mask
@@ -76,8 +112,7 @@ def canvas_blend_mask(mask, plan):
         return mask
     alpha = np.array(mask.convert("L"))
     x, y = plan["position"]
-    x1, y1, x2, y2 = plan["source_box"]
-    width, height = x2 - x1, y2 - y1
+    width, height = plan["retained_size"]
     retained = alpha[y:y + height, x:x + width]
     horizontal = np.rint(255 * (1 - np.arange(min(blend, width)) / blend)).astype(np.uint8)[None, :]
     vertical = np.rint(255 * (1 - np.arange(min(blend, height)) / blend)).astype(np.uint8)[:, None]
@@ -122,23 +157,24 @@ def save_crop(source, edges, keep_metadata=True):
     source = canonical_image(source)
     plan = canvas_plan(source.size, edges)
     if plan["expand"] or not plan["changed"]:
-        raise ValueError("Move an edge inward to crop, or use Generate outpaint to fill added space.")
-    output = source.crop(plan["source_box"])
+        raise ValueError("Move an edge inward or choose Shrink by, or use Generate outpaint to fill added space.")
+    output, _ = canvas_images(source, plan)
+    action = "Canvas crop / shrink" if plan["shrink_by"] > 1 else "Canvas crop"
     recipe = {"version": 1, "extension_version": __version__, "operation": "canvas_crop",
-              "model_family": "Canvas crop", "canvas": plan, "source_size": list(source.size),
-              "output_size": list(output.size), "prompt": "Canvas crop", "area_only": False}
-    fields, binary = build_metadata(source, recipe, "Canvas crop (no model generation)", keep_metadata)
+              "model_family": action, "canvas": plan, "source_size": list(source.size),
+              "output_size": list(output.size), "prompt": action, "area_only": False}
+    fields, binary = build_metadata(source, recipe, action + " (no model generation)", keep_metadata)
     fields.pop(MASK_KEY, None)
     output.info.clear()
     directory = shared.opts.outdir_samples or shared.opts.outdir_img2img_samples
-    p = SimpleNamespace(prompt="Canvas crop", negative_prompt="", steps=0, cfg_scale=1,
+    p = SimpleNamespace(prompt=action, negative_prompt="", steps=0, cfg_scale=1,
         distilled_cfg_scale=1, sampler_name="", scheduler="", batch_size=1, batch_index=0,
         n_iter=1, iteration=0, all_seeds=[-1], styles=[], denoising_strength=None, user="", extra_generation_params={})
-    filename, _ = images.save_image(output, directory, "", seed=-1, prompt="Canvas crop",
+    filename, _ = images.save_image(output, directory, "", seed=-1, prompt=action,
         extension="png", info=fields["parameters"], p=p, existing_info=fields, suffix="-crop")
     if shared.opts.enable_pnginfo:
         preserve_binary_metadata(filename, binary)
         output.info.update(fields)
         output.info.update(binary)
     remember_selection(filename, None, recipe)
-    return output, str(filename), f"Saved {Path(filename).name} · {output.width} × {output.height} · crop only, no model run"
+    return output, str(filename), f"Saved {Path(filename).name} · {output.width} × {output.height} · {'crop / shrink' if plan['shrink_by'] > 1 else 'crop'} only, no model run"

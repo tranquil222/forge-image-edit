@@ -22,7 +22,7 @@ from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
 from .tone import match_source_tone, tone_summary
 from .fibo_defaults import apply_default
-from .outpaint import canvas_plan, canvas_images, canvas_blend_mask, outpaint_instruction
+from .outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
 from .adjustments import MASK_KEY, encode_selection, remember_selection
 from .masking import camera_angle_instruction
 
@@ -289,8 +289,9 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         # Input masking stays hard. The small overlap is composited only after
         # inference, using generated content already present inside the photo.
         mask = canvas_blend_mask(mask, plan)
-    references = [prepare_reference(im, resolution) for im in input_references]
-    content_boxes = [reference_content_box(*im.size, resolution) for im in input_references]
+    working_resolution = canvas_reference_resolution(original.size, resolution, plan["shrink_by"]) if plan is not None else resolution
+    references = [prepare_reference(im, working_resolution) for im in input_references]
+    content_boxes = [reference_content_box(*im.size, working_resolution) for im in input_references]
     seed = parse_seed(seed)
     if seed == -1:
         seed = secrets.randbits(63)
@@ -318,6 +319,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     if plan is not None:
         recipe["canvas"] = plan
         recipe["canvas_painted_area"] = painted_canvas
+        recipe["working_resolution"] = int(working_resolution)
     if effective_instruction != instruction:
         recipe["effective_prompt"] = effective_instruction
     recipe["quality_preset"] = next((name for name, values in adapter.profiles.items() if all(recipe[key] == value for key, value in values.items())), "Custom")
@@ -378,6 +380,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         path = Path(path)
         remember_selection(path, selection, recipe)
         note = (" · original preserved outside painting / seam blend" if painted_canvas or (plan["expand"] and plan["seam_blend"]) else " · retained original pixels preserved") if plan is not None else " · outside painted area preserved" if area_only else ""
+        if plan is not None and plan["shrink_by"] > 1:
+            note = f" · shrunk {plan['shrink_by']:g}× · downscaled original preserved outside painting / seam blend"
         if preserve_tone:
             note += " · " + tone_summary(recipe["tone_match"])
         if "fibo_global_curves" in recipe:

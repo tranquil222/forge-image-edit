@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.9 — beta
+
+- Add compact Shrink by control to Crop / outpaint: 1× off, 1.5×, 2×, 3× or 4×.
+  Reduce the entire planned canvas before generation and save at the smaller size,
+  without changing the loaded source. Painting and seam blending follow the new size.
+- Show final output and model-image dimensions. Resolution remains an independent
+  inference limit, but never enlarges an explicitly shrunk canvas.
+- Resize retained content separately from grey borders to avoid grey-edge bleed.
+  Unpainted pixels are preserved relative to the downscaled original. Shrink-only
+  and crop/shrink saves need no model. 1× preserves existing behavior.
+- Generation API adds shrink factor immediately before batch count; crop API adds
+  it as the final optional argument. Recipes record original canvas and output sizes.
+
 ## 0.5.8 — beta
 
 - Painting remains available during crop/outpaint. The generated region combines

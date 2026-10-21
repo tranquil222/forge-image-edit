@@ -19,7 +19,7 @@ from .canvas import EditCanvas, MetadataImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
 from .batching import run_batch, validate_count
-from .outpaint import EDGES, canvas_plan, canvas_images, save_crop
+from .outpaint import EDGES, canvas_plan, canvas_images, canvas_reference_resolution, save_crop
 from .prompt_metadata import original_prompts
 
 
@@ -50,7 +50,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
                       info=("Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original.") if area_only else "Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint."),
             gr.update(value=PAINT_KEYS + "\n\n" + help_text, visible=area_only and not canvas_enabled),
             gr.update(info="Dev: 50 steps is the official starting point; 30 is a faster preview." if dev else "Turbo is trained for 4 steps. Other counts are experimental, not higher-quality presets." if fibo else "Number of sampling steps."),
-            gr.update(info="1024 is closest to Fibo's roughly 1 MP training size. Smaller values are faster. Painted edits preserve the original canvas size; 0 uses native size." if fibo else "Independent of quality. In painted mode this controls crop detail. 0 uses native size."),
+            gr.update(info="Limits model working size; Shrink by sets the saved canvas size. Shrunk canvases are never upscaled for generation. 0 uses the resulting canvas size." if canvas_enabled else "1024 is closest to Fibo's roughly 1 MP training size. Smaller values are faster. Painted edits preserve the original canvas size; 0 uses native size." if fibo else "Independent of quality. In painted mode this controls crop detail. 0 uses native size."),
             gr.update(interactive=area_only and not canvas_enabled),
             gr.update(interactive=dev, label="Negative prompt" if dev else "Negative prompt (inactive at CFG 1)",
                       info="Dev uses a trained null caption when empty. Negative conditioning is text-only." if dev else "Not used at CFG 1. Express exclusions in the edit instruction."),
@@ -132,40 +132,52 @@ def select_metadata_prompt(choices, selected, family):
     return gr.update(), gr.update()
 
 
-def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=False):
+def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=False, shrink_by=1, resolution=768):
     enabled = bool(enabled and size and min(size) > 0)
     crop = False
     expanded = False
+    crop_label = "Apply crop"
     message = "Load an image to set the canvas edges."
     if size and min(size) > 0:
         try:
-            plan = canvas_plan(size, dict(zip(EDGES, (left, right, top, bottom))))
+            plan = canvas_plan(size, {**dict(zip(EDGES, (left, right, top, bottom))), "shrink_by": shrink_by})
+            shrink_by = plan["shrink_by"]
             expanded = plan["expand"]
             crop = plan["changed"] and not expanded and not painted
             width, height = plan["output_size"]
             message = f"**Canvas: {width} × {height}** · original: {size[0]} × {size[1]}. "
-            message += ("Crop only · no model needed." if crop else
+            if plan["shrink_by"] > 1:
+                message = f"**Output: {width} × {height}** · {plan['canvas_size'][0]} × {plan['canvas_size'][1]} ÷ {plan['shrink_by']:g}. "
+                crop_label = "Apply crop / shrink" if any(plan["edges"].values()) else "Apply shrink"
+            message += ("Crop / shrink only · no model needed." if crop and shrink_by > 1 else "Crop only · no model needed." if crop else
                 f"{'Fibo' if family.startswith('Fibo') else 'The edit model'} will fill the added area{' and your painted areas' if painted else ''}. Original pixels outside painting and seam blending stay unchanged." if expanded else
                 "Painted areas will be edited; unpainted retained pixels stay unchanged." if painted else
                 "Positive adds space; negative crops that edge.")
+            if shrink_by > 1:
+                message = message.replace("Original pixels outside", "Downscaled original pixels outside").replace("unpainted retained pixels", "downscaled unpainted pixels")
+            if not crop:
+                working = canvas_reference_resolution((width, height), resolution, plan["shrink_by"])
+                x0, y0, x1, y1 = reference_content_box(width, height, working)
+                message += f" Model image: **{x1 - x0} × {y1 - y0}**."
         except ValueError as error:
             message = str(error)
     return (gr.update(visible=enabled), message,
             gr.update(visible=not (enabled and crop), value="Generate outpaint" if enabled and expanded else "Generate edit"),
-            gr.update(visible=enabled and crop), gr.update(visible=not enabled))
+            gr.update(visible=enabled and crop, value=crop_label), gr.update(visible=not enabled))
 
 
-def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata, foreground=None):
+def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata, foreground=None, shrink_by=1):
     global _active
     if not enabled or source is None:
         raise gr.Error("Load an image and enable Crop / outpaint first.")
+    edges = {**dict(zip(EDGES, (left, right, top, bottom))), "shrink_by": shrink_by}
     if has_painted_area(foreground):
-        plan = canvas_plan(canonical_image(source).size, dict(zip(EDGES, (left, right, top, bottom))))
+        plan = canvas_plan(canonical_image(source).size, edges)
         if foreground.getchannel("A").crop(plan["source_box"]).getbbox():
             raise gr.Error("An area is painted. Use Generate edit to apply the painting, or clear it for a crop-only save.")
     _active = True
     try:
-        result = main_thread.run_and_wait_result(save_crop, source, dict(zip(EDGES, (left, right, top, bottom))), keep_metadata)
+        result = main_thread.run_and_wait_result(save_crop, source, edges, keep_metadata)
         if result is None:
             raise RuntimeError(main_thread.last_exception or "The crop could not be saved.")
         output, path, message = result
@@ -178,12 +190,12 @@ def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata, fo
 def run_canvas_edit(task_id, *args):
     *args, batch_count = args
     batch_count = validate_count(batch_count)
-    *args, canvas_enabled, left, right, top, bottom, seam_blend = args
+    *args, canvas_enabled, left, right, top, bottom, seam_blend, shrink_by = args
     *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
     # Read the submitted strokes directly; the UI's paint flag is asynchronous.
     enabled = has_painted_area(foreground)
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
-    canvas_edges = {**dict(zip(EDGES, (left, right, top, bottom))), "seam_blend": seam_blend} if canvas_enabled else None
+    canvas_edges = {**dict(zip(EDGES, (left, right, top, bottom))), "seam_blend": seam_blend, "shrink_by": shrink_by} if canvas_enabled else None
     if canvas_enabled:
         if base[0] is None:
             raise ValueError("Add a source image first.")
@@ -191,7 +203,7 @@ def run_canvas_edit(task_id, *args):
         paint = extract_mask(base[0], editor) if enabled else None
         retained_paint = paint is not None and paint.crop(plan["source_box"]).getbbox() is not None
         if not plan["expand"] and not retained_paint:
-            return run_canvas_crop(base[0], True, left, right, top, bottom, keep_metadata)
+            return run_canvas_crop(base[0], True, left, right, top, bottom, keep_metadata, foreground, shrink_by)
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
                     adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges, batch_count=batch_count)
@@ -321,8 +333,13 @@ def create_tab():
                             canvas_top = gr.Slider(-4096, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
                             canvas_bottom = gr.Slider(-4096, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
                         canvas_summary = gr.Markdown(elem_id="image_edit_canvas_summary")
-                        seam_blend = gr.Slider(0, 128, value=32, step=1, label="Seam blending (px)",
-                            info="Crossfade after generation into a narrow strip of the original. No image blur; 0 keeps a hard edge. Applies only where canvas is added.", elem_id="image_edit_seam_blend")
+                        with gr.Row():
+                            canvas_shrink = gr.Dropdown([("1× (off)", 1), ("1.5×", 1.5), ("2×", 2), ("3×", 3), ("4×", 4)], value=1,
+                                label="Shrink by", info="2× halves width and height, including added edges. The loaded source stays untouched.",
+                                scale=1, min_width=150, elem_id="image_edit_canvas_shrink")
+                            seam_blend = gr.Slider(0, 128, value=32, step=1, label="Seam blending (output px)",
+                                info="Crossfade after generation inside the original. No image blur; 0 keeps a hard edge.",
+                                scale=2, min_width=220, elem_id="image_edit_seam_blend")
                         canvas_reset = gr.Button("Reset edges", size="sm", elem_id="image_edit_canvas_reset")
                     area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint.", elem_id="qwen_edit_area_mode")
                     camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
@@ -400,22 +417,22 @@ def create_tab():
                     js="receipt => { window.imageEditCurvesSaved?.(receipt); }", api_name=False)
             task_id = gr.Textbox(visible=False)
             edge_controls = [canvas_left, canvas_right, canvas_top, canvas_bottom]
-            for component in (canvas_enabled, *edge_controls, seam_blend, prompt_choices):
+            for component in (canvas_enabled, *edge_controls, seam_blend, canvas_shrink, prompt_choices):
                 component.do_not_save_to_config = True
             source.change(reset_canvas_controls, [source, canvas_enabled],
                 [canvas_enabled, *edge_controls, canvas_source_size, get_prompt, prompt_choices, prompt_items, prompt_note], show_progress="hidden", api_name=False).then(
-                canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family, area_only],
+                canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family, area_only, canvas_shrink, resolution],
                 [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
             canvas_reset.click(lambda: (0, 0, 0, 0), outputs=edge_controls, show_progress="hidden", api_name=False)
-            for component in (canvas_enabled, *edge_controls, family, area_only):
-                component.change(canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family, area_only],
+            for component in (canvas_enabled, *edge_controls, family, area_only, canvas_shrink, resolution):
+                component.change(canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family, area_only, canvas_shrink, resolution],
                     [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
             for component in (canvas_enabled, *edge_controls):
                 component.change(None, [canvas_enabled, *edge_controls], [],
                     js="(enabled, left, right, top, bottom) => { window.imageEditSetCanvasEdges?.(enabled, left, right, top, bottom); }", api_name=False)
             from modules.call_queue import wrap_gradio_gpu_call
             apply_crop.click(wrap_gradio_gpu_call(run_canvas_crop, extra_outputs=[gr.update() for _ in range(6)]),
-                [source, canvas_enabled, *edge_controls, keep_metadata, mask_editor.foreground],
+                [source, canvas_enabled, *edge_controls, keep_metadata, mask_editor.foreground, canvas_shrink],
                 [result, download, last_seed, batch_gallery, batch_items, batch_source, status], api_name="image_edit_crop")
             for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed):
                 component.do_not_save_to_config = True

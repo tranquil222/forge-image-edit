@@ -9,8 +9,8 @@ import numpy as np
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
-from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, outpaint_instruction, save_crop
-from forge_qwen_edit.workflow import read_recipe
+from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction, save_crop
+from forge_qwen_edit.workflow import read_recipe, reference_content_box
 
 
 class OutpaintTests(unittest.TestCase):
@@ -101,6 +101,52 @@ class OutpaintTests(unittest.TestCase):
         for blend in (-1, 129, 1.2, None, float('nan')):
             with self.assertRaises(ValueError): canvas_plan(source.size, {'seam_blend': blend})
 
+    def test_tall_source_expands_to_landscape_then_shrinks_without_grey_bleed(self):
+        source = Image.new('RGBA', (768, 2048), (230, 40, 20, 170))
+        source.info['Author'] = 'source'
+        paint = Image.new('L', source.size)
+        paint.paste(255, (0, 256, 128, 512))
+        before = source.tobytes()
+        plan = canvas_plan(source.size, dict(left=1152, right=1152, shrink_by=2, seam_blend=16))
+        self.assertEqual(plan['canvas_size'], [3072, 2048])
+        self.assertEqual(plan['output_size'], [1536, 1024])
+        self.assertEqual(plan['position'], [576, 0])
+        canvas, hard = canvas_images(source, plan, paint)
+        expected = source.resize((384, 1024), Image.Resampling.LANCZOS)
+        np.testing.assert_array_equal(np.array(canvas)[:, 576:960], np.array(expected))
+        np.testing.assert_array_equal(np.array(hard)[:, 576:960], np.array(paint.resize((384, 1024), Image.Resampling.NEAREST)))
+        np.testing.assert_array_equal(np.array(canvas)[:, :576], np.broadcast_to([128, 128, 128, 255], (1024, 576, 4)))
+        alpha = np.array(canvas_blend_mask(hard, plan))
+        self.assertEqual(alpha[600, 576], 255)
+        self.assertEqual(alpha[600, 591], 16)
+        self.assertEqual(alpha[600, 592], 0)
+        self.assertEqual(canvas.info['Author'], 'source')
+        self.assertEqual(source.tobytes(), before)
+
+    def test_shrink_validation_and_fractional_geometry(self):
+        for value in (0, .5, 4.01, True, None, float('nan'), float('inf'), 'invalid'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                canvas_plan((100, 80), {'shrink_by': value})
+        plan = canvas_plan((101, 83), dict(left=-7, right=19, bottom=-5, shrink_by=1.5))
+        self.assertEqual(plan['output_size'], [75, 52])
+        self.assertEqual(plan['source_box'], [7, 0, 101, 78])
+        self.assertEqual(plan['retained_size'], [62, 52])
+        self.assertTrue(canvas_plan((100, 80), {'shrink_by': 2})['changed'])
+        tiny = canvas_plan((8, 8), dict(left=1, right=1, shrink_by=2))
+        self.assertEqual(tiny['position'], [1, 0])
+        self.assertEqual(tiny['retained_size'], [3, 4])
+        with self.assertRaises(ValueError): canvas_plan((1, 1), dict(left=1, right=1, shrink_by=4))
+
+    def test_shrink_never_reenlarges_model_input_but_keeps_lower_resolution_cap(self):
+        self.assertEqual(canvas_reference_resolution((400, 600), 1024, 2), 0)
+        self.assertEqual(canvas_reference_resolution((400, 600), 0, 2), 0)
+        self.assertEqual(canvas_reference_resolution((1536, 1024), 768, 2), 768)
+        self.assertEqual(canvas_reference_resolution((400, 600), 1024, 1), 1024)
+        for size in ((400, 600), (1536, 1024), (301, 773)):
+            working = canvas_reference_resolution(size, 768, 2)
+            x0, y0, x1, y1 = reference_content_box(*size, working)
+            self.assertLessEqual(x1 - x0, size[0]); self.assertLessEqual(y1 - y0, size[1])
+
     def test_crop_saves_exact_pixels_and_metadata_without_a_model(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -126,6 +172,13 @@ class OutpaintTests(unittest.TestCase):
                         self.assertEqual(read_recipe(saved)['operation'], 'canvas_crop')
                     self.assertEqual(calls[-1]['p'].steps, 0)
                 with self.assertRaises(ValueError): save_crop(source, dict(left=10))
+                for edges in ({'shrink_by': 2}, {'left': -10, 'bottom': -20, 'shrink_by': 2}):
+                    output, path, message = save_crop(source, edges)
+                    cropped = source.crop((10, 0, 80, 40)) if 'left' in edges else source
+                    expected = cropped.resize((cropped.width // 2, cropped.height // 2), Image.Resampling.LANCZOS)
+                    np.testing.assert_array_equal(np.array(output), np.array(expected))
+                    self.assertIn('shrink only, no model run', message)
+                    self.assertEqual(read_recipe(path)['canvas']['shrink_by'], 2)
 
 
 if __name__ == '__main__': unittest.main()

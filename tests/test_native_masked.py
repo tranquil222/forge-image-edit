@@ -23,7 +23,7 @@ from forge_qwen_edit.selection import validate_components
 from forge_qwen_edit.tone import match_source_tone, tone_summary
 from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_selection, result_context
 from forge_qwen_edit.fibo_defaults import apply_default as apply_fibo_default
-from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, outpaint_instruction
+from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
 
 
 class NativeMaskedTests(unittest.TestCase):
@@ -61,6 +61,12 @@ class NativeMaskedTests(unittest.TestCase):
         for edges in ({}, {'left': -32, 'bottom': -20}):
             for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
                 with self.subTest(edges=edges, family=family):
+                    self.check_masked_job("Outpaint", family, canvas_paint=True, canvas_edges=edges)
+
+    def test_shrunk_canvas_is_sent_small_and_saved_small_for_both_models(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            for edges in ({"left": -32, "right": 80, "top": 24, "shrink_by": 2}, {"shrink_by": 1.5}):
+                with self.subTest(family=family, edges=edges):
                     self.check_masked_job("Outpaint", family, canvas_paint=True, canvas_edges=edges)
 
     def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None):
@@ -134,10 +140,15 @@ class NativeMaskedTests(unittest.TestCase):
                 np.testing.assert_array_equal(np.array(output), np.array(expected))
                 reference = fibo_masked_reference(expanded, hard) if fibo else location_guide(expanded, hard, opaque=True)
                 self.assertEqual(len(calls[0].edit_references), 1)
-                self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(prepare_reference(reference, 512)))
+                working = canvas_reference_resolution(expanded.size, 512, plan['shrink_by'])
+                self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(prepare_reference(reference, working)))
+                if plan['shrink_by'] > 1:
+                    self.assertLessEqual(calls[0].width, expanded.width + 31)
+                    self.assertLessEqual(calls[0].height, expanded.height + 31)
                 with Image.open(filename) as saved:
                     recipe = json.loads(saved.info['image_edit'])
                     self.assertEqual(recipe['canvas'], plan)
+                    self.assertEqual(recipe['working_resolution'], working)
                     self.assertEqual(recipe['edit_mode'], 'Outpaint' if plan['expand'] else 'Painted canvas edit')
                     self.assertEqual(recipe['canvas_painted_area'], canvas_paint)
                     self.assertEqual(recipe['masked_edit']['feather'], 0)

@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.8 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.9 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -161,6 +161,20 @@ pixels crop that edge.** Left/right and top/bottom are independent, so a single
 operation can crop one side and expand another. The resulting canvas dimensions
 are shown automatically. **Reset edges** returns to the original bounds.
 
+**Shrink by** reduces the whole planned canvas before generation and saves at
+that smaller size. For example, a 3072 × 2048 canvas at **2×** becomes
+1536 × 1024 (half the width and height, one quarter of the pixels). Choose
+1× (off), 1.5×, 2×, 3× or 4×. Edge values remain in loaded-source pixels; the
+summary shows the reduced output and model-image dimensions. The loaded source
+and its strokes are untouched. Shrink stays selected across source changes;
+Reset edges resets only the four edges.
+
+**Resolution** already limits model working size independently of the saved
+canvas. It can reduce the shrunk canvas further for inference, but will not
+enlarge it. Native resolution (0) uses the reduced canvas, plus model-grid padding.
+Shrinking a large saved canvas does not necessarily reduce inference cost if a
+lower Resolution already limits it.
+
 The green outline is a persistent preview of the final canvas, not a green
 overlay. Fibo receives RGB **128, 128, 128** only in the added border; Qwen uses
 its own green replacement guide. The outline never enters either model input.
@@ -170,11 +184,13 @@ The added border and painted areas form one edit region. Strokes remain aligned
 with the source while cropping, expanding, zooming or panning. Erase, undo/redo
 and Clear painted area affect only the strokes, not the automatically selected border.
 
-**Seam blending (px)** crossfades the generated result into a narrow strip inside
+**Seam blending (output px)** crossfades the generated result into a narrow strip inside
 the original after generation (default 32 pixels, adjustable 0–128). Fibo still
 receives a hard grey mask; no spatial blur is applied to either image. Added pixels
 are fully generated, never blended with the grey padding. Pixels outside painting
-and this overlap stay exact. Set 0 for a hard boundary. Crossfading can soften tone
+and this overlap stay exact (relative to the downscaled original when Shrink by
+is enabled). Shrinking resamples the retained photo separately from the grey
+border, so grey does not bleed into it. Set 0 for a hard boundary. Crossfading can soften tone
 seams, but mismatched geometry or texture may remain visible or look softer in the overlap.
 
 - **Added space:** describe what should continue beyond the photo, then
@@ -183,7 +199,8 @@ seams, but mismatched geometry or texture may remain visible or look softer in t
   this can help when an instruction such as "fill the grey area" leaves the
   border unfilled. **Get prompt from metadata** can recover a starting description.
   The whole canvas supplies context; added pixels, painting and the seam overlap
-  are composited in. Other source pixels remain exact. Resolution controls inference detail, not
+  are composited in. Other source pixels remain exact, or match the downscaled
+  original when shrinking. Resolution controls inference detail, not
   the final canvas dimensions. Additional references and painted feathering are
   not used; default global Fibo curves do not apply.
 - **Painting without expansion:** Generate edit applies the painting, optionally
@@ -191,6 +208,8 @@ seams, but mismatched geometry or texture may remain visible or look softer in t
 - **Crop only, without painting:** **Apply crop** saves the exact retained pixels without model
   inference, resampling, a prompt or a valid edit-model selection. Batch count
   does not produce duplicate crops.
+- **Shrink only, without painting or expansion:** **Apply shrink** saves a smaller
+  copy without running the model. Crop and shrink can also be combined.
 
 Both use Forge's native img2img save path and metadata controls. Recipes record
 the signed edges, retained source rectangle and output dimensions. **Use result

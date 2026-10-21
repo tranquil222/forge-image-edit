@@ -46,7 +46,7 @@ class MaskingTests(unittest.TestCase):
         for old_flag, alpha, expected in ((False, 255, True), (True, 0, False)):
             foreground = Image.new('RGBA', (16, 16), (128, 128, 128, alpha))
             result = ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', [], 'Automatic', False,
-                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, False, 0, 0, 0, 0, 32, 1)
+                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, False, 0, 0, 0, 0, 32, 1, 1)
             self.assertEqual(result[15], expected)
 
     def setUp(self):
