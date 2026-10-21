@@ -132,6 +132,10 @@ def import_recipe(file, current_checkpoint, modules):
         raise gr.Error("Choose a generated PNG first.")
     try:
         recipe = read_recipe(file)
+        if recipe.get("operation") == "canvas_crop":
+            values = [gr.update() for _ in range(22)]
+            values[11] = "This PNG is a canvas crop with no model settings. The crop is already in its pixels."
+            return tuple(values)
         family = recipe.get("model_family", "Qwen Image 2.1")
         adapter = EDIT_MODELS[family]
         ensure_backend(adapter)
@@ -158,7 +162,7 @@ def import_recipe(file, current_checkpoint, modules):
         raise gr.Error(str(error)) from error
     note = "Edit recipe loaded. The displayed source is used for the next edit."
     if recipe.get("area_only"):
-        note += " Repaint the selection for a new model edit."
+        note += " Canvas changes are already in this image; set new crop/outpaint edges if needed." if recipe.get("canvas") else " Repaint the selection for a new model edit."
     if recipe.get("postprocessing"):
         note += " Manual curves are already in the pixels; they are not applied again."
     from .masking import edit_modes
@@ -221,5 +225,6 @@ def bind(ui, controls):
     ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[gr.update() for _ in range(6)]),
         [ui.task_id, ui.source, ui.reference2, ui.reference3, ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed,
          ui.sampler, ui.schedule, checkpoint, modules, dtype, ui.prefix_cache, ui.area_only, ui.mask_editor.foreground,
-         ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone, ui.batch_count],
+         ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone,
+         ui.canvas_enabled, ui.canvas_left, ui.canvas_right, ui.canvas_top, ui.canvas_bottom, ui.batch_count],
         [ui.result, ui.download, ui.last_seed, ui.batch_gallery, ui.batch_items, ui.batch_source, ui.status], js="qwenEditSubmit", api_name="image_edit_generate")

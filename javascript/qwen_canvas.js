@@ -1,12 +1,53 @@
 // Reuse Forge's inpainting interface. Changes below affect only this instance.
 window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
     class QwenEditCanvas extends ForgeCanvas {
+        canvasLayout() {
+            const values = window.imageEditCanvasEdges;
+            return this.img && values?.enabled ? window.ImageEditOutpaint?.plan(this.orgWidth, this.orgHeight, values) : null;
+        }
+        adjustInitialPositionAndScale() {
+            const layout = this.canvasLayout();
+            if (!layout) { super.adjustInitialPositionAndScale(); return; }
+            const container = document.getElementById(`container_${this.uuid}`);
+            this.imgScale = Math.min((container.clientWidth - 24) / layout.fitWidth, (container.clientHeight - 24) / layout.fitHeight);
+            this.imgX = (container.clientWidth - layout.fitWidth * this.imgScale) / 2 + Math.max(0, -layout.left) * this.imgScale;
+            this.imgY = (container.clientHeight - layout.fitHeight * this.imgScale) / 2 + Math.max(0, -layout.top) * this.imgScale;
+        }
+        drawImage() {
+            super.drawImage();
+            const image = document.getElementById(`image_${this.uuid}`);
+            const container = document.getElementById(`imageContainer_${this.uuid}`);
+            const layout = this.canvasLayout();
+            if (!this.canvasFrame) {
+                this.canvasFrame = document.createElement("div");
+                this.canvasFrame.className = "qe-outpaint-frame";
+                this.canvasFrame.setAttribute("aria-hidden", "true");
+                container.insertBefore(this.canvasFrame, image);
+            }
+            this.canvasFrame.hidden = !layout;
+            container.classList.toggle("qe-outpaint-active", !!window.imageEditCanvasEdges?.enabled);
+            this.drawingCanvas_.style.display = window.imageEditCanvasEdges?.enabled ? "none" : "";
+            image.style.clipPath = "";
+            if (!layout) return;
+            Object.assign(this.canvasFrame.style, {left: `${this.imgX}px`, top: `${this.imgY}px`,
+                width: `${layout.width * this.imgScale}px`, height: `${layout.height * this.imgScale}px`});
+            image.style.left = `${this.imgX + layout.left * this.imgScale}px`;
+            image.style.top = `${this.imgY + layout.top * this.imgScale}px`;
+            const [x1, y1, x2, y2] = layout.box;
+            image.style.clipPath = `inset(${y1 / this.orgHeight * 100}% ${(this.orgWidth - x2) / this.orgWidth * 100}% ${(this.orgHeight - y2) / this.orgHeight * 100}% ${x1 / this.orgWidth * 100}%)`;
+        }
+        isInsideImage(x, y) {
+            const layout = this.canvasLayout();
+            return layout ? x > this.imgX && x < this.imgX + layout.width * this.imgScale && y > this.imgY && y < this.imgY + layout.height * this.imgScale : super.isInsideImage(x, y);
+        }
         updateBackgroundImageData() {
             // Original file bytes retain PNG/EXIF metadata on unmodified Forge.
             this.background_gradio_bind.set_value(this.img || "");
         }
         loadImage(value) {
             if (value === this.img) return;
+            window.imageEditCanvasEdges = {enabled: false, left: 0, right: 0, top: 0, bottom: 0};
+            this.no_scribbles = false;
             // A new source must not inherit strokes or undo history, even when
             // it has the same dimensions as the previous source.
             const canvas = this.drawingCanvas_;

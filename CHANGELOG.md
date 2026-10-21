@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.6 — beta
+
+- Crop / outpaint toggle keeps signed Left/Right/Top/Bottom controls hidden
+  until needed. Positive expands, negative crops; the persistent green outline
+  and live dimensions preview the exact final canvas without changing the source.
+- Fibo receives a neutral-grey added border; Qwen uses its own replacement guide.
+  Generation uses full-canvas context, composites only added pixels, and preserves
+  the retained original exactly. The green preview outline is never model input.
+- Crop-only changes save without model inference or resampling. Crops/outpaints
+  use native img2img saves, preserve optional metadata and record their canvas plan.
+- New sources reset the edges. Existing strokes survive toggling outpaint off;
+  additional references, feathering and global Fibo curves do not affect outpaints.
+- Generation API adds the canvas-enabled flag and four signed edge values before
+  the final batch-count input. Pure crops also have an `image_edit_crop` endpoint.
+
 ## 0.5.5 — beta
 
 - Fix non-square reference stretching: preserve proportions, edge-pad for the

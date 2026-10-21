@@ -19,18 +19,21 @@ from .canvas import EditCanvas, MetadataImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
 from .batching import run_batch, validate_count
+from .outpaint import EDGES, canvas_plan, canvas_images, save_crop
 
 
 _active = False
 PAINT_KEYS = "**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size."
 
 
-def model_controls(family, area_only=False, mode=AREA_MODES[0]):
+def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=False):
     fibo = family in EDIT_MODELS and get_adapter(family).key == "fibo2"
     dev = family in EDIT_MODELS and get_adapter(family).guidance > 1
     reference_help = ("Optional. Refer to the source as `<image_1>`, then `<image_2>` and `<image_3>`. "
                       "Fibo masked editing uses only the source; additional references are not used when an area is painted."
                       if fibo else "Optional. Refer to the source as **image 1**, then **image 2** and **image 3**. More references use more memory.")
+    if canvas_enabled:
+        reference_help = "Outpaint uses the source image only. Turn off Crop / outpaint to use additional references."
     help_text = ("Paint the entire object and a small border. Fibo receives an **opaque neutral-grey region**, not the green brush overlay. "
                  "Describe what should replace it. Pixels outside the painted area are preserved by compositing."
                  if fibo else "Paint the whole object and a small border, then describe what should replace it. "
@@ -38,14 +41,14 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0]):
     modes = edit_modes(family, area_only)
     selected = modes[0] if mode not in modes else mode
     return (gr.update(visible=fibo), reference_help,
-            gr.update(interactive=not (fibo and area_only)), gr.update(interactive=not (fibo and area_only)),
-            gr.update(choices=modes, value=selected, interactive=len(modes) > 1, visible=True,
+            gr.update(interactive=not (canvas_enabled or (fibo and area_only))), gr.update(interactive=not (canvas_enabled or (fibo and area_only))),
+            gr.update(choices=modes, value=selected, interactive=len(modes) > 1, visible=not canvas_enabled,
                       label="Painted-area mode" if area_only else "Edit mode",
                       info=("Neutral-grey masked replacement; the original is kept for the final composite." if fibo else "Replace hides painted content. Refine also sends the clean original.") if area_only else "Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint."),
-            gr.update(value=PAINT_KEYS + "\n\n" + help_text, visible=area_only),
+            gr.update(value=PAINT_KEYS + "\n\n" + help_text, visible=area_only and not canvas_enabled),
             gr.update(info="Dev: 50 steps is the official starting point; 30 is a faster preview." if dev else "Turbo is trained for 4 steps. Other counts are experimental, not higher-quality presets." if fibo else "Number of sampling steps."),
             gr.update(info="1024 is closest to Fibo's roughly 1 MP training size. Smaller values are faster. Painted edits preserve the original canvas size; 0 uses native size." if fibo else "Independent of quality. In painted mode this controls crop detail. 0 uses native size."),
-            gr.update(interactive=area_only),
+            gr.update(interactive=area_only and not canvas_enabled),
             gr.update(interactive=dev, label="Negative prompt" if dev else "Negative prompt (inactive at CFG 1)",
                       info="Dev uses a trained null caption when empty. Negative conditioning is text-only." if dev else "Not used at CFG 1. Express exclusions in the edit instruction."),
             gr.update(interactive=dev, info="Dev default: 5." if dev else "Fixed at 1 for this editing model."))
@@ -73,7 +76,9 @@ def register_schedule():
             sd_schedulers.schedulers_map[scheduler.label] = scheduler
 
 
-def dimensions(image, resolution, area_only=False, mode="Standard"):
+def dimensions(image, resolution, area_only=False, mode="Standard", canvas_enabled=False):
+    if canvas_enabled:
+        return ""
     if image is None:
         return "Output follows the first image’s aspect ratio."
     if area_only:
@@ -86,21 +91,70 @@ def dimensions(image, resolution, area_only=False, mode="Standard"):
     return f"**{scope}** · Output: **{width} × {height}** · source: {image.width} × {image.height} · source proportions preserved"
 
 
-def camera_help(mode):
-    return gr.update(visible=mode == "Camera angle", value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. **Do NOT say ‘keep things the same’ or ‘keep everything unchanged’**—this can work against the new perspective. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
+def camera_help(mode, canvas_enabled=False):
+    return gr.update(visible=mode == "Camera angle" and not canvas_enabled, value="**Tip:** Describe what the new view reveals, including foreground objects, not just the camera move. **Do NOT say ‘keep things the same’ or ‘keep everything unchanged’**—this can work against the new perspective. For example: **Low-angle view, looking up at the underside of the face and held object.** For a scene-specific prompt, give ChatGPT or another image-capable LLM your source image and short request, and ask it to describe how the reframed image should look. Uses the whole image; leave the canvas unpainted.")
+
+
+def reset_canvas_controls(source):
+    width, height = canonical_image(source).size if source is not None else (512, 512)
+    return (False, *[gr.update(value=0, minimum=1 - side, maximum=min(4096, max(0, 16384 - side)))
+                     for side in (width, width, height, height)], [width, height] if source is not None else [0, 0])
+
+
+def canvas_feedback(size, enabled, left, right, top, bottom, family):
+    crop = False
+    message = "Load an image to set the canvas edges."
+    if size and min(size) > 0:
+        try:
+            plan = canvas_plan(size, dict(zip(EDGES, (left, right, top, bottom))))
+            crop = plan["changed"] and not plan["expand"]
+            width, height = plan["output_size"]
+            message = f"**Canvas: {width} × {height}** · original: {size[0]} × {size[1]}. "
+            message += ("Crop only · no model needed." if crop else
+                f"{'Fibo' if family.startswith('Fibo') else 'The edit model'} will fill the added area. Retained original pixels stay unchanged." if plan["expand"] else
+                "Positive adds space; negative crops that edge.")
+        except ValueError as error:
+            message = str(error)
+    return (gr.update(visible=enabled), message,
+            gr.update(visible=not (enabled and crop), value="Generate outpaint" if enabled else "Generate edit"),
+            gr.update(visible=enabled and crop), gr.update(visible=not enabled))
+
+
+def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata):
+    global _active
+    if not enabled or source is None:
+        raise gr.Error("Load an image and enable Crop / outpaint first.")
+    _active = True
+    try:
+        result = main_thread.run_and_wait_result(save_crop, source, dict(zip(EDGES, (left, right, top, bottom))), keep_metadata)
+        if result is None:
+            raise RuntimeError(main_thread.last_exception or "The crop could not be saved.")
+        output, path, message = result
+        items = [{"path": path, "seed": "", "message": message}]
+        return output, path, "", gr.update(value=[], visible=False), items, output, f"<p>{html.escape(message)}</p>"
+    finally:
+        _active = False
 
 
 def run_canvas_edit(task_id, *args):
     *args, batch_count = args
     batch_count = validate_count(batch_count)
+    *args, canvas_enabled, left, right, top, bottom = args
     *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
+    canvas_edges = dict(zip(EDGES, (left, right, top, bottom))) if canvas_enabled else None
+    if canvas_enabled:
+        if base[0] is None:
+            raise ValueError("Add a source image first.")
+        plan = canvas_plan(canonical_image(base[0]).size, canvas_edges)
+        if not plan["expand"]:
+            return run_canvas_crop(base[0], True, left, right, top, bottom, keep_metadata)
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
     # Derive this from the submitted strokes, not an asynchronously updated UI
     # flag. Painting, erasing, undo and the native clear button all work directly.
     enabled = has_painted_area(foreground)
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
-                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, batch_count=batch_count)
+                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges, batch_count=batch_count)
 
 
 def custom_settings(family=DEFAULT_FAMILY):
@@ -123,9 +177,13 @@ def run_edit(task_id, *args, batch_count=1):
             # A validation failure or early cancel must not erase the previous result.
             return (*[gr.update() for _ in range(6)], f"<p>{html.escape(message)}</p>")
         gallery = [(item["path"], f"{i + 1} · seed {item['seed']}") for i, item in enumerate(items)]
+        comparison = args[0]
+        if len(args) > 24 and args[24] is not None:
+            plan = canvas_plan(canonical_image(comparison).size, args[24])
+            comparison, _ = canvas_images(comparison, plan)
         return (output, items[-1]["path"], items[-1]["seed"],
                 gr.update(value=gallery, visible=batch_count > 1, selected_index=len(items) - 1),
-                items, args[0], f"<p>{html.escape(message)}</p>")
+                items, comparison, f"<p>{html.escape(message)}</p>")
     finally:
         _active = False
 
@@ -210,7 +268,19 @@ def create_tab():
                     # Derived, hidden transport value, never a user toggle.
                     # Gradio 4 inserts State placeholders into JS submit inputs.
                     area_only = gr.Checkbox(value=False, visible=False, interactive=False)
-                    gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
+                    paint_hint = gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
+                    canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", elem_id="image_edit_canvas_enabled")
+                    canvas_source_size = gr.State([0, 0])
+                    with gr.Column(visible=False, elem_id="image_edit_canvas_controls") as canvas_controls:
+                        gr.Markdown("**Added pixels per edge** · positive expands, negative crops. The green outline is the final canvas; it stays visible.")
+                        with gr.Row(elem_id="image_edit_canvas_horizontal"):
+                            canvas_left = gr.Slider(-511, 4096, value=0, step=1, label="Left", min_width=140, elem_id="image_edit_canvas_left")
+                            canvas_right = gr.Slider(-511, 4096, value=0, step=1, label="Right", min_width=140, elem_id="image_edit_canvas_right")
+                        with gr.Row(elem_id="image_edit_canvas_vertical"):
+                            canvas_top = gr.Slider(-511, 4096, value=0, step=1, label="Top", min_width=140, elem_id="image_edit_canvas_top")
+                            canvas_bottom = gr.Slider(-511, 4096, value=0, step=1, label="Bottom", min_width=140, elem_id="image_edit_canvas_bottom")
+                        canvas_summary = gr.Markdown(elem_id="image_edit_canvas_summary")
+                        canvas_reset = gr.Button("Reset edges", size="sm", elem_id="image_edit_canvas_reset")
                     area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info="Standard uses your instruction directly. Camera angle adds guidance to redraw the scene from the requested viewpoint.", elem_id="qwen_edit_area_mode")
                     camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
                     mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
@@ -235,6 +305,7 @@ def create_tab():
                     batch_count = gr.Number(value=1, minimum=1, maximum=64, precision=0, step=1, label="Batch count", scale=0, min_width=100, elem_id="image_edit_batch_count")
                 with gr.Row(elem_id="image_edit_run_buttons"):
                     generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
+                    apply_crop = gr.Button("Apply crop", variant="primary", elem_id="image_edit_apply_crop", scale=3, visible=False)
                     cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
             last_seed = gr.Textbox(value="", visible=False, elem_id="qwen_edit_last_seed")
             status = gr.HTML(elem_id="qwen_edit_status")
@@ -278,18 +349,36 @@ def create_tab():
                     fn=None, inputs=[curves_receipt], outputs=[],
                     js="receipt => { window.imageEditCurvesSaved?.(receipt); }", api_name=False)
             task_id = gr.Textbox(visible=False)
+            edge_controls = [canvas_left, canvas_right, canvas_top, canvas_bottom]
+            for component in (canvas_enabled, *edge_controls):
+                component.do_not_save_to_config = True
+            source.change(reset_canvas_controls, [source], [canvas_enabled, *edge_controls, canvas_source_size], show_progress="hidden", api_name=False).then(
+                canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family],
+                [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
+            canvas_reset.click(lambda: (0, 0, 0, 0), outputs=edge_controls, show_progress="hidden", api_name=False)
+            for component in (canvas_enabled, *edge_controls, family):
+                component.change(canvas_feedback, [canvas_source_size, canvas_enabled, *edge_controls, family],
+                    [canvas_controls, canvas_summary, generate, apply_crop, paint_hint], show_progress="hidden", api_name=False)
+            for component in (canvas_enabled, *edge_controls):
+                component.change(None, [canvas_enabled, *edge_controls], [],
+                    js="(enabled, left, right, top, bottom) => { window.imageEditSetCanvasEdges?.(enabled, left, right, top, bottom); }", api_name=False)
+            from modules.call_queue import wrap_gradio_gpu_call
+            apply_crop.click(wrap_gradio_gpu_call(run_canvas_crop, extra_outputs=[gr.update() for _ in range(6)]),
+                [source, canvas_enabled, *edge_controls, keep_metadata],
+                [result, download, last_seed, batch_gallery, batch_items, batch_source, status], api_name="image_edit_crop")
             for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed):
                 component.do_not_save_to_config = True
             for component in (steps, sampler, schedule, guidance, prefix_cache):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
             mask_editor.foreground.change(has_painted_area, [mask_editor.foreground], [area_only], show_progress="hidden", api_name=False)
-            for component in (source, resolution, area_only, area_mode):
-                component.change(dimensions, [source, resolution, area_only, area_mode], [size_label], show_progress="hidden")
-            area_mode.change(camera_help, [area_mode], [camera_note], show_progress="hidden")
-            for component in (family, area_only):
-                component.change(model_controls, [family, area_only, area_mode],
+            for component in (source, resolution, area_only, area_mode, canvas_enabled):
+                component.change(dimensions, [source, resolution, area_only, area_mode, canvas_enabled], [size_label], show_progress="hidden")
+            for component in (area_mode, canvas_enabled):
+                component.change(camera_help, [area_mode, canvas_enabled], [camera_note], show_progress="hidden")
+            for component in (family, area_only, canvas_enabled):
+                component.change(model_controls, [family, area_only, area_mode, canvas_enabled],
                     [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance],
-                    js="(family, enabled, mode) => { qwenEditSetModel(family); return [family, enabled, mode]; }" if component is family else None,
+                    js="(family, enabled, mode, canvas) => { qwenEditSetModel(family); return [family, enabled, mode, canvas]; }" if component is family else None,
                     show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])
             download.change(lambda path: gr.update(value=path, interactive=bool(path)), [download], [download_button], show_progress="hidden", api_name=False)

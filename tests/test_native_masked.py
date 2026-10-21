@@ -23,6 +23,7 @@ from forge_qwen_edit.selection import validate_components
 from forge_qwen_edit.tone import match_source_tone, tone_summary
 from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_selection, result_context
 from forge_qwen_edit.fibo_defaults import apply_default as apply_fibo_default
+from forge_qwen_edit.outpaint import canvas_plan, canvas_images, outpaint_instruction
 
 
 class NativeMaskedTests(unittest.TestCase):
@@ -45,6 +46,11 @@ class NativeMaskedTests(unittest.TestCase):
         for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
             with self.subTest(family=family):
                 self.check_masked_job("Camera angle", family)
+
+    def test_outpaint_uses_full_canvas_model_border_and_keeps_retained_pixels(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            with self.subTest(family=family):
+                self.check_masked_job("Outpaint", family)
 
     def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False):
         with tempfile.TemporaryDirectory() as temp:
@@ -100,9 +106,30 @@ class NativeMaskedTests(unittest.TestCase):
             ImageDraw.Draw(layer).rectangle((200, 100, 290, 220), fill=(0, 255, 0, 255))
             editor["layers"] = [layer]
             camera = mode == "Camera angle"
+            edges = {"left": -32, "right": 80, "top": 24, "bottom": -20} if mode == "Outpaint" else None
             instruction = "Move the camera near the ground looking up at the subject." if camera else "Remove the stray object."
             output, filename, seed, message = namespace["generate"](
-                source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, not camera, editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone)
+                source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, not camera, editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges)
+            if edges is not None:
+                plan = canvas_plan(source.size, edges)
+                expanded, border = canvas_images(source, plan)
+                self.assertEqual(output.size, (688, 424))
+                retained = np.array(border) == 0
+                np.testing.assert_array_equal(np.array(output)[retained], np.array(expanded)[retained])
+                np.testing.assert_array_equal(np.array(output)[~retained], np.tile([180, 20, 50, 255], ((~retained).sum(), 1)))
+                reference = fibo_masked_reference(expanded, border) if fibo else location_guide(expanded, border, opaque=True)
+                self.assertEqual(len(calls[0].edit_references), 1)
+                self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(prepare_reference(reference, 512)))
+                with Image.open(filename) as saved:
+                    recipe = json.loads(saved.info['image_edit'])
+                    self.assertEqual(recipe['canvas'], plan)
+                    self.assertEqual(recipe['edit_mode'], 'Outpaint')
+                    self.assertEqual(recipe['masked_edit']['feather'], 0)
+                    self.assertEqual(recipe['masked_edit']['crop'], [0, 0, 688, 424])
+                    self.assertNotIn('fibo_global_curves', recipe)
+                    _, selected, _ = result_context(filename, __import__('hashlib').sha256(Path(filename).read_bytes()).hexdigest())
+                    np.testing.assert_array_equal(np.array(selected), np.array(border))
+                return
             if camera:
                 clean = prepare_reference(source, 512)
                 box = reference_content_box(*source.size, 512)

@@ -134,6 +134,8 @@ def read_recipe(path):
 
 
 def validate_recipe(recipe):
+    if recipe.get("operation") == "canvas_crop":
+        return recipe
     for key in ("prompt", "negative_prompt"):
         if not isinstance(recipe.get(key, ""), str):
             raise ValueError(f"The {key} is linked to another node; a literal value is required.")

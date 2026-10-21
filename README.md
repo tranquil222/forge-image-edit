@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.5 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.6 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -150,6 +150,39 @@ inward. Resolution controls crop detail; final dimensions stay original.
 This is model-specific reference preparation plus compositing, not a guarantee
 of seamless repairs. Paint a larger border if necessary.
 
+### Crop / outpaint
+
+Enable **Crop / outpaint** below the source to reveal four compact edge sliders.
+They start at zero for each new source. **Positive pixels add space; negative
+pixels crop that edge.** Left/right and top/bottom are independent, so a single
+operation can crop one side and expand another. The resulting canvas dimensions
+are shown automatically. **Reset edges** returns to the original bounds.
+
+The green outline is a persistent preview of the final canvas, not a green
+overlay. Fibo receives RGB **128, 128, 128** only in the added border; Qwen uses
+its own green replacement guide. The outline never enters either model input.
+The original image is not resized or overwritten by the controls. Existing
+brush strokes are ignored while crop/outpaint is enabled and remain available
+when it is turned off.
+
+- **Added space:** describe what should continue beyond the photo, then
+  **Generate outpaint**. A blank prompt uses a natural scene-extension instruction.
+  The whole canvas supplies context; only newly added pixels are composited in.
+  Retained source pixels remain exact. Resolution controls inference detail, not
+  the final canvas dimensions. Additional references and painted feathering are
+  not used; default global Fibo curves do not apply.
+- **Crop only:** **Apply crop** saves the exact retained pixels without model
+  inference, resampling, a prompt or a valid edit-model selection. Batch count
+  does not produce duplicate crops.
+
+Both use Forge's native img2img save path and metadata controls. Recipes record
+the signed edges, retained source rectangle and output dimensions. **Use result
+as source** resets the controls, so edges are not accidentally applied twice.
+Recipe imports likewise do not recrop or expand an already-edited image.
+Curves after outpainting stay within its saved added-border mask. The model
+still determines the generated continuation; exact source preservation does not
+guarantee a seamless join. Large extensions are often easier in smaller stages.
+
 ### Contrast drift and fine texture
 
 **Auto-correct global brightness / contrast** optionally reduces global tone drift after
@@ -263,7 +296,7 @@ From the extension directory:
 
 ```sh
 python -m unittest discover -s tests -v
-node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs
+node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs
 python -m compileall -q forge_qwen_edit tools
 ```
 

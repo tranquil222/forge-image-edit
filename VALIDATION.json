@@ -1,5 +1,5 @@
 {
-  "version": "0.5.5",
+  "version": "0.5.6",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 73,
-    "javascript_tests": 9,
+    "extension_python_tests": 79,
+    "javascript_tests": 11,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -375,6 +375,15 @@
       "comparison": "Original/Edited share displayed width and height for the corrected aspect ratio.",
       "browser_errors": 0,
       "batch_regression": "Three fixed seeds, exact seed reuse, selected PNG download, cancellation preserving completed output, invalid submission retaining prior result, two masked random variations and source comparison passed in browser."
+    },
+    "outpaint_056": {
+      "method": "Browser-driven isolated current-base Forge with CPU-only inference fixture; production input/mask preparation, compositing, native save, metadata and preview. No new GPU continuation-quality claim.",
+      "geometry": "Independent signed edges cover expansion, crop and mixed changes. Browser 512x640 source with left +128, right +256, top +64 and bottom -32 saves exactly 896x672. Pure crop saves 416x576 without resampling.",
+      "preservation": "Saved outpaint retains every source pixel inside the retained rectangle. Pure crop matches a direct source slice. Metadata retains original Author and records canvas plan.",
+      "model_input": "Native-path tests verify full-canvas context, exactly one source, neutral RGB128 Fibo border and Qwen green replacement guide. Source brush strokes do not participate.",
+      "preview": "Persistent green outline, grey added area, no source-byte modification, compact wide/narrow controls hidden by default. Moving signed edges previews the computed dimensions.",
+      "workflow": "Generate outpaint and crop-only save verified, local curves recognize border mask, global Fibo default excluded, strokes restored on toggle off, result reuse resets signed edges.",
+      "browser_errors": 0
     }
   },
   "limitations": [

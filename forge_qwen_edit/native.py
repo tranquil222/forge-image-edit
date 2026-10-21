@@ -22,6 +22,7 @@ from .metadata import build_metadata, preserve_binary_metadata
 from .selection import validate_components
 from .tone import match_source_tone, tone_summary
 from .fibo_defaults import apply_default
+from .outpaint import canvas_plan, canvas_images, outpaint_instruction
 from .adjustments import MASK_KEY, encode_selection, remember_selection
 from .masking import camera_angle_instruction
 
@@ -194,13 +195,15 @@ def isolated_options(checkpoint, modules, storage_dtype="Automatic"):
             setattr(dynamic_args, key, value)
 
 
-def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False):
+def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None):
     adapter = get_adapter(model_family)
     guidance = adapter.guidance if guidance is None else float(guidance)
     if not 1 <= guidance <= 15 or (adapter.guidance == 1 and guidance != 1):
         raise ValueError("CFG must be 1 for Turbo/Qwen, or between 1 and 15 for Fibo Dev.")
     if source is None:
         raise ValueError("Add a source image first.")
+    if canvas_edges is not None and not (instruction or "").strip():
+        instruction = "Extend the surrounding scene naturally."
     if not instruction or not instruction.strip():
         raise ValueError("Enter an edit instruction.")
     if sampler not in adapter.samplers or sd_samplers.find_sampler_config(sampler) is None:
@@ -230,6 +233,13 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         modules.append(str(path))
     original = canonical_image(source)
     mask, crop = None, None
+    plan = None
+    if canvas_edges is not None:
+        plan = canvas_plan(original.size, canvas_edges)
+        if not plan["expand"]:
+            raise ValueError("No added canvas to fill. Use Apply crop for an inward-only change.")
+        original, mask = canvas_images(original, plan)
+        area_only, area_mode, feather = True, "Outpaint", 0
     effective_instruction = instruction
     if area_mode == "Camera angle":
         if area_only:
@@ -237,13 +247,13 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         effective_instruction = camera_angle_instruction(instruction, adapter.key == "fibo2")
     input_references = [original, *[im for im in (reference2, reference3) if im is not None]]
     if area_only:
-        if adapter.key != "fibo2" and area_mode not in ("Replace / remove", "Refine / expression"):
+        if plan is None and adapter.key != "fibo2" and area_mode not in ("Replace / remove", "Refine / expression"):
             raise ValueError("Choose a painted-area mode.")
         if not 0 <= float(feather) <= 64:
             raise ValueError("Edge blending must be between 0 and 64 pixels.")
-        mask = extract_mask(original, editor)
-        crop = context_box(mask)
-        replace = adapter.key == "fibo2" or area_mode == "Replace / remove"
+        mask = mask if plan is not None else extract_mask(original, editor)
+        crop = (0, 0, original.width, original.height) if plan is not None else context_box(mask)
+        replace = plan is not None or adapter.key == "fibo2" or area_mode == "Replace / remove"
         if adapter.key == "fibo2":
             # Fibo's trained mask input is neutral grey, not Qwen's green guide.
             # Native masked editing uses exactly one source image.
@@ -261,6 +271,12 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             guide_reference = len(input_references)
         if adapter.key != "fibo2":
             effective_instruction = scoped_instruction(instruction, guide_reference, replace=replace)
+        if plan is not None:
+            area_mode = "Outpaint"
+            # Full canvas context, one model-specific border guide; old brush
+            # strokes do not participate in a crop/outpaint operation.
+            input_references = input_references[:1]
+            effective_instruction = outpaint_instruction(instruction, adapter.key == "fibo2")
     if adapter.key == "fibo2":
         effective_instruction = fibo_result_prompt(effective_instruction, result_description)
     else:
@@ -291,6 +307,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         recipe["masked_edit"] = {"crop": list(crop), "mask_sha256": image_digest(mask), "feather": float(feather), "guide_reference": guide_reference, "mode": area_mode, "clean_reference_sent": not replace}
         if adapter.key == "fibo2":
             recipe["masked_edit"].update(mask_fill=[128, 128, 128], mask_threshold=128)
+    if plan is not None:
+        recipe["canvas"] = plan
     if effective_instruction != instruction:
         recipe["effective_prompt"] = effective_instruction
     recipe["quality_preset"] = next((name for name, values in adapter.profiles.items() if all(recipe[key] == value for key, value in values.items())), "Custom")
@@ -350,7 +368,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             output.info.update(binary)
         path = Path(path)
         remember_selection(path, selection, recipe)
-        note = " · outside painted area preserved" if area_only else ""
+        note = " · retained original pixels preserved" if plan is not None else " · outside painted area preserved" if area_only else ""
         if preserve_tone:
             note += " · " + tone_summary(recipe["tone_match"])
         if "fibo_global_curves" in recipe:
