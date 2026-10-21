@@ -249,6 +249,10 @@ seams, but mismatched geometry or texture may remain visible or look softer in t
   For Fibo, also describe the complete scene in **Describe the finished image**;
   this can help when an instruction such as "fill the grey area" leaves the
   border unfilled. **Get prompt from metadata** can recover a starting description.
+  If the original becomes a picture on a grey wall or floor, especially when
+  expanding all four sides, describe the actual objects and surfaces that should
+  continue to each edge. A vague caption or "without grey areas" is less specific.
+  Automatic scene-continuation guidance helps, but does not guarantee a fill.
   The whole canvas supplies context; added pixels, painting and the seam overlap
   are composited in. Other source pixels remain exact, or match the downscaled
   original when shrinking. Resolution controls inference detail, not

@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 26165,
-      "sha256": "b1b3fa6839c4353bd628f7cbda42ed68288eba8443f0024c703c32c3f69c6c1c"
+      "bytes": 26484,
+      "sha256": "f7286b90a84cf5cb3d0c793b77da85243e0a0c51f4fe813d899080d62c5be658"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 37536,
-      "sha256": "86064d066704e527be3b80b6237d80bc732e7fa30eb1b05b8bc97d030a3302ed"
+      "bytes": 38583,
+      "sha256": "4f058845e748a8bac3993e06354498f18756d7a003266f6d4a85d784f088df01"
     },
     {
       "path": "backend-support/image-edit-backend.patch",

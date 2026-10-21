@@ -443,7 +443,12 @@
       "method": "Real Fibo Edit Turbo GPU runs, 4 steps, CFG 1, 768 resolution, with the user-linked digital artwork resized to the reported 554-square source size. Not byte-identical to the original upload; its failure was reproduced.",
       "observations": "Original sparse caption/guidance reproduced a separate artwork on grey surround. A concrete scene caption fixed the example; revised automatic scene guidance also filled left and bottom with the original sparse caption at three tested seeds (two in the installed production path). Left-only production outpaint succeeded. A 24px input-overlap experiment still left grey patches and was not adopted.",
       "checks": "Production effective prompt matched successful prototype byte-for-byte. Installed outpaint outputs preserve exact pixels outside the existing seam band. Input pixels, neutral-grey mask, geometry and compositing are unchanged. JSON captions and painted-area guidance remain intact. 109 Python tests, 13 JavaScript tests and Python compilation passed.",
-      "limits": "One-image quality investigation, not a general success-rate guarantee. Noise and image blur were not needed or introduced; Qwen prompt transport was unit-tested, not newly GPU-quality-tested."
+      "limits": "One-image quality investigation, not a general success-rate guarantee. Noise and image blur were not needed or introduced; Qwen prompt transport was unit-tested, not newly GPU-quality-tested.",
+      "four_sided_followup": {
+        "source": "Exact source pixel hash matched the reported 1018-square image. Edges: left 355, right 324, top 268, bottom 258; resolution 768.",
+        "observations": "New guidance alone still produced a picture on a grey background with an empty result description. Low-amplitude and stronger monochrome noise in the added region changed the layout but retained grain/grey surrounds; neither was adopted. Supplying a concrete expanded-scene caption filled all four borders in the installed production path at seeds 4691033308701988384 and 4691033308701988385. Exact source pixels outside the existing seam band were preserved.",
+        "scope": "Noise ablations used the same full-canvas reference and effective prompt through the plain image-edit path, followed by the normal outpaint composite; saved global curves were disabled already and no preference was changed. Final caption successes were verified through the normal installed outpaint API. This is not a general success-rate guarantee."
+      }
     }
   },
   "limitations": [
