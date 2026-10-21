@@ -35,6 +35,10 @@ def main():
     print("Publisher's files and weight license: " + model["model_card"])
     print("Pinned revision: " + model["revision"])
     for item in model["files"]:
+        repository = item.get("repository", model["repository"])
+        revision = item.get("revision", model["revision"])
+        if repository != model["repository"] or revision != model["revision"]:
+            print(f"Component source: https://huggingface.co/{repository}/tree/{revision}")
         target = directories[item["kind"]].resolve() / Path(item["source"]).name
         if target.exists():
             if target.stat().st_size != item["bytes"] or ((args.verify or args.download) and digest(target) != item["sha256"]):
@@ -45,7 +49,7 @@ def main():
         if not args.download:
             continue
         from huggingface_hub import hf_hub_download
-        cached = Path(hf_hub_download(repo_id=model["repository"], filename=item["source"], revision=model["revision"]))
+        cached = Path(hf_hub_download(repo_id=repository, filename=item["source"], revision=revision))
         if cached.stat().st_size != item["bytes"] or digest(cached) != item["sha256"]:
             raise SystemExit("Downloaded file failed size/SHA-256 verification; nothing installed.")
         target.parent.mkdir(parents=True, exist_ok=True)

@@ -54,6 +54,23 @@ class PortabilityTests(unittest.TestCase):
         self.assertEqual(profiles_for(adapter, "qwen_image_2.1_turbo.safetensors"), ["Turbo (8 steps)"])
         self.assertNotIn("Turbo (8 steps)", profiles_for(adapter, "qwen_image_2.1.safetensors"))
 
+    def test_smaller_quants_keep_selected_encoder_and_turbo_schedule(self):
+        checkpoint = "qwen_image_2.1_turbo_Q4_K_M.gguf"
+        adapter = adapter_for_checkpoint(checkpoint)
+        self.assertEqual(adapter.key, "qwen21")
+        self.assertEqual(profiles_for(adapter, checkpoint), ["Turbo (8 steps)"])
+        with tempfile.TemporaryDirectory() as temporary:
+            available = {}
+            for name in (*adapter.defaults[1:], "qwen3vl_8b_w4a8.safetensors", "qwen3vl_4b_int8_convrot.safetensors"):
+                path = Path(temporary) / name
+                path.touch()
+                available[name] = str(path)
+            selected = ["qwen3vl_8b_w4a8.safetensors", adapter.defaults[2]]
+            self.assertEqual(suggested_components(adapter, selected, available), selected)
+            self.assertEqual(validate_components(adapter, selected, available), tuple(selected))
+            with self.assertRaisesRegex(ValueError, "Required"):
+                validate_components(adapter, ["qwen3vl_4b_int8_convrot.safetensors", selected[1]], available)
+
     def test_dev_uses_separate_guidance_defaults_and_recipe_validation(self):
         adapter = adapter_for_checkpoint("fibo2_dev_int8_convrot.safetensors")
         self.assertEqual(adapter.guidance, 5)

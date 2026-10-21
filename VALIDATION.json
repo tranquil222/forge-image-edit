@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "status": "tested beta",
   "date": "2026-10-20",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 35,
+    "extension_python_tests": 40,
     "javascript_tests": 5,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -83,7 +83,224 @@
         }
       ]
     },
-    "url_installer": "Checks affected-file signatures before applying a backed-up patch. Unsupported builds install the tab without failing Forge; existing compatible backends are not replaced."
+    "url_installer": "Checks affected-file signatures before applying a backed-up patch. Unsupported builds install the tab without failing Forge; existing compatible backends are not replaced.",
+    "lower_vram_and_quantizations": {
+      "physical_hardware": "RTX 3090 24 GiB; 64 GiB system RAM; Windows",
+      "method": "Task-local QA instrumentation reduced Forge total/free VRAM by the missing physical capacity and capped the CUDA allocator. Normal external GPU/desktop usage remained subtracted. INT8 allocator limits were 12/16 GiB; Q4 runs additionally reserved 1.5 GiB, limiting the allocator to 10.5/14.5 GiB. Normal Forge automatic CPU offloading; one source image; Qwen reference cache off. No QA memory hooks ship in the extension.",
+      "interpretation": "Real generated edits under simulated memory budgets, not tests on physical 12/16 GiB GPUs. Torch peaks exclude some CUDA/driver/desktop memory. Not minimum VRAM/RAM specifications or a performance benchmark.",
+      "runs": [
+        {
+          "checkpoint": "fibo2_edit_turbo_int8_convrot.safetensors",
+          "encoder": "qwen3vl_4b_int8_convrot.safetensors",
+          "vae": "flux2-vae.safetensors",
+          "budget_gib": 12,
+          "resolution": 768,
+          "output_dimensions": [
+            928,
+            640
+          ],
+          "steps": 4,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 8.81,
+          "peak_torch_reserved_gib": 9.6,
+          "allocator_limit_gib": 12,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+          "encoder": "qwen3vl_8b_int8_convrot.safetensors",
+          "vae": "qwen_image_2.1_vae_bf16.safetensors",
+          "budget_gib": 12,
+          "resolution": 768,
+          "output_dimensions": [
+            928,
+            640
+          ],
+          "steps": 8,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 9.72,
+          "peak_torch_reserved_gib": 10.04,
+          "allocator_limit_gib": 12,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "fibo2_dev_int8_convrot.safetensors",
+          "encoder": "qwen3vl_4b_int8_convrot.safetensors",
+          "vae": "flux2-vae.safetensors",
+          "budget_gib": 12,
+          "resolution": 768,
+          "output_dimensions": [
+            928,
+            640
+          ],
+          "steps": 50,
+          "cfg": 5,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 8.8,
+          "peak_torch_reserved_gib": 9.59,
+          "allocator_limit_gib": 12,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "qwen_image_2.1_turbo_Q4_K_M.gguf",
+          "encoder": "qwen3vl_8b_w4a8.safetensors",
+          "vae": "qwen_image_2.1_vae_bf16.safetensors",
+          "budget_gib": 12,
+          "resolution": 768,
+          "output_dimensions": [
+            928,
+            640
+          ],
+          "steps": 8,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 6.73,
+          "peak_torch_reserved_gib": 9.33,
+          "allocator_limit_gib": 10.5,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "fibo2_edit_turbo_int8_convrot.safetensors",
+          "encoder": "qwen3vl_4b_int8_convrot.safetensors",
+          "vae": "flux2-vae.safetensors",
+          "budget_gib": 16,
+          "resolution": 1024,
+          "output_dimensions": [
+            1216,
+            864
+          ],
+          "steps": 4,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 11.87,
+          "peak_torch_reserved_gib": 13.13,
+          "allocator_limit_gib": 16,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+          "encoder": "qwen3vl_8b_int8_convrot.safetensors",
+          "vae": "qwen_image_2.1_vae_bf16.safetensors",
+          "budget_gib": 16,
+          "resolution": 1024,
+          "output_dimensions": [
+            1216,
+            864
+          ],
+          "steps": 8,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 13.46,
+          "peak_torch_reserved_gib": 14.4,
+          "allocator_limit_gib": 16,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "fibo2_dev_int8_convrot.safetensors",
+          "encoder": "qwen3vl_4b_int8_convrot.safetensors",
+          "vae": "flux2-vae.safetensors",
+          "budget_gib": 16,
+          "resolution": 1024,
+          "output_dimensions": [
+            1216,
+            864
+          ],
+          "steps": 50,
+          "cfg": 5,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 11.88,
+          "peak_torch_reserved_gib": 13.12,
+          "allocator_limit_gib": 16,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "qwen_image_2.1_turbo_Q4_K_M.gguf",
+          "encoder": "qwen3vl_8b_w4a8.safetensors",
+          "vae": "qwen_image_2.1_vae_bf16.safetensors",
+          "budget_gib": 16,
+          "resolution": 1024,
+          "output_dimensions": [
+            1216,
+            864
+          ],
+          "steps": 8,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 6.83,
+          "peak_torch_reserved_gib": 9.31,
+          "allocator_limit_gib": 14.5,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "qwen_image_2.1_turbo_Q4_K_M.gguf",
+          "encoder": "qwen3vl_8b_int8_convrot.safetensors",
+          "vae": "qwen_image_2.1_vae_bf16.safetensors",
+          "budget_gib": 12,
+          "resolution": 768,
+          "output_dimensions": [
+            928,
+            640
+          ],
+          "steps": 8,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 8.9,
+          "peak_torch_reserved_gib": 9.13,
+          "allocator_limit_gib": 10.5,
+          "out_of_memory_errors": 0,
+          "forge_base": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+          "torch": "2.14.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        },
+        {
+          "checkpoint": "qwen_image_2.1_turbo_Q4_K_M.gguf",
+          "encoder": "qwen3vl_8b_w4a8.safetensors",
+          "vae": "qwen_image_2.1_vae_bf16.safetensors",
+          "budget_gib": 12,
+          "resolution": 768,
+          "output_dimensions": [
+            928,
+            640
+          ],
+          "steps": 8,
+          "cfg": 1,
+          "reference_cache": false,
+          "peak_torch_allocated_gib": 6.13,
+          "peak_torch_reserved_gib": 9.33,
+          "allocator_limit_gib": 10.5,
+          "out_of_memory_errors": 0,
+          "forge_base": "41359cd4b8b89212b3dbad8c9af719160a12ed63",
+          "torch": "2.10.0+cu130",
+          "visually_checked": "Requested red-to-blue hat edit present; no blank/corrupted output"
+        }
+      ]
+    }
   },
   "limitations": [
     "Not tested on Linux, macOS, AMD or other GPUs; CI definitions do not imply those runs passed.",
@@ -94,6 +311,7 @@
     "Only supported named architectures and compatible components are validated; arbitrary edit checkpoints are not supported.",
     "No universal image-editing quality guarantee; Turbo extra steps are experimental.",
     "CFG 1 models ignore negative prompts; Dev uses text-only unconditional conditioning.",
-    "Model weights and their licenses are separate; no weights, example images or private settings are in this release."
+    "Model weights and their licenses are separate; no weights, example images or private settings are in this release.",
+    "Lower-VRAM validation uses simulated 12/16 GiB budgets on a 24 GiB GPU, not physical 12/16 GiB cards. Quantization validation covers the exact listed files, not every GGUF, FP4, AWQ/GPTQ or language-only encoder."
   ]
 }

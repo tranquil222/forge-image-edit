@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "files": [
     {
       "path": ".gitattributes",
@@ -38,8 +38,8 @@
     },
     {
       "path": "MODELS.md",
-      "bytes": 2844,
-      "sha256": "8e8d7e27ad77b34fab90484a123fc3c10af914b16f068be126d0e4606953139a"
+      "bytes": 5377,
+      "sha256": "0e156136406d0bddfc46babf3718ea8b30558d4f6daa1e86a58fc23086d44b77"
     },
     {
       "path": "NOTICE.md",
@@ -48,13 +48,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 8274,
-      "sha256": "c74fe5d02e15e75cbc1d604b97f6ece9e181ef87d3856f719db50b3a0f1000d5"
+      "bytes": 8642,
+      "sha256": "ea64633d3f86466c622864f332ff93fac152eaa4243c29e0981bc0b1364e9f4e"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 4530,
-      "sha256": "81a81c2c19231f6a172f4c123d2df386a1590240979c7a0de0a7b46eb473f195"
+      "bytes": 13287,
+      "sha256": "a1687a831f0cb9e4f238a344b54c60039ac887becbe66695d5f8a735bbb18037"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 77,
-      "sha256": "c4e2e21e229116501d5625a0fd0600f4b4c5eb2cfcb9ac2c1dd41bc0df574ee5"
+      "sha256": "f3e92d49f2a5960946be9d95af65f147f7fd84819eccd3046c8e06cd81a586fe"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -113,8 +113,8 @@
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 17604,
-      "sha256": "63c7f6866891af66ebe78b4ebc4922f9a7b7e5966d00c453c1af6f053fde23ff"
+      "bytes": 18237,
+      "sha256": "950ced269e5c697d394a3d158fcc65bd6120340254c4cbaaf8a36ffa47c0d17e"
     },
     {
       "path": "forge_qwen_edit/selection.py",
@@ -124,7 +124,7 @@
     {
       "path": "forge_qwen_edit/ui.py",
       "bytes": 16763,
-      "sha256": "1e0d20329dbaf5afde2be17c0e4f509b5c385566bc8dcf20acec7ba50e44e830"
+      "sha256": "7c2afb51c5fde66e0438b6f58f84a4c7b3964189fbfbf4bf1ab075aceff8f3f4"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
@@ -168,8 +168,8 @@
     },
     {
       "path": "models.json",
-      "bytes": 3552,
-      "sha256": "b157b1511bb1952a305a539699b51be7ca0e3cc78a05ea47a5982d00a8404438"
+      "bytes": 4669,
+      "sha256": "bba74fc1ee3d5e8cbc4adf27a5cada3f8997c3049309b1e28f82b9cc99e1824c"
     },
     {
       "path": "scripts/qwen_edit_tab.py",
@@ -212,14 +212,24 @@
       "sha256": "c37c18428a621e92d42b62e6edc7fb3f4dabde1dc5111122bdb3032ab00afb22"
     },
     {
+      "path": "tests/test_memory_staging.py",
+      "bytes": 3413,
+      "sha256": "29e08495a93161f00029cd23b028900760ac76e4e49250cd39fadd8a4bed853a"
+    },
+    {
+      "path": "tests/test_model_downloads.py",
+      "bytes": 3159,
+      "sha256": "dbb4f7d6ef2de820f024daebcb4f54ec9a8e653980efd37f6e1e24605e2acb84"
+    },
+    {
       "path": "tests/test_native_masked.py",
       "bytes": 7234,
       "sha256": "7539529aefc06dee007a9bdb427bf36951fb33f916637b361e6feae21a7c6ecb"
     },
     {
       "path": "tests/test_portability.py",
-      "bytes": 5584,
-      "sha256": "1edfc5dce2a3e9abdb17b2f392ba41f4f6c5c5eb3e072a7d572a740da104e3eb"
+      "bytes": 6660,
+      "sha256": "bdb371dbb0520d18414a6c09fc16d04d897016201a400a8bd499c889af0f7825"
     },
     {
       "path": "tests/test_workflow.py",
@@ -233,8 +243,8 @@
     },
     {
       "path": "tools/models.py",
-      "bytes": 3424,
-      "sha256": "f8d225eb3b468b5f3fcd3c53e5ccb3753cae5e56645937a49430ba34752941df"
+      "bytes": 3701,
+      "sha256": "7faa3a7f57ce39f62d0690c4809346f9d2824428143cb89bfeb649044d027255"
     }
   ]
 }

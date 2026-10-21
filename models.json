@@ -98,5 +98,34 @@
         "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
       }
     ]
+  },
+  "qwen21-turbo-q4": {
+    "repository": "Abiray/Qwen-Image-2.1-Turbo-GGUF",
+    "revision": "5a4d1964af2bd65111f5f241c65f5b96f0bdd65c",
+    "model_card": "https://huggingface.co/Abiray/Qwen-Image-2.1-Turbo-GGUF",
+    "files": [
+      {
+        "source": "qwen_image_2.1_turbo_Q4_K_M.gguf",
+        "kind": "checkpoint",
+        "bytes": 4189346592,
+        "sha256": "0f5a11ebbaf3110a16120311454eaac35db13798e0102339e4f2b8fd5be6ba82"
+      },
+      {
+        "source": "text_encoders/qwen3vl_8b_w4a8.safetensors",
+        "kind": "encoder",
+        "bytes": 6312105364,
+        "sha256": "7754425e55e7bea2bfde4dde59a4cc236cb44e5ee9c215ea66ef8d47012824eb",
+        "repository": "Comfy-Org/Qwen-Image-2.1",
+        "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994"
+      },
+      {
+        "source": "vae/qwen_image_2.1_vae_bf16.safetensors",
+        "kind": "vae",
+        "bytes": 675509688,
+        "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+        "repository": "Comfy-Org/Qwen-Image-2.1",
+        "revision": "a8342359c61979b06a8dafb1a47991fe1f30e994"
+      }
+    ]
   }
 }

@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.4.0 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.4.1 beta**. No ComfyUI server or cloud image service.
 
 ## Install
 
@@ -49,6 +49,11 @@ block generation and show the required combination. The correction button
 selects only a complete installed pair; it does not download or partially fix it.
 Retain recognizable publisher filenames so variant/component validation can
 identify them; renamed or arbitrary architectures are not inferred from a label.
+
+For **12–16 GB VRAM**, see the [smaller model downloads and settings](MODELS.md#smaller-qwen-download).
+Use Forge's normal CPU offloading and turn off Qwen's reference-attention cache.
+The optional Qwen Turbo Q4/W4A8 set uses the same model bar and editing controls.
+Exact tested combinations and memory-limit methodology are in [VALIDATION.json](VALIDATION.json).
 
 | Model | Default | Other options |
 | --- | --- | --- |

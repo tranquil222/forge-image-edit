@@ -188,7 +188,7 @@ def create_tab():
                     sampler = gr.Dropdown(["Res Multistep", "Euler"], value="Res Multistep", label="Sampler")
                     schedule = gr.Dropdown(list(SCHEDULES), value=SCHEDULES[0], label="Schedule")
                     guidance = gr.Slider(1, 15, value=1, step=0.1, label="CFG", interactive=False)
-                prefix_cache = gr.Checkbox(value=True, label="Cache reference attention between steps", info="Turn off to reduce cache memory or troubleshoot an edit.")
+                prefix_cache = gr.Checkbox(value=True, label="Cache reference attention between steps", info="Turn off to save VRAM; recommended for 12–16 GB cards.")
                 negative = gr.Textbox(value="", label="Negative prompt (inactive at CFG 1)", interactive=False, lines=1, info="Not used by these CFG 1 editing modes. Express exclusions in the edit instruction.")
             keep_metadata = gr.Checkbox(value=True, label="Keep original metadata", elem_id="image_edit_keep_metadata",
                 info="Retain the source metadata and append an Image Edit section and recipe. Turn off to save only the new edit metadata. Forge's global metadata setting still applies.")

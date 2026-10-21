@@ -31,6 +31,15 @@ def check_cancelled():
         raise EditCancelled()
 
 
+def release_edit_encoder(patcher):
+    """GGUF dequantization needs workspace, not an idle resident text encoder."""
+    if patcher.load_device.type == "cpu":
+        return
+    keep = [loaded for loaded in memory_management.current_loaded_models if loaded.model is not patcher]
+    # Use Forge's unload bookkeeping; never move parameters behind its back.
+    memory_management.free_memory(1e30, patcher.load_device, keep_loaded=keep)
+
+
 class EditTextEncoder(QwenImage21TextProcessingEngine):
     def tokenize(self, texts, image_count=0):
         refs = " ".join(f"<image{i + 1}>{VISION_BLOCK}" for i in range(image_count))
@@ -94,6 +103,8 @@ class EditProcessing(processing.StableDiffusionProcessingTxt2Img):
             if adapter.key == "qwen21":
                 dynamic_args.image_slots = list(encoder.image_slots)
                 self.extra_generation_params["Qwen reference slots"] = str(encoder.image_slots)
+            if self.edit_release_encoder:
+                release_edit_encoder(self.sd_model.forge_objects.clip.patcher)
         schedule = [prompt_parser.ScheduledPromptConditioning(self.steps, self.edit_conditioning)]
         self.c = prompt_parser.MulticondLearnedConditioning(
             shape=(1,), batch=[[prompt_parser.ComposableScheduledPromptConditioning(schedule)]]
@@ -287,6 +298,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         p.edit_references = references
         p.edit_family = model_family
         p.edit_prefix_cache = bool(prefix_cache)
+        p.edit_release_encoder = checkpoint.name.lower().endswith(".gguf")
         try:
             with closing(p):
                 result = processing.process_images(p)
