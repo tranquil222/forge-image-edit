@@ -16,6 +16,8 @@ from modules_forge import main_entry
 
 from . import __version__
 from .adapters import get_adapter
+from .sampling import validate_fibo_sampling, resolve_fibo_shift, fibo_rope_context, FIBO_ROPE_X, FIBO_ROPE_Y
+from .workflow import output_resize_size, prepare_sized_reference
 from .workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference, reference_content_box
 from .masking import canonical_image, composite_patch, context_box, extract_mask, fibo_masked_instruction, fibo_masked_reference, location_guide, scoped_instruction
 from .metadata import build_metadata, preserve_binary_metadata
@@ -125,7 +127,8 @@ class EditProcessing(processing.StableDiffusionProcessingTxt2Img):
 
     def sample(self, *args, **kwargs):
         check_cancelled()
-        samples = super().sample(*args, **kwargs)
+        with fibo_rope_context(self.sd_model, getattr(self, "edit_fibo_rope", False)):
+            samples = super().sample(*args, **kwargs)
         # Forge can return None when interrupted before its first denoising step.
         # Stop before the core tries to iterate/decode a missing or partial latent.
         check_cancelled()
@@ -197,8 +200,12 @@ def isolated_options(checkpoint, modules, storage_dtype="Automatic"):
             setattr(dynamic_args, key, value)
 
 
-def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None, reference_curves=None):
+def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None, reference_curves=None, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None):
     adapter = get_adapter(model_family)
+    if adapter.key == "fibo2":
+        fibo_shift_mode, fibo_shift, fibo_rope = validate_fibo_sampling(fibo_shift_mode, fibo_shift, fibo_rope)
+    else:
+        fibo_rope = False
     guidance = adapter.guidance if guidance is None else float(guidance)
     if not 1 <= guidance <= 15 or (adapter.guidance == 1 and guidance != 1):
         raise ValueError("CFG must be 1 for Turbo/Qwen, or between 1 and 15 for Fibo Dev.")
@@ -239,6 +246,11 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             raise ValueError(f"Missing component: {name}. Install it in models/VAE or models/text_encoder, then Refresh models.")
         modules.append(str(path))
     original = canonical_image(source)
+    custom_size = None
+    if output_resize is not None:
+        if area_only or canvas_edges is not None:
+            raise ValueError("Custom output size is for whole-image edits. Painted edits preserve the source canvas; use Crop / outpaint edges and Shrink by for canvas edits.")
+        custom_size = output_resize_size(original.size, output_resize)
     mask, crop = None, None
     plan = None
     painted_canvas = False
@@ -314,8 +326,12 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         mask = canvas_blend_mask(mask, plan)
     working_resolution = canvas_reference_resolution(original.size, resolution, plan["shrink_by"]) if plan is not None else resolution
     reference_resolutions = [working_resolution] + [resolution] * (len(input_references) - 1)
-    references = [prepare_reference(im, res) for im, res in zip(input_references, reference_resolutions)]
+    references = [prepare_sized_reference(im, custom_size) if index == 0 and custom_size else prepare_reference(im, res)
+                  for index, (im, res) in enumerate(zip(input_references, reference_resolutions))]
+    effective_shift = resolve_fibo_shift(fibo_shift_mode, fibo_shift, *references[0].size) if adapter.key == "fibo2" else adapter.shift
     content_boxes = [reference_content_box(*im.size, res) for im, res in zip(input_references, reference_resolutions)]
+    if custom_size:
+        content_boxes[0] = reference_content_box(*custom_size, 0)
     seed = parse_seed(seed)
     if seed == -1:
         seed = secrets.randbits(63)
@@ -337,6 +353,13 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "source_size": list(original.size),
     }
     reference_adjustments = reference_adjustment_records((reference2, reference3))
+    if custom_size:
+        recipe["output_resize"] = dict(output_resize)
+    if adapter.key == "fibo2":
+        recipe.update(fibo_shift_mode=fibo_shift_mode, fibo_shift=fibo_shift,
+                      fibo_shift_effective=effective_shift, fibo_rope=fibo_rope)
+        if fibo_rope:
+            recipe["fibo_rope_scale"] = {"x": FIBO_ROPE_X, "y": FIBO_ROPE_Y}
     if reference_adjustments:
         recipe["reference_adjustments"] = reference_adjustments
     if area_only:
@@ -351,13 +374,13 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     if effective_instruction != instruction:
         recipe["effective_prompt"] = effective_instruction
     recipe["quality_preset"] = next((name for name, values in adapter.profiles.items() if all(recipe[key] == value for key, value in values.items())), "Custom")
-    if guidance != adapter.guidance:
+    if guidance != adapter.guidance or (adapter.key == "fibo2" and (fibo_shift_mode != "Manual" or fibo_shift != adapter.shift or fibo_rope)):
         recipe["quality_preset"] = "Custom"
     output_dir = Path(shared.opts.outdir_samples or shared.opts.outdir_img2img_samples)
     with isolated_options(checkpoint, modules, storage_dtype):
         p = EditProcessing(
             prompt=effective_instruction, negative_prompt=negative, steps=int(steps), seed=seed,
-            sampler_name=sampler, scheduler=schedule, cfg_scale=guidance, distilled_cfg_scale=adapter.shift,
+            sampler_name=sampler, scheduler=schedule, cfg_scale=guidance, distilled_cfg_scale=effective_shift,
             width=references[0].width, height=references[0].height, batch_size=1, n_iter=1,
             outpath_samples=str(output_dir), outpath_grids=str(output_dir),
             do_not_save_samples=True, do_not_save_grid=True, restore_faces=False, tiling=False,
@@ -371,6 +394,10 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             },
         )
         p.edit_references = references
+        p.edit_fibo_rope = fibo_rope
+        if adapter.key == "fibo2":
+            p.extra_generation_params.update({"Fibo Shift mode": fibo_shift_mode, "Fibo Shift": effective_shift,
+                                              "Fibo high-resolution RoPE": fibo_rope})
         p.edit_family = model_family
         p.edit_prefix_cache = bool(prefix_cache)
         p.edit_release_encoder = checkpoint.name.lower().endswith(".gguf")

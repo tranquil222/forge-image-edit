@@ -59,6 +59,11 @@ class MaskingTests(unittest.TestCase):
             result = ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', [], 'Automatic', False,
                 old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, False, 0, 0, 0, 0, 32, 1, 1, '', '')
             self.assertEqual(result[15], expected)
+            submitted = ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', [], 'Automatic', False,
+                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, False, 0, 0, 0, 0, 32, 1, 1, '', '',
+                'Manual', .85, True, True, 'Resize by', 1024, 1024, 2)
+            self.assertEqual(submitted[-4:-1], ('Manual', .85, True))
+            self.assertEqual(submitted[-1], None if expected else dict(mode='Resize by', width=1024, height=1024, scale=2))
 
     def setUp(self):
         rng = np.random.default_rng(7)

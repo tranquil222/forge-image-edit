@@ -2,6 +2,7 @@
 
 import html
 import json
+import math
 from pathlib import Path
 from types import SimpleNamespace
 from PIL import Image
@@ -21,6 +22,8 @@ from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
 from .batching import run_batch, validate_count
 from .outpaint import EDGES, canvas_plan, canvas_images, canvas_reference_resolution, save_crop
 from .prompt_metadata import original_prompts
+from .sampling import FIBO_SHIFT_MODES, DEFAULT_FIBO_SHIFT
+from .workflow import output_resize_size
 
 
 _active = False
@@ -61,14 +64,15 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
             gr.update(interactive=area_only and not canvas_enabled),
             gr.update(interactive=dev, label="Negative prompt" if dev else "Negative prompt (inactive at CFG 1)",
                       info="Dev uses a trained null caption when empty. Negative conditioning is text-only." if dev else "Not used at CFG 1. Express exclusions in the edit instruction."),
-            gr.update(interactive=dev, info="Dev default: 5." if dev else "Fixed at 1 for this editing model."))
+            gr.update(interactive=dev, info="Dev default: 5." if dev else "Fixed at 1 for this editing model."),
+            gr.update(visible=fibo), gr.update(visible=not area_only and not canvas_enabled))
 
 
 def canvas_model_controls(family, area_only, mode, enabled):
     # Toggling the canvas must not refresh the retained mode/tip components:
     # Gradio's pending state can change their heights even with progress hidden.
     updates = model_controls(family, area_only, mode, enabled)
-    return tuple(updates[i] for i in (0, 1, 7, 8))
+    return tuple(updates[i] for i in (0, 1, 7, 8, 12))
 
 
 def cyberzit_quality(n, sigma_min, sigma_max, device, **kwargs):
@@ -93,17 +97,40 @@ def register_schedule():
             sd_schedulers.schedulers_map[scheduler.label] = scheduler
 
 
-def dimensions(image, resolution, area_only=False, mode="Standard"):
+def dimensions(image, resolution, area_only=False, mode="Standard", resize_enabled=False, resize_mode="Resize to", width=1024, height=1024, scale=1):
     if image is None:
         return "Output follows the first image’s aspect ratio."
     if area_only:
         image = canonical_image(image)
         detail = f"Crop resolution: {resolution if resolution else 'native'}."
         return f"**Painted-area edit** · Output stays **{image.width} × {image.height}**. {detail} Unpainted pixels are preserved."
-    left, top, right, bottom = reference_content_box(*image.size, resolution)
-    width, height = right - left, bottom - top
+    if resize_enabled:
+        try:
+            width, height = output_resize_size(image.size, dict(mode=resize_mode, width=width, height=height, scale=scale))
+        except ValueError as error:
+            return str(error)
+    else:
+        left, top, right, bottom = reference_content_box(*image.size, resolution)
+        width, height = right - left, bottom - top
     scope = "Camera-angle edit · whole image" if mode == "Camera angle" else "Expression transfer · whole image" if mode == "Expression transfer" else "Whole-image edit"
     return f"**{scope}** · Output: **{width} × {height}** · source: {image.width} × {image.height} · source proportions preserved"
+
+
+def reset_output_size(source):
+    if source is None:
+        return gr.update(interactive=False), gr.update(value=1024, minimum=32, maximum=4096), gr.update(value=1024, minimum=32, maximum=4096), 1
+    width, height = canonical_image(source).size
+    factor = min(1, 4096 / max(width, height))
+    return (gr.update(interactive=True),
+            gr.update(value=max(32, round(width * factor)), minimum=max(32, math.ceil(32 * width / height)), maximum=min(4096, math.floor(4096 * width / height))),
+            gr.update(value=max(32, round(height * factor)), minimum=max(32, math.ceil(32 * height / width)), maximum=min(4096, math.floor(4096 * height / width))), 1)
+
+
+def linked_output_edge(value, source_size, width_changed):
+    if not source_size or min(source_size) <= 0 or value is None:
+        return gr.update()
+    width, height = source_size
+    return round(value * (height / width if width_changed else width / height))
 
 
 def camera_help(mode, family="", area_only=False):
@@ -206,6 +233,16 @@ def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata, fo
 
 
 def run_canvas_edit(task_id, *args):
+    # Keep old direct/API callers compatible; append controls so JS image slots
+    # and reference-curve payload positions do not move.
+    fibo_shift_mode, fibo_shift, fibo_rope = "Manual", 1.15, False
+    output_resize = None
+    if len(args) == 40:
+        *args, resize_enabled, resize_mode, output_width, output_height, output_scale = args
+        if resize_enabled:
+            output_resize = dict(mode=resize_mode, width=output_width, height=output_height, scale=output_scale)
+    if len(args) == 35:
+        *args, fibo_shift_mode, fibo_shift, fibo_rope = args
     *args, reference2_curves, reference3_curves = args
     *args, batch_count = args
     batch_count = validate_count(batch_count)
@@ -213,6 +250,8 @@ def run_canvas_edit(task_id, *args):
     *base, checkpoint_value, modules, dtype, cache, enabled, foreground, feather, mode, result_description, keep_metadata, guidance, preserve_tone = args
     # Read the submitted strokes directly; the UI's paint flag is asynchronous.
     enabled = has_painted_area(foreground)
+    if enabled or canvas_enabled:
+        output_resize = None  # Hidden whole-image controls must not resize masks/canvas.
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     canvas_edges = {**dict(zip(EDGES, (left, right, top, bottom))), "seam_blend": seam_blend, "shrink_by": shrink_by} if canvas_enabled else None
     if canvas_enabled:
@@ -226,7 +265,7 @@ def run_canvas_edit(task_id, *args):
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
                     adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges,
-                    (reference2_curves, reference3_curves), batch_count=batch_count)
+                    (reference2_curves, reference3_curves), fibo_shift_mode, fibo_shift, fibo_rope, output_resize, batch_count=batch_count)
 
 
 def custom_settings(family=DEFAULT_FAMILY):
@@ -409,6 +448,20 @@ def create_tab():
                 profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
                 resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
             profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
+            with gr.Group() as output_size_section:
+                output_size_enabled = gr.Checkbox(value=False, label="Custom output size", interactive=False, elem_id="image_edit_output_size_enabled")
+                with gr.Group(visible=False, elem_id="image_edit_output_size") as output_size_controls:
+                    output_size_mode = gr.Radio(["Resize to", "Resize by"], value="Resize to", show_label=False, elem_id="image_edit_output_size_mode")
+                    with gr.Row() as output_size_edges:
+                        output_width = gr.Slider(32, 4096, value=1024, step=1, label="Width", elem_id="image_edit_output_width")
+                        output_height = gr.Slider(32, 4096, value=1024, step=1, label="Height", elem_id="image_edit_output_height")
+                    output_scale = gr.Slider(.25, 4, value=1, step=.05, label="Resize by", info="Relative to the loaded source image.", visible=False, elem_id="image_edit_output_scale")
+                    gr.Markdown("Proportions stay linked. Generates at this size, overriding Resolution for the source/output; extra references still use Resolution. For a different canvas shape, use Crop / outpaint. Larger sizes use more memory and time.")
+                output_size_enabled.change(lambda enabled: gr.update(visible=enabled), [output_size_enabled], [output_size_controls], queue=False, show_progress="hidden", api_name=False)
+                output_size_mode.change(lambda mode: (gr.update(visible=mode == "Resize to"), gr.update(visible=mode == "Resize by")), [output_size_mode], [output_size_edges, output_scale], queue=False, show_progress="hidden", api_name=False)
+                output_width.input(lambda value, size: linked_output_edge(value, size, True), [output_width, canvas_source_size], [output_height], queue=False, show_progress="hidden", api_name=False)
+                output_height.input(lambda value, size: linked_output_edge(value, size, False), [output_height, canvas_source_size], [output_width], queue=False, show_progress="hidden", api_name=False)
+                source.change(reset_output_size, [source], [output_size_enabled, output_width, output_height, output_scale], queue=False, show_progress="hidden", api_name=False)
             preserve_tone = gr.Checkbox(value=False, label="Auto-correct global brightness / contrast", elem_id="image_edit_preserve_tone",
                 info="Next generation only. Estimates overall drift from unchanged areas, not contrast changes confined to the edited object or lost texture. For manual adjustment, open the result → Curves. Leave off for camera moves or relighting.")
             with gr.Accordion("Additional reference images", open=False):
@@ -439,6 +492,14 @@ def create_tab():
                     sampler = gr.Dropdown(["Res Multistep", "Euler"], value="Res Multistep", label="Sampler")
                     schedule = gr.Dropdown(list(SCHEDULES), value=SCHEDULES[0], label="Schedule")
                     guidance = gr.Slider(1, 15, value=1, step=0.1, label="CFG", interactive=False)
+                with gr.Group(visible=False, elem_id="image_edit_fibo_sampling") as fibo_sampling:
+                    with gr.Row():
+                        fibo_shift_mode = gr.Dropdown(list(FIBO_SHIFT_MODES), value="Manual", label="Fibo Shift mode", elem_id="image_edit_fibo_shift_mode")
+                        fibo_shift = gr.Slider(0.1, 5, value=DEFAULT_FIBO_SHIFT, step=0.01, label="Shift", info="Changes the sampling schedule. Default: 1.15. Image-size adjusted uses the model's working dimensions.", elem_id="image_edit_fibo_shift")
+                    fibo_rope = gr.Checkbox(value=False, label="High-resolution RoPE", elem_id="image_edit_fibo_rope",
+                        info="Spatial scaling: X 0.85 / Y 0.80. For direct high-resolution edits; does not change output size. Try Resolution 2048, 8 steps, Euler / Simple to approximate the linked workflow.")
+                    gr.Markdown("[About the 2K RoPE workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope). Experimental; not an automatic contrast correction.")
+                fibo_shift_mode.change(lambda mode: gr.update(interactive=mode == "Manual"), [fibo_shift_mode], [fibo_shift], queue=False, show_progress="hidden", api_name=False)
                 prefix_cache = gr.Checkbox(value=True, label="Cache reference attention between steps", info="Turn off to save VRAM; recommended for 12–16 GB cards.")
                 negative = gr.Textbox(value="", label="Negative prompt (inactive at CFG 1)", interactive=False, lines=1, info="Not used by these CFG 1 editing modes. Express exclusions in the edit instruction.")
             keep_metadata = gr.Checkbox(value=True, label="Keep original metadata", elem_id="image_edit_keep_metadata",
@@ -474,21 +535,23 @@ def create_tab():
             apply_crop.click(wrap_gradio_gpu_call(run_canvas_crop, extra_outputs=[gr.update() for _ in range(6)]),
                 [source, canvas_enabled, *edge_controls, keep_metadata, mask_editor.foreground, canvas_shrink],
                 [result, download, last_seed, batch_gallery, batch_items, batch_source, status], api_name="image_edit_crop")
-            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed):
+            for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed, fibo_shift_mode, fibo_shift, fibo_rope):
                 component.do_not_save_to_config = True
-            for component in (steps, sampler, schedule, guidance, prefix_cache):
+            for component in (output_size_enabled, output_size_mode, output_width, output_height, output_scale):
+                component.do_not_save_to_config = True
+            for component in (steps, sampler, schedule, guidance, prefix_cache, fibo_shift_mode, fibo_shift, fibo_rope):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
             mask_editor.foreground.change(has_painted_area, [mask_editor.foreground], [area_only], show_progress="hidden", api_name=False)
-            for component in (source, resolution, area_only, area_mode):
-                component.change(dimensions, [source, resolution, area_only, area_mode], [size_label], queue=False, show_progress="hidden")
+            for component in (source, resolution, area_only, area_mode, output_size_enabled, output_size_mode, output_width, output_height, output_scale):
+                component.change(dimensions, [source, resolution, area_only, area_mode, output_size_enabled, output_size_mode, output_width, output_height, output_scale], [size_label], queue=False, show_progress="hidden")
             for component in (area_mode, family, area_only):
                 component.change(camera_help, [area_mode, family, area_only], [camera_note], queue=False, show_progress="hidden")
             canvas_enabled.change(canvas_model_controls, [family, area_only, area_mode, canvas_enabled],
-                [result_description, reference_help, resolution, feather], queue=False, show_progress="hidden", api_name=False)
+                [result_description, reference_help, resolution, feather, output_size_section], queue=False, show_progress="hidden", api_name=False)
             for component in (family, area_only, area_mode):
                 event = component.input if component is area_mode else component.change
                 event(model_controls, [family, area_only, area_mode, canvas_enabled],
-                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance],
+                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance, fibo_sampling, output_size_section],
                     js="(family, enabled, mode, canvas) => { qwenEditSetModel(family); return [family, enabled, mode, canvas]; }" if component is family else None,
                     queue=False, show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])

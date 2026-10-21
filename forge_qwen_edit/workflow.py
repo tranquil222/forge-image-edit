@@ -78,6 +78,39 @@ def prepare_reference(image, resolution):
     return result
 
 
+def output_resize_size(source_size, settings):
+    """Whole-image output size, with proportions locked (use canvas tools to reframe)."""
+    if not isinstance(settings, dict):
+        raise ValueError("Output size settings must be an object.")
+    if not isinstance(source_size, (tuple, list)) or len(source_size) != 2 or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in source_size):
+        raise ValueError("Valid source dimensions are required for output resizing.")
+    source_w, source_h = source_size
+    mode = settings.get("mode", "Resize to")
+    if mode == "Resize by":
+        scale = settings.get("scale", 1)
+        if isinstance(scale, bool) or not isinstance(scale, (int, float)) or not math.isfinite(scale) or not .25 <= scale <= 4:
+            raise ValueError("Resize by must be between 0.25 and 4.")
+        width, height = round(source_w * scale), round(source_h * scale)
+    elif mode == "Resize to":
+        width, height = settings.get("width"), settings.get("height")
+        if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or int(v) != v for v in (width, height)):
+            raise ValueError("Output width and height must be whole numbers.")
+        # Either edge may drive the linked controls; allow only pixel rounding.
+        if abs(width - height * source_w / source_h) > .51 and abs(height - width * source_h / source_w) > .51:
+            raise ValueError("Output dimensions must preserve source proportions. Use Crop / outpaint to change the canvas shape.")
+    else:
+        raise ValueError("Choose Resize to or Resize by.")
+    if not 32 <= width <= 4096 or not 32 <= height <= 4096:
+        raise ValueError("Output width and height must be between 32 and 4096 pixels.")
+    return int(width), int(height)
+
+
+def prepare_sized_reference(image, size):
+    # Native-sized preparation edge-pads to the model grid; the caller unpads
+    # the generated result. No post-generation upscale is substituted for inference.
+    return prepare_reference(image.resize(size, Image.Resampling.LANCZOS), 0)
+
+
 def image_digest(image):
     return hashlib.sha256(image.mode.encode() + str(image.size).encode() + image.tobytes()).hexdigest()
 
@@ -149,6 +182,12 @@ def validate_recipe(recipe):
     if not 1 <= steps <= 150 or not 0 <= resolution <= 4096:
         raise ValueError("The recipe's steps or resolution is out of range.")
     seed = parse_seed(recipe["seed"])
+    if recipe.get("output_resize") is not None:
+        output_resize_size(recipe.get("source_size", recipe.get("output_size", (0, 0))), recipe["output_resize"])
+    if recipe.get("model_family", "").startswith("Fibo 2.0"):
+        from .sampling import validate_fibo_sampling
+        mode, shift, rope = validate_fibo_sampling(recipe.get("fibo_shift_mode", "Manual"), recipe.get("fibo_shift", 1.15), recipe.get("fibo_rope", False))
+        recipe = {**recipe, "fibo_shift_mode": mode, "fibo_shift": shift, "fibo_rope": rope}
     return {**recipe, "steps": steps, "resolution": resolution, "seed": str(seed), "cfg": cfg}
 
 

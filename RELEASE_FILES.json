@@ -1,5 +1,5 @@
 {
-  "version": "0.5.15",
+  "version": "0.5.16",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 10728,
-      "sha256": "2f6f1cd0762696fbe91e5061f3867966f9a8ed79177a690cbd370a8f1a791c52"
+      "bytes": 11793,
+      "sha256": "9f69216e9dc257c94a51ffb8ac77c4fa384cfa7dc8f4e62156ad8eb2b3cc2611"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -43,18 +43,18 @@
     },
     {
       "path": "NOTICE.md",
-      "bytes": 1393,
-      "sha256": "1b8d0941054aae770ad4ecf8bccd6123ff3817eda50e843c0c19654a1b2b105d"
+      "bytes": 1766,
+      "sha256": "bcf467e535dfa419c408bd038d8036384a004fcfdde00135466ca4f5cbee4295"
     },
     {
       "path": "README.md",
-      "bytes": 26484,
-      "sha256": "f7286b90a84cf5cb3d0c793b77da85243e0a0c51f4fe813d899080d62c5be658"
+      "bytes": 28682,
+      "sha256": "a4c6cde7aff3aa233caba29a7c13132234a9e5c0a29906f6f672c0a8a6bfdcec"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 38583,
-      "sha256": "4f058845e748a8bac3993e06354498f18756d7a003266f6d4a85d784f088df01"
+      "bytes": 41436,
+      "sha256": "94ee04ece2c5fe811d4bb82dc75db126f2c313f82580ece8304dd046c66919b3"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -79,7 +79,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "90957587126bea8353a8d912856d8a6a38745f396f47e36f7a1152251ec24cf8"
+      "sha256": "9e7818cb01e683e3b1348fccecda424ebb9eb49c8bdcad8481ab2090cfd7f74e"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -123,13 +123,13 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 14843,
-      "sha256": "19878ee9378f35fb4142f47bf4d17976ad64734eddaf5a424f1ac7e7ba89d238"
+      "bytes": 15705,
+      "sha256": "6c2273b786648f5a03f18b1fcef736640b6801d450783965d40ffb59ede3b866"
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 24694,
-      "sha256": "355f2cbeddcac098396c11f4c877c2eb0903db80232f8a02b34ab7816d97a062"
+      "bytes": 26654,
+      "sha256": "cd5c66a262cd69a9f021046e9425f910ade6aa9d26f9997c70f7635c285f5a65"
     },
     {
       "path": "forge_qwen_edit/outpaint.py",
@@ -147,6 +147,11 @@
       "sha256": "e02c07f4ba8134159ed5b245891fec43d01a4e6e33b7318c1d39d455b8c89099"
     },
     {
+      "path": "forge_qwen_edit/sampling.py",
+      "bytes": 2465,
+      "sha256": "aa98c9aa7093ffb21694f06135190c8f4323ea2ce5cbdba5f0b7fa32395733fe"
+    },
+    {
       "path": "forge_qwen_edit/selection.py",
       "bytes": 2566,
       "sha256": "2df58418e746b5d6df260b7ca0a1a442d87fa1a9a5a79aa3818f71e4f2ab5101"
@@ -158,13 +163,13 @@
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 40605,
-      "sha256": "e2fece4d91ed2e94e4d4e6fe4fe811a7d55ef8218b24a21025cd382553d8d22d"
+      "bytes": 46751,
+      "sha256": "23f56c8f3a08019af5503d2d3417db1ace11adde5e4cb286165ba96ab24cf8bf"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
-      "bytes": 8133,
-      "sha256": "4b32c319d04c6a1abebbba85c309f7bb96734f40be857d7d0a982f1dbb9257b8"
+      "bytes": 10783,
+      "sha256": "f5548f6dbd41ce3200ec5bffdf3be28009561b04eb0e537b8a6c18c1241fd25b"
     },
     {
       "path": "install.py",
@@ -218,8 +223,8 @@
     },
     {
       "path": "javascript/qwen_edit.js",
-      "bytes": 12390,
-      "sha256": "ec49686091c80a740c1f103677cbe5ba1d3b168f87e8f65a4f5aed3b8dcde05b"
+      "bytes": 12387,
+      "sha256": "9861fb7d4fce9145487673d0eb91e0a002c871945c52316aef23b7b8c9476a06"
     },
     {
       "path": "licenses/ComfyUI-GPL-3.0.txt",
@@ -243,8 +248,8 @@
     },
     {
       "path": "scripts/qwen_edit_tab.py",
-      "bytes": 683,
-      "sha256": "a0ef9cecd62dbdda90c36075745da137a7e0a66d42f22dbaa30f46e0472af581"
+      "bytes": 711,
+      "sha256": "00fcc39f7195b9226f8dc30c89818d4d76cab68e0037390258c4c4e7682447b5"
     },
     {
       "path": "style.css",
@@ -283,8 +288,8 @@
     },
     {
       "path": "tests/test_cancellation.py",
-      "bytes": 2637,
-      "sha256": "107834b790e02a8412d39a5796e567a1a344a2a8aaf591785ebb8537096e9e6a"
+      "bytes": 2768,
+      "sha256": "259ab7dbb888eb70a0e59b3f3662081d54ac4ab97a446890ac7c9449fd98b15c"
     },
     {
       "path": "tests/test_fibo_defaults.py",
@@ -303,8 +308,8 @@
     },
     {
       "path": "tests/test_masking.py",
-      "bytes": 8187,
-      "sha256": "df64b5c2a0fd328de934557724b2613ec76ce8f4e5f1d5d07062dce0c8639b47"
+      "bytes": 8678,
+      "sha256": "824e671246ad54d7423e0bd63fe540544e2fac6bff63c3085ad92821ae1a83e9"
     },
     {
       "path": "tests/test_memory_staging.py",
@@ -318,8 +323,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 20691,
-      "sha256": "1b46f77958f82c0fc328b5cc39d580fe76ff4ef40c78ab0f85dc5b99d3dacd6d"
+      "bytes": 23242,
+      "sha256": "8b7829451c7a81d08d4496a21402091aebecbda53c0b1a23f728dfe988d94f4e"
     },
     {
       "path": "tests/test_outpaint.py",
@@ -342,14 +347,19 @@
       "sha256": "8604e535d520e3b2fd2c58e5f13d80619a98db75320dc34bd476a9ec69ff14eb"
     },
     {
+      "path": "tests/test_sampling.py",
+      "bytes": 4190,
+      "sha256": "bbdacc92a7994006e70c8650bbe99333eb1dba4b8cdc1e2f016a29d6e1564b31"
+    },
+    {
       "path": "tests/test_tone.py",
       "bytes": 4671,
       "sha256": "3456f299719c54895e79f6b88695f585b20bb9489e68541fb8a5ba1955f103d7"
     },
     {
       "path": "tests/test_workflow.py",
-      "bytes": 4353,
-      "sha256": "01e7f0f2603145e60388636cd23096f26311c7658a47ed56a7dcad983ec285e4"
+      "bytes": 5987,
+      "sha256": "7f0beffdca334d3bfa61d6031d87de52c4998b6312deb3aa8742e2c95550c516"
     },
     {
       "path": "tools/backend_support.py",

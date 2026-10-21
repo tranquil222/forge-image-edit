@@ -4,6 +4,7 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+from forge_qwen_edit.sampling import fibo_rope_context
 
 
 class CancellationTests(unittest.TestCase):
@@ -26,10 +27,11 @@ class CancellationTests(unittest.TestCase):
                     owner.state.interrupted = True
                 return owner.result
 
-        ns = dict(shared=SimpleNamespace(state=self.state), Base=Base)
+        ns = dict(shared=SimpleNamespace(state=self.state), Base=Base, fibo_rope_context=fibo_rope_context)
         module = ast.fix_missing_locations(ast.Module(body=[*nodes, wrapper], type_ignores=[]))
         exec(compile(module, "cancellation_boundary", "exec"), ns)
         self.processor = ns["EditProcessing"]()
+        self.processor.sd_model = None
         self.cancelled = ns["EditCancelled"]
 
     def test_cancel_before_sample_never_calls_sampler(self):

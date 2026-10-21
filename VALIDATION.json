@@ -1,5 +1,5 @@
 {
-  "version": "0.5.15",
+  "version": "0.5.16",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 109,
+    "extension_python_tests": 117,
     "javascript_tests": 13,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -449,6 +449,95 @@
         "observations": "New guidance alone still produced a picture on a grey background with an empty result description. Low-amplitude and stronger monochrome noise in the added region changed the layout but retained grain/grey surrounds; neither was adopted. Supplying a concrete expanded-scene caption filled all four borders in the installed production path at seeds 4691033308701988384 and 4691033308701988385. Exact source pixels outside the existing seam band were preserved.",
         "scope": "Noise ablations used the same full-canvas reference and effective prompt through the plain image-edit path, followed by the normal outpaint composite; saved global curves were disabled already and no preference was changed. Final caption successes were verified through the normal installed outpaint API. This is not a general success-rate guarantee."
       }
+    },
+    "fibo_shift_rope_output_size": {
+      "source": "Public 1018-square robot artwork; one source; no extra references in GPU smoke tests.",
+      "workflow": "reverentelusarca/fibo-2.0-2K-rope at 49ad4a3aa3e1b524fd798c8423e2cb7f343f2a65; effective linked ScaleROPE X=.85, Y=.80, no shifts.",
+      "coordinate_check": "Unit tests preserve gist/plane IDs and scale target/reference XY coordinates. Hooks removed after success and exceptions. Live model audit after both resized generations found zero remaining RoPE pre-hooks.",
+      "gpu_smoke": [
+        {
+          "name": "baseline",
+          "size": [
+            768,
+            768
+          ],
+          "rope": false,
+          "steps": 8,
+          "elapsed_seconds": 19.35
+        },
+        {
+          "name": "rope",
+          "size": [
+            768,
+            768
+          ],
+          "rope": true,
+          "steps": 8,
+          "elapsed_seconds": 19.34
+        },
+        {
+          "name": "after-rope",
+          "size": [
+            768,
+            768
+          ],
+          "rope": false,
+          "steps": 8,
+          "elapsed_seconds": 9.99
+        },
+        {
+          "name": "rope-2k",
+          "size": [
+            2048,
+            2048
+          ],
+          "rope": true,
+          "steps": 8,
+          "elapsed_seconds": 158.2
+        },
+        {
+          "name": "baseline-repeat",
+          "size": [
+            768,
+            768
+          ],
+          "rope": false,
+          "steps": 8,
+          "elapsed_seconds": 12.46
+        }
+      ],
+      "repeatability": "The initial off run differed from later off runs despite matching recipes. The two subsequent off runs (with another enabled run between them) matched exactly. This is not a bit-identical ComfyUI parity or quality benchmark.",
+      "exact_output_sizes": [
+        {
+          "mode": "Resize to",
+          "size": [
+            777,
+            777
+          ],
+          "working_size": [
+            800,
+            800
+          ],
+          "effective_shift": 0.87984375,
+          "recipe_import": "passed",
+          "remaining_rope_hooks": []
+        },
+        {
+          "mode": "Resize by",
+          "size": [
+            509,
+            509
+          ],
+          "working_size": [
+            512,
+            512
+          ],
+          "effective_shift": 0.63,
+          "recipe_import": "passed",
+          "remaining_rope_hooks": []
+        }
+      ],
+      "limitations": "Direct 2048x2048 generation completed at 8 Euler/Simple steps with Shift 1.15. The test confirms execution and dimensions, not a contrast fix or consistent anatomy improvement. INT8 encoder differs from linked workflow BF16 encoder. Large-resolution memory needs depend on hardware. Existing Qwen and painted/canvas preservation paths covered by CPU integration tests."
     }
   },
   "limitations": [

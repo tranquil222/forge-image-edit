@@ -17,7 +17,9 @@ from PIL.PngImagePlugin import PngInfo
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from forge_qwen_edit.masking import canonical_image, composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, fibo_masked_reference, fibo_masked_instruction, camera_angle_instruction
 from forge_qwen_edit.workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference, reference_content_box
+from forge_qwen_edit.workflow import output_resize_size, prepare_sized_reference
 from forge_qwen_edit.adapters import get_adapter
+from forge_qwen_edit.sampling import validate_fibo_sampling, resolve_fibo_shift, FIBO_ROPE_X, FIBO_ROPE_Y
 from forge_qwen_edit.metadata import build_metadata, preserve_binary_metadata
 from forge_qwen_edit.selection import validate_components
 from forge_qwen_edit.tone import match_source_tone, tone_summary
@@ -101,7 +103,20 @@ class NativeMaskedTests(unittest.TestCase):
                 with self.subTest(family=family, mode=mode):
                     self.check_masked_job(mode, family, canvas_paint=True, extra_refs=True, adjust_refs=True)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False):
+    def test_sampling_controls_reach_jobs_and_pngs_without_affecting_qwen(self):
+        for family in ("Fibo 2.0 Edit Turbo", "Qwen Image 2.1"):
+            for mode in ("Camera angle", "Replace / remove", "Outpaint"):
+                for shift_mode in ("Manual", "Image-size adjusted"):
+                    with self.subTest(family=family, mode=mode, shift_mode=shift_mode):
+                        self.check_masked_job(mode, family, fibo_shift_mode=shift_mode, fibo_shift=.75, fibo_rope=True)
+
+    def test_exact_output_size_drives_inference_and_saved_png_for_both_models(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            for resize in (dict(mode='Resize to', width=801, height=526), dict(mode='Resize by', scale=1.5)):
+                with self.subTest(family=family, resize=resize):
+                    self.check_masked_job('Camera angle', family, output_resize=resize, extra_refs=True, fibo_shift_mode='Image-size adjusted')
+
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -175,7 +190,21 @@ class NativeMaskedTests(unittest.TestCase):
                 extras[1].info[UPLOAD_DIGEST] = 'b' * 64
                 curves = [json.dumps(payload('a' * 64)), json.dumps(payload('b' * 64))]
             output, filename, seed, message = namespace["generate"](
-                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves)
+                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves, fibo_shift_mode=fibo_shift_mode, fibo_shift=fibo_shift, fibo_rope=fibo_rope, output_resize=output_resize)
+            expected_shift = resolve_fibo_shift(fibo_shift_mode, fibo_shift, calls[0].width, calls[0].height) if fibo else .69
+            self.assertEqual(calls[0].distilled_cfg_scale, expected_shift)
+            self.assertEqual(calls[0].edit_fibo_rope, fibo and fibo_rope)
+            with Image.open(filename) as saved:
+                sampling_recipe = json.loads(saved.info['image_edit'])
+            if fibo:
+                self.assertEqual(sampling_recipe['fibo_shift_effective'], expected_shift)
+                self.assertEqual(sampling_recipe['fibo_shift_mode'], fibo_shift_mode)
+                self.assertEqual(sampling_recipe['fibo_shift'], fibo_shift)
+                self.assertEqual(sampling_recipe['fibo_rope'], fibo_rope)
+                if fibo_rope:
+                    self.assertEqual(sampling_recipe['fibo_rope_scale'], {'x': .85, 'y': .8})
+            else:
+                self.assertNotIn('fibo_rope', sampling_recipe)
             if expression:
                 from forge_qwen_edit.workflow import read_recipe
                 recipe = read_recipe(filename)
@@ -248,8 +277,9 @@ class NativeMaskedTests(unittest.TestCase):
                     np.testing.assert_array_equal(np.array(selected), np.array(border))
                 return
             if camera:
-                clean = prepare_reference(source, 512)
-                box = reference_content_box(*source.size, 512)
+                size = output_resize_size(source.size, output_resize) if output_resize else None
+                clean = prepare_sized_reference(source, size) if size else prepare_reference(source, 512)
+                box = reference_content_box(*size, 0) if size else reference_content_box(*source.size, 512)
                 self.assertEqual(output.size, (box[2] - box[0], box[3] - box[1]))
                 self.assertEqual(len(calls[0].edit_references), 3 if extra_refs else 1)
                 self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(clean))
@@ -257,6 +287,7 @@ class NativeMaskedTests(unittest.TestCase):
                 self.assertEqual(calls[0].prompt, camera_angle_instruction(instruction, fibo))
                 from forge_qwen_edit.workflow import read_recipe
                 recipe = read_recipe(filename)
+                self.assertEqual(recipe.get('output_resize'), output_resize)
                 self.assertEqual(recipe["edit_mode"], "Camera angle")
                 self.assertEqual(recipe["prompt"], instruction)
                 self.assertEqual(recipe["effective_prompt"], calls[0].prompt)
@@ -275,7 +306,7 @@ class NativeMaskedTests(unittest.TestCase):
             self.assertEqual(len(calls[0].edit_references), (1 if replace else 2) + (2 if extra_refs else 0))
             self.assertIn("<image_1>" if fibo else "<image1>" if replace else "<image2>", calls[0].prompt)
             self.assertEqual(calls[0].edit_family, family)
-            self.assertEqual(calls[0].distilled_cfg_scale, 1.15 if fibo else .69)
+            self.assertEqual(calls[0].distilled_cfg_scale, expected_shift)
             self.assertEqual(calls[0].edit_prefix_cache, not fibo)
             mask = extract_mask(source, editor)
             expected_first = fibo_masked_reference(source, mask) if fibo else location_guide(source, mask, opaque=True) if replace else source

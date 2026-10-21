@@ -135,7 +135,7 @@ def import_recipe(file, current_checkpoint, modules):
     try:
         recipe = read_recipe(file)
         if recipe.get("operation") == "canvas_crop":
-            values = [gr.update() for _ in range(22)]
+            values = [gr.update() for _ in range(30)]
             values[11] = "This PNG is a canvas crop with no model settings. The crop is already in its pixels."
             return tuple(values)
         family = recipe.get("model_family", "Qwen Image 2.1")
@@ -179,17 +179,22 @@ def import_recipe(file, current_checkpoint, modules):
         dtype = "Automatic"
     shared.opts.set("forge_preset", adapter.key)
     main_entry._load_presets(choice, [encoder, vae], dtype, adapter.key)
+    resize = recipe.get("output_resize") or {}
     return (recipe["prompt"], recipe.get("negative_prompt", ""), recipe["resolution"], recipe["steps"], recipe["seed"],
             gr.update(choices=list(adapter.samplers), value=recipe["sampler"]),
             gr.update(choices=list(adapter.schedules), value=recipe["schedule"]), choice, [encoder, vae], adapter.key, dtype,
             note, gr.update(choices=[*profiles_for(adapter, checkpoint.name), "Custom"], value="Custom"), "Imported edit recipe.", family,
             gr.update(value=bool(recipe.get("prefix_cache", adapter.prefix_cache)) and adapter.prefix_cache, interactive=adapter.prefix_cache),
-            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], bool(recipe.get("preserve_tone", False)), gr.update(choices=modes, value=mode))
+            recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], bool(recipe.get("preserve_tone", False)), gr.update(choices=modes, value=mode),
+            recipe.get("fibo_shift_mode", "Manual") if adapter.key == "fibo2" else "Manual",
+            gr.update(value=recipe.get("fibo_shift", 1.15) if adapter.key == "fibo2" else 1.15, interactive=recipe.get("fibo_shift_mode", "Manual") == "Manual" or adapter.key != "fibo2"),
+            recipe.get("fibo_rope", False) if adapter.key == "fibo2" else False,
+            bool(resize), resize.get("mode", "Resize to"), resize.get("width", gr.update()), resize.get("height", gr.update()), resize.get("scale", 1))
 
 
 def import_handoff(image, checkpoint, modules):
     if image is None or not any(key in image.info for key in ("image_edit", "qwen_edit")):
-        return tuple(gr.update() for _ in range(22))
+        return tuple(gr.update() for _ in range(30))
     # read_recipe accepts PIL images as well as uploaded paths; no stored paths opened.
     return import_recipe(image, checkpoint, modules)
 
@@ -221,7 +226,7 @@ def bind(ui, controls):
     ui.correct_components.click(apply_components, [checkpoint, modules, dtype], [modules, preset], show_progress="hidden", api_name="image_edit_correct_components")
     ui.profile.input(apply_profile, [ui.profile, checkpoint], [ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.guidance], show_progress="hidden", api_name="image_edit_preset")
     recipe_outputs = [ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed, ui.sampler, ui.schedule, checkpoint, modules, preset, dtype,
-                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone, ui.area_mode]
+                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone, ui.area_mode, ui.fibo_shift_mode, ui.fibo_shift, ui.fibo_rope, ui.output_size_enabled, ui.output_size_mode, ui.output_width, ui.output_height, ui.output_scale]
     ui.import_button.click(import_recipe, [ui.recipe_file, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_import")
     ui.handoff.change(import_handoff, [ui.handoff, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_handoff")
     ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[gr.update() for _ in range(6)]),
@@ -229,5 +234,6 @@ def bind(ui, controls):
          ui.sampler, ui.schedule, checkpoint, modules, dtype, ui.prefix_cache, ui.area_only, ui.mask_editor.foreground,
          ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone,
          ui.canvas_enabled, ui.canvas_left, ui.canvas_right, ui.canvas_top, ui.canvas_bottom, ui.seam_blend, ui.canvas_shrink, ui.batch_count,
-         ui.reference2_curves, ui.reference3_curves],
+         ui.reference2_curves, ui.reference3_curves, ui.fibo_shift_mode, ui.fibo_shift, ui.fibo_rope,
+         ui.output_size_enabled, ui.output_size_mode, ui.output_width, ui.output_height, ui.output_scale],
         [ui.result, ui.download, ui.last_seed, ui.batch_gallery, ui.batch_items, ui.batch_source, ui.status], js="qwenEditSubmit", api_name="image_edit_generate")

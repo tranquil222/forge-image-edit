@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.16 beta
+
+- Add optional exact whole-image output dimensions: linked Width / Height or
+  Resize by. Infer at the requested size, edge-pad to the model grid and remove
+  only that padding before saving. New sources reset dimensions/scale without
+  clearing the checkbox. Painted/canvas edits keep their preservation behavior.
+- Add Fibo-only Manual / Image-size adjusted Shift controls under Sampling settings.
+  Manual 1.15 remains the default; automatic Shift uses actual model dimensions.
+- Add optional High-resolution RoPE matching the linked 2K workflow's X 0.85 / Y 0.80
+  spatial scaling. The queued-job hook is removed on success, cancellation or error;
+  no core patch, weight modification, hidden resize or contrast postprocessing.
+- Save/import both controls and effective Shift in PNG recipes. Old recipes retain
+  previous behavior. Qwen, masks, references and existing quality defaults are unchanged.
+- Document approximate workflow settings and distinguish this high-resolution
+  geometry experiment from a proven contrast or outpainting fix.
+
 ## 0.5.15 — beta
 
 - Make outpaint guidance scene-focused: continue the visible content across the

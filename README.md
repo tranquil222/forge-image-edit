@@ -2,7 +2,41 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.15 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.16 beta**. No ComfyUI server or cloud image service.
+
+## Fibo Shift and high-resolution RoPE
+
+Under **Sampling settings**, Fibo has two independent experimental controls:
+
+- **Shift** changes the sampling schedule. Manual **1.15** preserves the existing
+  default. **Image-size adjusted** computes Shift from the actual model working
+  dimensions, not the saved canvas size. It is not inherently better for outpainting.
+- **High-resolution RoPE** uses the spatial-coordinate scaling from
+  [reverentelusarca's 2K workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope):
+  **X 0.85 / Y 0.80**, applied to both output and reference positions. It generates
+  at the selected resolution directly; there is no upscale-and-downscale pass.
+  The toggle does not change resolution, steps, Shift, or your image pixels.
+
+To approximate that workflow, use **Fibo Edit Turbo**, **Resolution 2048**
+(roughly 4 MP), **8 steps**, **CFG 1**, **Euler / Simple**, **Manual Shift 1.15**,
+and enable **High-resolution RoPE**. Our aspect-preserving sizing/grid and Forge
+backend differ from ComfyUI, so matching the RoPE trick does not promise identical
+images. Larger model images need more memory and time. The workflow targets
+high-resolution stretching; neither control is an established contrast fix.
+
+Both controls are saved in the PNG recipe. Older PNGs restore Manual 1.15 and
+RoPE off. Qwen ignores these Fibo-only controls. Existing 4-step Turbo defaults
+and low-resolution behavior are unchanged unless you enable a control.
+
+For exact dimensions, enable **Custom output size** below Speed / quality.
+**Resize to** provides linked Width / Height sliders; **Resize by** scales from
+the loaded source (for example, 2× doubles each dimension). This sets the actual
+whole-image inference/output size, not a post-generation enlargement. It overrides
+Resolution for the source/output; additional references still use Resolution.
+Sizes are limited to 32–4096 pixels per edge. Loading a new source resets the
+dimensions and scale, but keeps your checkbox preference. The controls are hidden
+for painted and crop/outpaint edits, which retain their existing canvas geometry.
+Use Crop / outpaint to change the aspect ratio or add content outside the image.
 
 ## Install
 

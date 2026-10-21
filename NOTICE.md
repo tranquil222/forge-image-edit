@@ -9,6 +9,10 @@
   Forge's operations, attention and model-management interfaces.
 - CyberZiT schedule formula: Cyberdelia/ComfyUI-CyberZiT, MIT; see
   [license](licenses/CyberZiT.txt).
+- Optional high-resolution Fibo RoPE settings: [reverentelusarca's 2K workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope),
+  revision `49ad4a3aa3e1b524fd798c8423e2cb7f343f2a65`. X 0.85 / Y 0.80 follows the
+  linked node inputs, not the disconnected widget value. Coordinate semantics
+  match ComfyUI's `ScaleROPE` and `comfy/ldm/lumina/model.py:pos_ids_x`.
 - Curves spline interpolation: Evan Wallace's [glfx.js](https://github.com/evanw/glfx.js),
   MIT, pinned at `86ae72acfffcd50774507eb7b69887ba2493dc35`, `src/core/spline.js`.
   Its original Paint.NET attribution is retained. Only the spline is bundled,
