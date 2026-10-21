@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.17 beta
+
+- Move Fibo Shift into the right-hand space below the result/download buttons;
+  describe its effect on contrast and texture.
+- Place Custom output size directly below Edit mode and above the output summary.
+- Move High-resolution RoPE inside the expanded Custom output size section.
+  Preserve generation behavior, defaults and PNG recipe fields.
+
 ## 0.5.16 beta
 
 - Add optional exact whole-image output dimensions: linked Width / Height or

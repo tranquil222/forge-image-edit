@@ -36,6 +36,8 @@
 #image_edit_seed_controls .tool { flex: 0 0 40px; width: 40px; height: 44px; margin-bottom: 1px; }
 #image_edit_batch_count { max-width: 110px; }
 #image_edit_batch_gallery { flex-grow: 0; }
+#image_edit_fibo_sampling { flex-grow: 0; padding-top: 8px; }
+#image_edit_shift_hint p, #image_edit_rope_hint p { font-size: 12px; line-height: 1.5; margin: 0; opacity: .8; }
 #qwen_edit_resolution > .container { display: flex; flex-direction: column; }
 #qwen_edit_resolution > .container > .wrap { order: 1; }
 #qwen_edit_resolution > .container > div:not(.wrap) { order: 2; margin-top: 6px; }

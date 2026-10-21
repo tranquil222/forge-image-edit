@@ -1,5 +1,5 @@
 {
-  "version": "0.5.16",
+  "version": "0.5.17",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -538,6 +538,12 @@
         }
       ],
       "limitations": "Direct 2048x2048 generation completed at 8 Euler/Simple steps with Shift 1.15. The test confirms execution and dimensions, not a contrast fix or consistent anatomy improvement. INT8 encoder differs from linked workflow BF16 encoder. Large-resolution memory needs depend on hardware. Existing Qwen and painted/canvas preservation paths covered by CPU integration tests."
+    },
+    "sampling_controls_layout": {
+      "scope": "Layout only; inference, API generation inputs and recipe fields unchanged from 0.5.16.",
+      "browser": "Verified at 1800px and 650px: Shift beneath result/download actions; Custom output size below Edit mode and above output summary; RoPE nested inside expanded custom sizing; collapse/reopen preserves control values; auto/manual Shift interactivity works; no workspace overflow.",
+      "model_visibility": "Production callback checked for Qwen, Fibo Turbo and Fibo Dev; Shift/RoPE remain Fibo-only.",
+      "javascript_errors": "No Image Edit errors. Existing unrelated errors from dynamic-prompts, scramble-prompts and openOutpaint remain outside this change."
     }
   },
   "limitations": [

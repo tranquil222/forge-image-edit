@@ -65,7 +65,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
             gr.update(interactive=dev, label="Negative prompt" if dev else "Negative prompt (inactive at CFG 1)",
                       info="Dev uses a trained null caption when empty. Negative conditioning is text-only." if dev else "Not used at CFG 1. Express exclusions in the edit instruction."),
             gr.update(interactive=dev, info="Dev default: 5." if dev else "Fixed at 1 for this editing model."),
-            gr.update(visible=fibo), gr.update(visible=not area_only and not canvas_enabled))
+            gr.update(visible=fibo), gr.update(visible=not area_only and not canvas_enabled), gr.update(visible=fibo))
 
 
 def canvas_model_controls(family, area_only, mode, enabled):
@@ -405,6 +405,24 @@ def create_tab():
                     with gr.Column(elem_id="image_edit_standard_controls"):
                         gr.Markdown("**Paint an edit area to confine changes.** Leave unpainted for a whole-image edit.")
                         area_mode = gr.Dropdown(list(WHOLE_MODES), value=WHOLE_MODES[0], label="Edit mode", info=EDIT_MODE_INFO, elem_id="qwen_edit_area_mode")
+                        with gr.Group() as output_size_section:
+                            output_size_enabled = gr.Checkbox(value=False, label="Custom output size", interactive=False, elem_id="image_edit_output_size_enabled")
+                            with gr.Group(visible=False, elem_id="image_edit_output_size") as output_size_controls:
+                                output_size_mode = gr.Radio(["Resize to", "Resize by"], value="Resize to", show_label=False, elem_id="image_edit_output_size_mode")
+                                with gr.Row() as output_size_edges:
+                                    output_width = gr.Slider(32, 4096, value=1024, step=1, label="Width", elem_id="image_edit_output_width")
+                                    output_height = gr.Slider(32, 4096, value=1024, step=1, label="Height", elem_id="image_edit_output_height")
+                                output_scale = gr.Slider(.25, 4, value=1, step=.05, label="Resize by", info="Relative to the loaded source image.", visible=False, elem_id="image_edit_output_scale")
+                                gr.Markdown("Proportions stay linked. Generates at this size, overriding Resolution for the source/output; extra references still use Resolution. For a different canvas shape, use Crop / outpaint. Larger sizes use more memory and time.")
+                                with gr.Group(visible=False, elem_id="image_edit_fibo_rope_options") as fibo_rope_options:
+                                    fibo_rope = gr.Checkbox(value=False, label="High-resolution RoPE", elem_id="image_edit_fibo_rope",
+                                        info="Spatial scaling: X 0.85 / Y 0.80 for direct high-resolution edits.")
+                                    gr.Markdown("[2K RoPE workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope): about 4 MP, 8 steps, Euler / Simple. RoPE does not change the selected output size.", elem_id="image_edit_rope_hint")
+                            output_size_enabled.change(lambda enabled: gr.update(visible=enabled), [output_size_enabled], [output_size_controls], queue=False, show_progress="hidden", api_name=False)
+                            output_size_mode.change(lambda mode: (gr.update(visible=mode == "Resize to"), gr.update(visible=mode == "Resize by")), [output_size_mode], [output_size_edges, output_scale], queue=False, show_progress="hidden", api_name=False)
+                            output_width.input(lambda value, size: linked_output_edge(value, size, True), [output_width, canvas_source_size], [output_height], queue=False, show_progress="hidden", api_name=False)
+                            output_height.input(lambda value, size: linked_output_edge(value, size, False), [output_height, canvas_source_size], [output_width], queue=False, show_progress="hidden", api_name=False)
+                            source.change(reset_output_size, [source], [output_size_enabled, output_width, output_height, output_scale], queue=False, show_progress="hidden", api_name=False)
                         camera_note = gr.Markdown(visible=False, elem_id="image_edit_camera_help")
                         mask_help = gr.Markdown("**Scroll** to zoom · **right-drag** to pan · **Shift + paint** to erase · **F** to enlarge · **R** to fit · **Ctrl+Z** to undo · **W + scroll** for brush size.\n\nPaint the whole object and a small border, then describe what should replace it. **Green-replacement instructions are added automatically**—you do not need to type them. Unpainted pixels stay unchanged. For facial expressions, choose Refine / expression.", visible=False)
                         size_label = gr.Markdown("Output follows the first image’s aspect ratio.")
@@ -417,6 +435,12 @@ def create_tab():
                             gr.Markdown("Also saved automatically to Forge’s img2img output folder (or your custom output folder).", elem_id="image_edit_save_note")
                     # Retain the full native saved-file path for reuse and curves.
                     download = gr.File(label="Edited PNG", interactive=False, elem_id="image_edit_download_data")
+                    with gr.Group(visible=False, elem_id="image_edit_fibo_sampling") as fibo_sampling:
+                        with gr.Row():
+                            fibo_shift_mode = gr.Dropdown(list(FIBO_SHIFT_MODES), value="Manual", label="Shift mode", min_width=160, scale=1, elem_id="image_edit_fibo_shift_mode")
+                            fibo_shift = gr.Slider(0.1, 5, value=DEFAULT_FIBO_SHIFT, step=0.01, label="Shift", min_width=220, scale=2, elem_id="image_edit_fibo_shift")
+                        gr.Markdown("Can change contrast and texture. Default: **1.15**. Image-size adjusted follows the model's working dimensions.", elem_id="image_edit_shift_hint")
+                    fibo_shift_mode.change(lambda mode: gr.update(interactive=mode == "Manual"), [fibo_shift_mode], [fibo_shift], queue=False, show_progress="hidden", api_name=False)
                     batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
                         object_fit="contain", preview=False, allow_preview=False, visible=False, elem_id="image_edit_batch_gallery")
                     batch_items = gr.State([])
@@ -448,20 +472,6 @@ def create_tab():
                 profile = gr.Dropdown(list(PROFILES), value="Normal", label="Speed / quality", elem_id="qwen_edit_quality", scale=1, min_width=240)
                 resolution = gr.Dropdown([0, 512, 768, 1024, 1536, 2048], value=768, allow_custom_value=True, label="Resolution", info="Independent of quality. In painted-area mode this controls crop detail; the final image keeps its original size. 0 uses native size.", elem_id="qwen_edit_resolution", scale=1, min_width=240)
             profile_summary = gr.Markdown("Everyday edits using the efficient Comfy sampler. **12 steps.** Resolution is unchanged.", elem_id="qwen_edit_preset_summary")
-            with gr.Group() as output_size_section:
-                output_size_enabled = gr.Checkbox(value=False, label="Custom output size", interactive=False, elem_id="image_edit_output_size_enabled")
-                with gr.Group(visible=False, elem_id="image_edit_output_size") as output_size_controls:
-                    output_size_mode = gr.Radio(["Resize to", "Resize by"], value="Resize to", show_label=False, elem_id="image_edit_output_size_mode")
-                    with gr.Row() as output_size_edges:
-                        output_width = gr.Slider(32, 4096, value=1024, step=1, label="Width", elem_id="image_edit_output_width")
-                        output_height = gr.Slider(32, 4096, value=1024, step=1, label="Height", elem_id="image_edit_output_height")
-                    output_scale = gr.Slider(.25, 4, value=1, step=.05, label="Resize by", info="Relative to the loaded source image.", visible=False, elem_id="image_edit_output_scale")
-                    gr.Markdown("Proportions stay linked. Generates at this size, overriding Resolution for the source/output; extra references still use Resolution. For a different canvas shape, use Crop / outpaint. Larger sizes use more memory and time.")
-                output_size_enabled.change(lambda enabled: gr.update(visible=enabled), [output_size_enabled], [output_size_controls], queue=False, show_progress="hidden", api_name=False)
-                output_size_mode.change(lambda mode: (gr.update(visible=mode == "Resize to"), gr.update(visible=mode == "Resize by")), [output_size_mode], [output_size_edges, output_scale], queue=False, show_progress="hidden", api_name=False)
-                output_width.input(lambda value, size: linked_output_edge(value, size, True), [output_width, canvas_source_size], [output_height], queue=False, show_progress="hidden", api_name=False)
-                output_height.input(lambda value, size: linked_output_edge(value, size, False), [output_height, canvas_source_size], [output_width], queue=False, show_progress="hidden", api_name=False)
-                source.change(reset_output_size, [source], [output_size_enabled, output_width, output_height, output_scale], queue=False, show_progress="hidden", api_name=False)
             preserve_tone = gr.Checkbox(value=False, label="Auto-correct global brightness / contrast", elem_id="image_edit_preserve_tone",
                 info="Next generation only. Estimates overall drift from unchanged areas, not contrast changes confined to the edited object or lost texture. For manual adjustment, open the result → Curves. Leave off for camera moves or relighting.")
             with gr.Accordion("Additional reference images", open=False):
@@ -492,14 +502,6 @@ def create_tab():
                     sampler = gr.Dropdown(["Res Multistep", "Euler"], value="Res Multistep", label="Sampler")
                     schedule = gr.Dropdown(list(SCHEDULES), value=SCHEDULES[0], label="Schedule")
                     guidance = gr.Slider(1, 15, value=1, step=0.1, label="CFG", interactive=False)
-                with gr.Group(visible=False, elem_id="image_edit_fibo_sampling") as fibo_sampling:
-                    with gr.Row():
-                        fibo_shift_mode = gr.Dropdown(list(FIBO_SHIFT_MODES), value="Manual", label="Fibo Shift mode", elem_id="image_edit_fibo_shift_mode")
-                        fibo_shift = gr.Slider(0.1, 5, value=DEFAULT_FIBO_SHIFT, step=0.01, label="Shift", info="Changes the sampling schedule. Default: 1.15. Image-size adjusted uses the model's working dimensions.", elem_id="image_edit_fibo_shift")
-                    fibo_rope = gr.Checkbox(value=False, label="High-resolution RoPE", elem_id="image_edit_fibo_rope",
-                        info="Spatial scaling: X 0.85 / Y 0.80. For direct high-resolution edits; does not change output size. Try Resolution 2048, 8 steps, Euler / Simple to approximate the linked workflow.")
-                    gr.Markdown("[About the 2K RoPE workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope). Experimental; not an automatic contrast correction.")
-                fibo_shift_mode.change(lambda mode: gr.update(interactive=mode == "Manual"), [fibo_shift_mode], [fibo_shift], queue=False, show_progress="hidden", api_name=False)
                 prefix_cache = gr.Checkbox(value=True, label="Cache reference attention between steps", info="Turn off to save VRAM; recommended for 12–16 GB cards.")
                 negative = gr.Textbox(value="", label="Negative prompt (inactive at CFG 1)", interactive=False, lines=1, info="Not used by these CFG 1 editing modes. Express exclusions in the edit instruction.")
             keep_metadata = gr.Checkbox(value=True, label="Keep original metadata", elem_id="image_edit_keep_metadata",
@@ -551,7 +553,7 @@ def create_tab():
             for component in (family, area_only, area_mode):
                 event = component.input if component is area_mode else component.change
                 event(model_controls, [family, area_only, area_mode, canvas_enabled],
-                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance, fibo_sampling, output_size_section],
+                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance, fibo_sampling, output_size_section, fibo_rope_options],
                     js="(family, enabled, mode, canvas) => { qwenEditSetModel(family); return [family, enabled, mode, canvas]; }" if component is family else None,
                     queue=False, show_progress="hidden", api_name="image_edit_controls" if component is family else False)
             reuse.click(reuse_result, [result, download], [source])

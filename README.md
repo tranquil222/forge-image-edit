@@ -2,16 +2,18 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.16 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.17 beta**. No ComfyUI server or cloud image service.
 
 ## Fibo Shift and high-resolution RoPE
 
-Under **Sampling settings**, Fibo has two independent experimental controls:
+Fibo has two independent experimental controls:
 
-- **Shift** changes the sampling schedule. Manual **1.15** preserves the existing
+- **Shift**, below the result/download buttons, changes the sampling schedule and
+  can affect contrast and texture. Manual **1.15** preserves the existing
   default. **Image-size adjusted** computes Shift from the actual model working
   dimensions, not the saved canvas size. It is not inherently better for outpainting.
-- **High-resolution RoPE** uses the spatial-coordinate scaling from
+- **High-resolution RoPE**, inside the expanded **Custom output size** section,
+  uses the spatial-coordinate scaling from
   [reverentelusarca's 2K workflow](https://huggingface.co/reverentelusarca/fibo-2.0-2K-rope):
   **X 0.85 / Y 0.80**, applied to both output and reference positions. It generates
   at the selected resolution directly; there is no upscale-and-downscale pass.
@@ -28,7 +30,8 @@ Both controls are saved in the PNG recipe. Older PNGs restore Manual 1.15 and
 RoPE off. Qwen ignores these Fibo-only controls. Existing 4-step Turbo defaults
 and low-resolution behavior are unchanged unless you enable a control.
 
-For exact dimensions, enable **Custom output size** below Speed / quality.
+For exact dimensions, enable **Custom output size** immediately below Edit mode,
+above the whole-image output summary.
 **Resize to** provides linked Width / Height sliders; **Resize by** scales from
 the loaded source (for example, 2× doubles each dimension). This sets the actual
 whole-image inference/output size, not a post-generation enlargement. It overrides
