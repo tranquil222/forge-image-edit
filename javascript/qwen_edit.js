@@ -1,5 +1,7 @@
 function qwenEditSubmit(...args) {
     if (window.imageEditCurvesBusy) throw new Error("Wait for the curves adjustment to finish saving.");
+    // Gradio appends current output values after the 33 inputs in JS callbacks.
+    if (window.imageEditReferencePayloads) [args[31], args[32]] = window.imageEditReferencePayloads();
     const id = randomId();
     window.qwenEditPendingOriginalUrl = gradioApp().querySelector("#qwen_edit_source img")?.src || "";
     const container = gradioApp().getElementById("qwen_edit_result_container");

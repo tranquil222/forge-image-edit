@@ -1,7 +1,8 @@
-// Viewer-only adjustment mode. Preview always starts from immutable result pixels.
+// Shared curves controls. Preview always starts from immutable source pixels.
 (() => {
-    window.createImageEditCurves = function(dialog, picture, preview, callbacks) {
+    window.createImageEditCurves = function(dialog, picture, preview, callbacks, options = {}) {
         const C = window.ImageEditCurves;
+        const reference = !!options.reference;
         const panel = dialog.querySelector(".qe-curves-panel");
         panel.innerHTML = `<div class="qe-curves-title"><strong>Curves & levels</strong><label><input type="checkbox" data-field="preview" checked> Preview</label></div>
             <div class="qe-curves-scope">Loading adjustment area…</div>
@@ -39,6 +40,10 @@
         const defaultCheck = panel.querySelector('[data-field="fibo-default"]');
         const defaultHint = panel.querySelector('[data-field="default-hint"]');
         const input = panel.querySelector('[data-field="input"]'), output = panel.querySelector('[data-field="output"]');
+        if (reference) {
+            for (const el of panel.querySelectorAll('.qe-curves-mask-controls, [data-curve="apply"], .qe-curves-default, [data-field="default-hint"]')) el.hidden = true;
+            previewCheck.title = "Compare with the uploaded original. Adjustments are still used for generation.";
+        }
         let settings = C.defaults(), channel = "rgb", selected = 0, undo = [], redo = [];
         let raw = null, histogram = null, hash = "", currentUrl = "", downloadUrl = "";
         let original = false, dragging = false, pendingFrame = 0, loadVersion = 0, pending = null;
@@ -71,7 +76,8 @@
         function visibility() {
             const show = !!raw && contextReady && !original && previewCheck.checked && changed();
             preview.hidden = !show;
-            picture.style.display = show ? "none" : "block";
+            if (reference) picture.style.visibility = show ? "hidden" : "";
+            else picture.style.display = show ? "none" : "block";
         }
         function controls() {
             const points = settings[channel].points;
@@ -129,7 +135,17 @@
         }
         function update() {
             luts = C.compile(settings); controls(); draw();
+            if (reference && contextReady) {
+                status.textContent = changed() ? "Adjusted tones will be sent to the model. Preview compares with the original; it does not disable adjustments." : "The original reference will be sent. Changes here never overwrite your upload.";
+                callbacks.changed?.(changed());
+            }
             if (!pendingFrame) pendingFrame = requestAnimationFrame(render);
+        }
+        function makeHistogram() {
+            histogram = Object.fromEntries(C.channels.map(name => [name, new Array(256).fill(0)]));
+            for (let i = 0; i < raw.data.length; i += 4) if (raw.data[i + 3] && (!mask || mask[i / 4])) {
+                C.channels.slice(1).forEach((name, c) => { histogram[name][raw.data[i + c]]++; histogram.rgb[raw.data[i + c]]++; });
+            }
         }
         function pointAt(event) {
             const rect = graph.getBoundingClientRect();
@@ -230,6 +246,10 @@
                 const context = preview.getContext("2d", {willReadFrequently: true});
                 context.drawImage(bitmap, 0, 0, preview.width, preview.height); bitmap.close();
                 raw = context.getImageData(0, 0, preview.width, preview.height);
+                if (reference) {
+                    contextReady = true; scopeLabel.textContent = "Reference only · original kept";
+                    makeHistogram(); update(); return;
+                }
                 const field = gradioApp().querySelector("#image_edit_curves_request textarea");
                 if (!field) throw new Error("Reload Forge's UI to enable curves.");
                 contextId = crypto.randomUUID();
@@ -262,18 +282,28 @@
                 clearTimeout(scopeTimer); hasMask = false; restrictMask = true; maskFeather = 0;
                 fiboDefault = {eligible: false, enabled: false, available: false, can_capture: false};
                 defaultCheck.checked = false;
-                scopeLabel.textContent = "Loading adjustment area…";
+                scopeLabel.textContent = reference ? "Reference only · original kept" : "Loading adjustment area…";
                 settings = C.defaults(); undo = []; redo = []; selected = 0;
                 previewCheck.checked = true; update();
-                if (!panel.hidden) { status.textContent = "Loading result…"; loadPixels(); }
+                if (!panel.hidden) { status.textContent = "Loading image…"; loadPixels(); }
             },
             toggle() {
                 panel.hidden = !panel.hidden;
                 dialog.querySelector('[data-action="curves"]').setAttribute("aria-pressed", String(!panel.hidden));
+                dialog.querySelector('[data-action="curves"]').setAttribute("aria-expanded", String(!panel.hidden));
                 if (!panel.hidden) { callbacks.selectEdited(); loadPixels(); }
                 callbacks.layoutChanged();
             },
             compare(value) { original = value; visibility(); },
+            payload() {
+                if (!changed()) return "";
+                if (!contextReady || !hash) throw new Error(loadError || "Wait for the reference image to finish loading before generating.");
+                return JSON.stringify({version: 1, base_sha256: hash, settings, luts});
+            },
+            destroy() {
+                loadVersion++; cancelAnimationFrame(pendingFrame); clearTimeout(scopeTimer);
+                if (reference) picture.style.visibility = "";
+            },
             async download(event) {
                 if (pending || changed()) { event.preventDefault(); if (!pending) await save(true); }
             },
@@ -302,10 +332,7 @@
                     fiboDefault = data.fibo_default || {eligible: false, enabled: false, available: false, can_capture: false};
                     defaultCheck.checked = fiboDefault.eligible && fiboDefault.enabled;
                     status.textContent = mask ? "Only the painted area changes. Outside pixels stay exact." : "The whole image is adjusted. Apply keeps the previous file.";
-                    histogram = Object.fromEntries(C.channels.map(name => [name, new Array(256).fill(0)]));
-                    for (let i = 0; i < raw.data.length; i += 4) if (raw.data[i + 3] && (!mask || mask[i / 4])) {
-                        C.channels.slice(1).forEach((name, c) => { histogram[name][raw.data[i + c]]++; histogram.rgb[raw.data[i + c]]++; });
-                    }
+                    makeHistogram();
                     update(); return;
                 }
                 if (!pending || data.id !== pending.id) return;
@@ -332,7 +359,7 @@
                 controls();
             }
         };
-        window.imageEditCurvesSaved = receipt => controller.completed(receipt);
+        if (!reference) window.imageEditCurvesSaved = receipt => controller.completed(receipt);
         update();
         return controller;
     };

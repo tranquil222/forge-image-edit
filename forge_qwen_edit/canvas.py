@@ -3,7 +3,9 @@
 import json
 import uuid
 import base64
+import hashlib
 from io import BytesIO
+from pathlib import Path
 
 import gradio as gr
 from gradio.context import Context
@@ -12,6 +14,18 @@ from PIL.PngImagePlugin import PngInfo
 
 from modules.shared import opts
 from modules_forge.forge_canvas.canvas import LogicalImage, canvas_html
+
+
+class ReferenceImage(gr.Image):
+    """Bind tone settings to the uploaded file without replacing its pixels."""
+    is_template = True
+
+    def preprocess(self, payload):
+        image = super().preprocess(payload)
+        if image is not None:
+            from .reference_adjustments import UPLOAD_DIGEST
+            image.info[UPLOAD_DIGEST] = hashlib.sha256(Path(payload.path).read_bytes()).hexdigest()
+        return image
 
 
 class MetadataImage(LogicalImage):

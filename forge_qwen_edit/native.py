@@ -25,6 +25,7 @@ from .fibo_defaults import apply_default
 from .outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
 from .masking import masked_reference_instruction
 from .adjustments import MASK_KEY, encode_selection, remember_selection
+from .reference_adjustments import adjust_reference, reference_adjustment_records
 from .masking import camera_angle_instruction
 
 
@@ -196,7 +197,7 @@ def isolated_options(checkpoint, modules, storage_dtype="Automatic"):
             setattr(dynamic_args, key, value)
 
 
-def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None):
+def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None, reference_curves=None):
     adapter = get_adapter(model_family)
     guidance = adapter.guidance if guidance is None else float(guidance)
     if not 1 <= guidance <= 15 or (adapter.guidance == 1 and guidance != 1):
@@ -249,6 +250,11 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         if area_only:
             raise ValueError("Camera angle uses the whole scene. Clear the painted area first.")
         effective_instruction = camera_angle_instruction(instruction, adapter.key == "fibo2")
+    if reference_curves is not None:
+        if not isinstance(reference_curves, (tuple, list)) or len(reference_curves) != 2:
+            raise ValueError("Reference adjustments require one setting for each reference slot.")
+        reference2 = adjust_reference(reference2, reference_curves[0])
+        reference3 = adjust_reference(reference3, reference_curves[1])
     extra_references = [im for im in (reference2, reference3) if im is not None]
     input_references = [original, *extra_references]
     if area_only:
@@ -317,6 +323,9 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "edit_mode": area_mode if area_only or area_mode == "Camera angle" else "Standard",
         "source_size": list(original.size),
     }
+    reference_adjustments = reference_adjustment_records((reference2, reference3))
+    if reference_adjustments:
+        recipe["reference_adjustments"] = reference_adjustments
     if area_only:
         recipe["masked_reference_guidance"] = bool(extra_references)
         recipe["masked_edit"] = {"crop": list(crop), "mask_sha256": image_digest(mask), "feather": float(feather), "guide_reference": guide_reference, "mode": area_mode, "clean_reference_sent": not replace}

@@ -25,6 +25,7 @@ from forge_qwen_edit.adjustments import MASK_KEY, encode_selection, remember_sel
 from forge_qwen_edit.fibo_defaults import apply_default as apply_fibo_default
 from forge_qwen_edit.outpaint import canvas_plan, canvas_images, canvas_blend_mask, canvas_reference_resolution, outpaint_instruction
 from forge_qwen_edit.masking import masked_reference_instruction
+from forge_qwen_edit.reference_adjustments import adjust_reference, reference_adjustment_records, UPLOAD_DIGEST
 
 
 class NativeMaskedTests(unittest.TestCase):
@@ -83,7 +84,13 @@ class NativeMaskedTests(unittest.TestCase):
                 with self.subTest(family=family, mode=mode):
                     self.check_masked_job(mode, family, canvas_paint=True, extra_refs=True)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False):
+    def test_adjusted_references_reach_inference_for_global_paint_and_outpaint(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            for mode in ("Camera angle", "Replace / remove", "Outpaint"):
+                with self.subTest(family=family, mode=mode):
+                    self.check_masked_job(mode, family, canvas_paint=True, extra_refs=True, adjust_refs=True)
+
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -140,14 +147,27 @@ class NativeMaskedTests(unittest.TestCase):
             edges = (canvas_edges if canvas_edges is not None else {"left": -32, "right": 80, "top": 24, "bottom": -20}) if mode == "Outpaint" else None
             instruction = "Move the camera near the ground looking up at the subject." if camera else "Remove the stray object."
             extras = [Image.new('RGB', (320, 240), (155, 90, 40)), Image.new('RGB', (240, 320), (20, 180, 60))] if extra_refs else [None, None]
+            curves = None
+            if adjust_refs:
+                from test_adjustments import payload
+                extras[0].info[UPLOAD_DIGEST] = 'a' * 64
+                extras[1].info[UPLOAD_DIGEST] = 'b' * 64
+                curves = [json.dumps(payload('a' * 64)), json.dumps(payload('b' * 64))]
             output, filename, seed, message = namespace["generate"](
-                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges)
+                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves)
             if extra_refs:
                 self.assertEqual(len(calls[0].edit_references), 3)
-                for actual, extra in zip(calls[0].edit_references[1:], extras):
+                expected_extras = [adjust_reference(im, data) for im, data in zip(extras, curves)] if curves else extras
+                for actual, extra in zip(calls[0].edit_references[1:], expected_extras):
                     self.assertEqual(image_digest(actual), image_digest(prepare_reference(extra, 512)))
-                self.assertIn('<image_2>' if fibo else 'image 2', calls[0].prompt)
-                self.assertIn('not a collage', calls[0].prompt)
+                if not camera:
+                    self.assertIn('<image_2>' if fibo else 'image 2', calls[0].prompt)
+                    self.assertIn('not a collage', calls[0].prompt)
+                if adjust_refs:
+                    self.assertEqual(extras[0].getpixel((0, 0)), (155, 90, 40))
+                    self.assertEqual(extras[1].getpixel((0, 0)), (20, 180, 60))
+                    with Image.open(filename) as saved:
+                        self.assertEqual(json.loads(saved.info['image_edit'])['reference_adjustments'], reference_adjustment_records(expected_extras))
             if edges is not None:
                 plan = canvas_plan(source.size, edges)
                 expanded, hard = canvas_images(source, plan, extract_mask(source, editor) if canvas_paint else None)
@@ -183,7 +203,7 @@ class NativeMaskedTests(unittest.TestCase):
                 clean = prepare_reference(source, 512)
                 box = reference_content_box(*source.size, 512)
                 self.assertEqual(output.size, (box[2] - box[0], box[3] - box[1]))
-                self.assertEqual(len(calls[0].edit_references), 1)
+                self.assertEqual(len(calls[0].edit_references), 3 if extra_refs else 1)
                 self.assertEqual(image_digest(calls[0].edit_references[0]), image_digest(clean))
                 self.assertIn(instruction, calls[0].prompt)
                 self.assertEqual(calls[0].prompt, camera_angle_instruction(instruction, fibo))

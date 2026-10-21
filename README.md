@@ -157,6 +157,19 @@ from `<image_2>`, adapted to the perspective and lighting of `<image_1>`."
 References are numbered in filled-slot order; fill Image 2 before Image 3 to
 keep the labels aligned. Additional references increase memory use.
 
+Use **Edit** beneath an additional reference to expand its **Curves & levels**.
+Each slot has independent RGB/channel curves, levels, undo/redo and resets. The
+preview updates in place, while the uploaded file stays untouched. Generation
+applies those adjustments to the full-resolution original before resizing it for
+the model, including during painting and outpaint. Closing Edit keeps the changes;
+**Reset all** restores the original tones. **Preview** only switches the displayed
+comparison, not what is sent. Clearing or replacing a reference resets that slot.
+The generated recipe records the adjustment; re-uploaded references start unadjusted.
+
+The small `<image_1>`, `<image_2>` and `<image_3>` buttons beside **Edit instruction**
+and **Describe the finished image** insert the selected token at that field's cursor
+(or replace its selected text).
+
 Fibo's masked + multi-reference combination is **experimental**: its documented
 [masked pipeline](https://github.com/muhammadali-afridi/diffusers/blob/ali/fibo2/src/diffusers/pipelines/bria_fibo2/pipeline_bria_fibo2.py)
 accepts one image. This extension instead sends the already grey-masked source

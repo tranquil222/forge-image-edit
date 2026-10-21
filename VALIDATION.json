@@ -1,5 +1,5 @@
 {
-  "version": "0.5.10",
+  "version": "0.5.11",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 100,
-    "javascript_tests": 12,
+    "extension_python_tests": 106,
+    "javascript_tests": 13,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -410,6 +410,14 @@
       "unit_checks": "88 Python and 11 JavaScript tests passed. Prompt extraction covers Forge/A1111, EXIF, original edit history, ComfyUI positive branches, linked strings, guiders, multiple prompts, negative/disconnected exclusion and malformed/cyclic graphs.",
       "browser_checks": "Isolated current-base Forge: empty-source controls disabled; original prompt lookup, Fibo description target without instruction replacement, Qwen instruction target, multiple ComfyUI choices, result reuse and IIB transfer with selection retained and edges reset, clearing/reloading, centered slider ranges, missing-prompt non-destructive behavior, native crop save and wide/narrow layout.",
       "scope": "No inference/backend changes. User confirmed the previously unfilled grey outpaint border completed after supplying the scene prompt in the Fibo finished-image description; no claim that all outpaints succeed."
+    },
+    "reference_tone_0511": {
+      "method": "Isolated current-base Forge, Edge browser and CPU-only inference fixture. No GPU image-quality claim.",
+      "unit_checks": "106 Python and 13 JavaScript tests passed. Independent reference corrections, preserved original RGBA and alpha, repeated non-cumulative application, stale upload rejection, slot-specific recipes and full global/paint/outpaint inference dispatch for Fibo and Qwen covered. JS checks include Gradio appended output arguments.",
+      "browser_checks": "Empty Edit controls disabled; both reference editors expand independently. RGB/channel changes, comparison preview, undo/reset, collapse persistence, image replacement/clear and existing result-curve save passed. No page errors; wide/narrow layout and light/dark styles inspected.",
+      "pixel_checks": "Both preview PNGs match full-resolution LUT correction exactly. Both model-input hashes match independently prepared corrected references using the QA Pillow version. Uploaded original file hashes remain unchanged; PNG recipes contain the submitted per-slot settings.",
+      "scope": "Adjustments are applied locally before reference resizing for inference. Preview is a comparison toggle, not a generation bypass. Reference originals remain in their upload controls; changing an upload resets only its controls.",
+      "prompt_shortcuts": "Three token buttons beside each prompt. Browser checks passed for cursor insertion, selection replacement, keyboard activation, empty fields, field isolation and wide/narrow layouts; no page errors."
     }
   },
   "limitations": [

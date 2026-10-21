@@ -16,6 +16,11 @@
 #image_edit_prompt_heading { align-items: center; gap: 8px; }
 #image_edit_prompt_heading p { margin: 0; }
 #image_edit_get_prompt { min-height: 32px; }
+#qwen_edit_workspace .qe-prompt-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.qe-prompt-tokens { display: inline-flex; align-items: center; gap: 4px; }
+#qwen_edit_workspace .qe-prompt-tokens button { padding: 2px 7px; min-height: 23px; border: 1px solid var(--button-secondary-border-color, #484e59); border-radius: 4px; color: var(--body-text-color); background: var(--button-secondary-background-fill); font: 11px ui-monospace, monospace; line-height: 1.3; cursor: pointer; }
+#qwen_edit_workspace .qe-prompt-tokens button:hover { background: var(--button-secondary-background-fill-hover); }
+#qwen_edit_workspace .qe-prompt-tokens button:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
 #image_edit_download_data { display: none !important; }
 #image_edit_run_row { align-items: flex-end; flex-wrap: wrap; flex-direction: row-reverse; gap: 16px; }
 #image_edit_seed_controls { flex: 1 1 410px; align-items: flex-end; gap: 8px; }
@@ -41,10 +46,10 @@
 #qwen_edit_lightbox::backdrop { background: rgba(0, 0, 0, .86); }
 #qwen_edit_lightbox .qe-viewer-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid #343740; }
 #qwen_edit_lightbox .qe-viewer-compare, #qwen_edit_lightbox .qe-viewer-tools { display: flex; align-items: center; gap: 6px; }
-#qwen_edit_lightbox button, #qwen_edit_lightbox a { border: 1px solid #4b4f59; border-radius: 5px; background: #252932; color: inherit; padding: 7px 11px; cursor: pointer; font: inherit; text-decoration: none; }
-#qwen_edit_lightbox button[aria-pressed="true"] { background: #255c76; border-color: #6bbbd8; }
-#qwen_edit_lightbox button:disabled { opacity: .4; cursor: default; }
-#qwen_edit_lightbox button:focus-visible, #qwen_edit_lightbox a:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) button, :is(#qwen_edit_lightbox, .qe-reference-editor) a { border: 1px solid #4b4f59; border-radius: 5px; background: #252932; color: inherit; padding: 7px 11px; cursor: pointer; font: inherit; text-decoration: none; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) button[aria-pressed="true"] { background: #255c76; border-color: #6bbbd8; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) button:disabled { opacity: .4; cursor: default; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) button:focus-visible, :is(#qwen_edit_lightbox, .qe-reference-editor) a:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
 #qwen_edit_lightbox .qe-viewer-caption { flex: 1; white-space: nowrap; opacity: .85; }
 #qwen_edit_lightbox .qe-viewer-zoom { min-width: 48px; text-align: center; }
 #qwen_edit_lightbox .qe-viewer-viewport { flex: 1; min-height: 0; overflow: auto; padding: 16px; cursor: grab; touch-action: none; }
@@ -55,42 +60,56 @@
 #qwen_edit_lightbox .qe-viewer-viewport { min-width: 0; }
 #qwen_edit_lightbox .qe-viewer-stage { margin: 0 auto; flex-shrink: 0; }
 #qwen_edit_lightbox .qe-viewer-preview { display: block; max-width: none; max-height: none; object-fit: contain; }
-#qwen_edit_lightbox [hidden] { display: none !important; }
-#qwen_edit_lightbox .qe-curves-panel { box-sizing: border-box; flex: 0 0 316px; width: 316px; padding: 16px; overflow-y: auto; border-left: 1px solid #343740; background: #1a1d24; cursor: default; }
-#qwen_edit_lightbox .qe-curves-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
-#qwen_edit_lightbox .qe-curves-title label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-#qwen_edit_lightbox .qe-curves-scope { font-size: 12px; color: #b7c8d8; margin-bottom: 14px; }
-#qwen_edit_lightbox .qe-curves-mask-controls { margin-bottom: 14px; font-size: 12px; }
-#qwen_edit_lightbox .qe-curves-mask-controls label { display: flex; align-items: center; gap: 7px; }
-#qwen_edit_lightbox .qe-curves-feather-label { justify-content: space-between; margin-top: 10px; }
-#qwen_edit_lightbox .qe-curves-mask-controls input[type="range"] { width: 100%; margin: 7px 0 0; }
-#qwen_edit_lightbox .qe-curves-mask-controls .qe-curves-hint { margin: 7px 0 0; }
-#qwen_edit_lightbox .qe-curves-channel { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-#qwen_edit_lightbox select, #qwen_edit_lightbox input[type="number"] { color: #e8eaf0; background: #11151c; border: 1px solid #484e59; border-radius: 4px; padding: 6px; min-width: 0; font: inherit; box-sizing: border-box; }
-#qwen_edit_lightbox select { flex: 1; width: 100%; }
-#qwen_edit_lightbox .qe-curves-graph { width: 100%; height: auto; display: block; margin-top: 12px; border: 1px solid #414650; border-radius: 4px; cursor: crosshair; touch-action: none; }
-#qwen_edit_lightbox .qe-curves-graph:focus-visible { outline: 2px solid #79c6e2; }
-#qwen_edit_lightbox .qe-curves-points, #qwen_edit_lightbox .qe-levels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; align-items: end; }
-#qwen_edit_lightbox .qe-curves-points label, #qwen_edit_lightbox .qe-levels-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
-#qwen_edit_lightbox .qe-curves-points input, #qwen_edit_lightbox .qe-levels-grid input { width: 100%; }
-#qwen_edit_lightbox .qe-curves-hint { color: #a9aeb9; font-size: 11px; margin: 10px 0 18px; }
-#qwen_edit_lightbox details { border-top: 1px solid #343740; padding-top: 12px; font-size: 13px; }
-#qwen_edit_lightbox summary { cursor: pointer; }
-#qwen_edit_lightbox .qe-curves-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 12px; }
-#qwen_edit_lightbox .qe-curves-actions button, #qwen_edit_lightbox .qe-curves-points button { padding: 6px 8px; font-size: 12px; }
-#qwen_edit_lightbox .qe-curves-apply { width: 100%; background: #2a586d; border-color: #527d91; }
-#qwen_edit_lightbox .qe-curves-status { font-size: 12px; line-height: 1.5; color: #bac1cd; margin: 12px 0 0; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) [hidden] { display: none !important; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-panel { box-sizing: border-box; flex: 0 0 316px; width: 316px; padding: 16px; overflow-y: auto; border-left: 1px solid #343740; background: #1a1d24; cursor: default; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-title label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-scope { font-size: 12px; color: #b7c8d8; margin-bottom: 14px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-mask-controls { margin-bottom: 14px; font-size: 12px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-mask-controls label { display: flex; align-items: center; gap: 7px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-feather-label { justify-content: space-between; margin-top: 10px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-mask-controls input[type="range"] { width: 100%; margin: 7px 0 0; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-mask-controls .qe-curves-hint { margin: 7px 0 0; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-channel { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) select, :is(#qwen_edit_lightbox, .qe-reference-editor) input[type="number"] { color: #e8eaf0; background: #11151c; border: 1px solid #484e59; border-radius: 4px; padding: 6px; min-width: 0; font: inherit; box-sizing: border-box; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) select { flex: 1; width: 100%; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-graph { width: 100%; height: auto; display: block; margin-top: 12px; border: 1px solid #414650; border-radius: 4px; cursor: crosshair; touch-action: none; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-graph:focus-visible { outline: 2px solid #79c6e2; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-points, :is(#qwen_edit_lightbox, .qe-reference-editor) .qe-levels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; align-items: end; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-points label, :is(#qwen_edit_lightbox, .qe-reference-editor) .qe-levels-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-points input, :is(#qwen_edit_lightbox, .qe-reference-editor) .qe-levels-grid input { width: 100%; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-hint { color: #a9aeb9; font-size: 11px; margin: 10px 0 18px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) details { border-top: 1px solid #343740; padding-top: 12px; font-size: 13px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) summary { cursor: pointer; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 12px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-actions button, :is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-points button { padding: 6px 8px; font-size: 12px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-apply { width: 100%; background: #2a586d; border-color: #527d91; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-status { font-size: 12px; line-height: 1.5; color: #bac1cd; margin: 12px 0 0; }
 @media (max-width: 700px) {
     #qwen_edit_lightbox .qe-viewer-body { flex-direction: column; overflow: auto; }
     #qwen_edit_lightbox .qe-viewer-viewport { min-height: 45vh; }
-    #qwen_edit_lightbox .qe-curves-panel { flex-basis: auto; width: 100%; border-left: none; border-top: 1px solid #343740; }
-    #qwen_edit_lightbox .qe-curves-graph { max-width: 280px; }
+    :is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-panel { flex-basis: auto; width: 100%; border-left: none; border-top: 1px solid #343740; }
+    :is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-graph { max-width: 280px; }
 }
-#qwen_edit_lightbox .qe-curves-default {
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-default {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     margin-top: 14px;
     font-size: 14px;
 }
-#qwen_edit_lightbox .qe-curves-default input { margin-top: 3px; }
+:is(#qwen_edit_lightbox, .qe-reference-editor) .qe-curves-default input { margin-top: 3px; }
+
+.qe-reference-editor { color: var(--body-text-color, #e8eaf0); }
+.qe-reference-editor > button { min-width: 70px; font-size: 13px; color: #e8eaf0; }
+#qwen_edit_workspace .qe-reference-editor button,
+#qwen_edit_workspace .qe-reference-editor .qe-curves-panel :is(label, strong, summary) { color: #e8eaf0; }
+.qe-reference-note { margin-left: 10px; font-size: 12px; opacity: .75; }
+#qwen_edit_workspace .qe-reference-editor .qe-curves-panel { color: #e8eaf0; width: 100%; max-width: 360px; margin: 12px auto 0; padding: 14px; border: 1px solid #343740; border-radius: 8px; }
+.qe-reference-editor .qe-curves-graph { max-width: 280px; margin-left: auto; margin-right: auto; }
+.qe-reference-image-stage { position: relative; }
+.qe-reference-image-stage .qe-reference-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.qe-reference-image-stage .qe-reference-preview[hidden] { display: none !important; }
+@media (max-width: 800px) {
+    #image_edit_reference_row { flex-direction: column; }
+}

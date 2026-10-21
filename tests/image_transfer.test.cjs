@@ -68,3 +68,16 @@ test("failed download and external URL leave existing source untouched", async (
     await assert.rejects(h.send("https://example.com/image.png"), /this Forge image browser/);
     assert.deepEqual(h.events, []);
 });
+
+test("generation submits current reference curves in input slots, not appended output slots", () => {
+    const context = {window: {imageEditReferencePayloads: () => ['reference-two', 'reference-three']},
+        document: {addEventListener() {}}, randomId: () => 'task(test)',
+        gradioApp: () => ({querySelector: () => ({src: '/source.png'}), getElementById: () => null})};
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../javascript/qwen_edit.js'), 'utf8'), context);
+    const values = Array.from({length: 40}, (_, i) => `value-${i}`);
+    const submitted = Array.from(context.qwenEditSubmit(...values));
+    assert.equal(submitted[0], 'task(test)');
+    assert.deepEqual(submitted.slice(1, 31), values.slice(1, 31));
+    assert.deepEqual(submitted.slice(31, 33), ['reference-two', 'reference-three']);
+    assert.deepEqual(submitted.slice(33), values.slice(33));
+});

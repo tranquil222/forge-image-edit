@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.11 — beta
+
+- Add compact `<image_1>`, `<image_2>` and `<image_3>` insertion buttons beside
+  Edit instruction and Describe the finished image. Insert at the cursor or replace
+  the selection in that field without changing the other prompt.
+- Add an Edit button under each additional reference. Expand the shared RGB/channel
+  curves and levels controls, with preview comparison, undo/redo and resets.
+- Keep uploaded originals unchanged. Apply each reference's current adjustment at
+  full resolution before model preparation, for global edits, painting and outpaint.
+  Closing the controls keeps the adjustment; replacing or clearing an image resets
+  only that reference. Bind adjustments to the upload hash to reject stale settings.
+- Record reference tone adjustments in the generated PNG recipe. Reference controls
+  do not alter result curves, global defaults or the source image.
+
 ## 0.5.10 — beta
 
 - Allow additional references during painted edits and outpaint. Keep the masked

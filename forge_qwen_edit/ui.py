@@ -15,7 +15,7 @@ from modules_forge import main_entry, main_thread
 
 from .workflow import PROFILES, SCHEDULES, cyberzit_quality_values, reference_content_box
 from .masking import AREA_MODES, WHOLE_MODES, canonical_image, has_painted_area, edit_modes, extract_mask
-from .canvas import EditCanvas, MetadataImage
+from .canvas import EditCanvas, MetadataImage, ReferenceImage
 from . import model_bar
 from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
 from .batching import run_batch, validate_count
@@ -190,6 +190,7 @@ def run_canvas_crop(source, enabled, left, right, top, bottom, keep_metadata, fo
 
 
 def run_canvas_edit(task_id, *args):
+    *args, reference2_curves, reference3_curves = args
     *args, batch_count = args
     batch_count = validate_count(batch_count)
     *args, canvas_enabled, left, right, top, bottom, seam_blend, shrink_by = args
@@ -208,7 +209,8 @@ def run_canvas_edit(task_id, *args):
             return run_canvas_crop(base[0], True, left, right, top, bottom, keep_metadata, foreground, shrink_by)
     checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
-                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges, batch_count=batch_count)
+                    adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges,
+                    (reference2_curves, reference3_curves), batch_count=batch_count)
 
 
 def custom_settings(family=DEFAULT_FAMILY):
@@ -391,9 +393,17 @@ def create_tab():
                 info="Next generation only. Estimates overall drift from unchanged areas, not contrast changes confined to the edited object or lost texture. For manual adjustment, open the result → Curves. Leave off for camera moves or relighting.")
             with gr.Accordion("Additional reference images", open=False):
                 reference_help = gr.Markdown("Optional. Refer to the source as **image 1**, then **image 2** and **image 3** in your instruction. More references use more memory.")
-                with gr.Row():
-                    reference2 = gr.Image(label="Image 2", type="pil", image_mode="RGBA", height=240, elem_id="image_edit_reference2")
-                    reference3 = gr.Image(label="Image 3", type="pil", image_mode="RGBA", height=240, elem_id="image_edit_reference3")
+                with gr.Row(elem_id="image_edit_reference_row"):
+                    references = []
+                    for slot in (2, 3):
+                        with gr.Column(min_width=280):
+                            references.append(ReferenceImage(label=f"Image {slot}", type="pil", image_mode="RGBA", format="png", height=240, elem_id=f"image_edit_reference{slot}"))
+                            gr.HTML(f'<div class="qe-reference-editor" data-reference-slot="{slot}"><button type="button" data-action="curves" aria-expanded="false" disabled>Edit</button><span class="qe-reference-note">Load a reference to adjust its tones.</span><div class="qe-curves-panel" hidden></div></div>')
+                    reference2, reference3 = references
+                reference2_curves = gr.Textbox(value="", visible=False)
+                reference3_curves = gr.Textbox(value="", visible=False)
+                for component in (reference2_curves, reference3_curves):
+                    component.do_not_save_to_config = True
             with gr.Accordion("Sampling settings", open=False):
                 feather = gr.Slider(0, 64, value=8, step=1, label="Painted edge blending", interactive=False, info="Only used with a painted area. Softens its inside edge; pixels outside the painting stay untouched.")
                 with gr.Row():
