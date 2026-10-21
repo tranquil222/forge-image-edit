@@ -56,7 +56,10 @@ def main():
             raise SystemExit("Invalid backend path. No files changed.")
         if digest(target) != item["before_sha256"]:
             raise SystemExit(f"Customized or unsupported file: {item['path']}. No files changed; manual integration is required.")
-    subprocess.run(["git", "-C", str(root), "apply", "--check", str(patch)], check=True)
+    # Some upstream files store CRLF in Git itself. Exact normalized file hashes
+    # above already checked the content; tolerate line endings in patch context.
+    apply_command = ["git", "-C", str(root), "apply", "--ignore-space-change"]
+    subprocess.run([*apply_command, "--check", str(patch)], check=True)
     if not args.apply:
         print("Compatible backend files; patch check passed. Add --apply to install the backend. No files changed.")
         return
@@ -69,7 +72,7 @@ def main():
             saved = backup / item["path"]
             saved.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, saved)
-    subprocess.run(["git", "-C", str(root), "apply", str(patch)], check=True)
+    subprocess.run([*apply_command, str(patch)], check=True)
     for item in manifest["files"]:
         if digest(root / item["path"]) != item["after_sha256"]:
             raise SystemExit(f"Installed hash mismatch: {item['path']}. Backup: {backup}. Do not start Forge until this is resolved.")
