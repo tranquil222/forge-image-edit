@@ -31,6 +31,10 @@ Updated: 2026-10-22. This file is the handoff record for ongoing local work.
   crops, clean-source masking and layout/help edits are NOT included in the hotfix.
 - User's personal Forge processes 97496/92288 were stopped at their request and
   port 7860 verified free. Do not restart it automatically; the user will relaunch.
+- Initial GitHub CI passed Linux and all four backend-repair jobs. The Windows
+  unit fixture used an 8.3 temporary-root alias; normalize the helper's root
+  before containment checks, as the production entry point already does. This
+  follow-up fixes that path-equivalence test without broadening accepted hashes.
 
 ## Current update — 0.5.23
 

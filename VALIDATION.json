@@ -763,7 +763,8 @@
       ],
       "checks": "Clean installation, sparse registration overwrite and all-tracked-file overwrite repairs passed on all four public bases; exact final hashes, check-only immutability, scoped backups, idempotency and customized-file protection verified. Runtime messages distinguish incomplete disk files from stale process state.",
       "qwen_turbo": "Exact reported Qwen2/qwen_image_2.1_turbo_bf16.safetensors filename selects the Qwen adapter and Turbo (8 steps) preset.",
-      "scope": "Installation-only hotfix. Existing backend patches and generation unchanged. No new GPU inference or claim of the remote user environment being reproduced exactly."
+      "scope": "Installation-only hotfix. Existing backend patches and generation unchanged. No new GPU inference or claim of the remote user environment being reproduced exactly.",
+      "windows_ci_followup": "Initial Windows unit fixture used an 8.3 root alias. Helper now resolves its root before containment checks; production main already normalized it. Initial Linux and all four backend installation/repair jobs passed."
     }
   },
   "limitations": [

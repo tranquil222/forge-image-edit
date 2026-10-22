@@ -15,6 +15,7 @@ def digest(path):
 
 def unknown_files(root, manifest):
     """Only exact original OR exact shipped-patch files are repairable."""
+    root = root.resolve()  # Windows temp paths can use an equivalent 8.3 alias.
     return [item["path"] for item in manifest["files"]
             if not (root / item["path"]).resolve().is_relative_to(root)
             or digest(root / item["path"]) not in (item["before_sha256"], item["after_sha256"])]
