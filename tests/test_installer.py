@@ -84,11 +84,32 @@ class InstallerTests(unittest.TestCase):
                     ns['ensure_backend'](adapter)
                 for name in ('backend/diffusion_engine/fibo2.py', 'backend/nn/fibo2.py', 'backend/text_processing/fibo2_engine.py'):
                     path=root/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('# fixture')
+                with self.assertRaisesRegex(ValueError, 'only partly installed'):
+                    ns['ensure_backend'](adapter)
+                (root/'backend/args.py').write_text('class dynamic_args:\n    fibo2: bool = False\n    qwen21_auto_shift = True\n    qwen21_prefix_cache = True\n')
+                (root/'modules_forge').mkdir(exist_ok=True)
+                (root/'modules_forge/presets.py').write_text('class PresetArch:\n    fibo2 = 15\n')
                 with self.assertRaisesRegex(ValueError, 'registration is not loaded'):
                     ns['ensure_backend'](adapter)
-                args.dynamic_args.fibo2=False; args.dynamic_args.qwen21_prefix_cache=True
+                args.dynamic_args.fibo2=False; args.dynamic_args.qwen21_prefix_cache=True; args.dynamic_args.qwen21_auto_shift=True
                 presets.PresetArch.__members__['fibo2']=15
                 ns['ensure_backend'](adapter)
+
+    def test_known_original_and_patched_files_can_mix_but_custom_files_cannot(self):
+        helper = load('image_edit_partial_signatures', ROOT/'tools/backend_support.py')
+        sha = lambda data: hashlib.sha256(data.encode()).hexdigest()
+        manifest = {'files': [dict(path='args.py', before_sha256=sha('old'), after_sha256=sha('patched')),
+                              dict(path='new.py', before_sha256=None, after_sha256=sha('added'))]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'args.py').write_text('old'); (root/'new.py').write_text('added')
+            self.assertEqual(helper.unknown_files(root, manifest), [])
+            (root/'args.py').write_text('patched')
+            self.assertEqual(helper.unknown_files(root, manifest), [])
+            (root/'args.py').write_text('personal modification')
+            self.assertEqual(helper.unknown_files(root, manifest), ['args.py'])
+            manifest['files'][0]['path'] = '../outside.py'
+            self.assertEqual(helper.unknown_files(root, manifest), ['../outside.py'])
 
     def test_unknown_build_report_includes_revision_and_mismatched_paths(self):
         helper = load('image_edit_backend_report', ROOT/'tools/backend_support.py')

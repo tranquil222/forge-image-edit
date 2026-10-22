@@ -1,5 +1,5 @@
 {
-  "version": "0.5.23",
+  "version": "0.5.24",
   "status": "tested beta",
   "date": "2026-10-22",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 161,
+    "extension_python_tests": 162,
     "javascript_tests": 35,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -593,7 +593,7 @@
       "zero_edge_ui": {
         "zero_edges_enabled": true,
         "notice": "No crop or outpaint changes. Generate edit will apply your prompt to the whole image.",
-        "summary": "Output: 672 Ã— 896 Â· source: 432 Ã— 576",
+        "summary": "Output: 672 \u00c3\u0192\u00e2\u20ac\u201d 896 \u00c3\u201a\u00c2\u00b7 source: 432 \u00c3\u0192\u00e2\u20ac\u201d 576",
         "expansion_label": true,
         "reset_restores_normal": true,
         "crop_only": true,
@@ -751,6 +751,19 @@
       "sampling_limits": "All live registered samplers/schedulers are selectable; defaults remain unchanged. CPU stand-ins verify selected parameters reach native processing and recipes. No GPU quality comparison or claim that every combination is equally suitable.",
       "backend_installation": "Installer and backend patches unchanged. Existing public-base compatibility CI checks remain enabled.",
       "reported_disabled_button": "User saw disabled Generate in an old tab after a UI reload. Stale session/readiness state suspected but not confirmed; user will refresh and retest. No speculative readiness change in this update."
+    },
+    "backend_registration_hotfix": {
+      "version": "0.5.24",
+      "date": "2026-10-22",
+      "public_bases": [
+        "41359cd4b8b89212b3dbad8c9af719160a12ed63",
+        "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
+        "2c24de162d08a70829cd56bf6cd4bb4f60258b68",
+        "6b3a78d7384a46ccea43129b7af808b8d621eb44"
+      ],
+      "checks": "Clean installation, sparse registration overwrite and all-tracked-file overwrite repairs passed on all four public bases; exact final hashes, check-only immutability, scoped backups, idempotency and customized-file protection verified. Runtime messages distinguish incomplete disk files from stale process state.",
+      "qwen_turbo": "Exact reported Qwen2/qwen_image_2.1_turbo_bf16.safetensors filename selects the Qwen adapter and Turbo (8 steps) preset.",
+      "scope": "Installation-only hotfix. Existing backend patches and generation unchanged. No new GPU inference or claim of the remote user environment being reproduced exactly."
     }
   },
   "limitations": [

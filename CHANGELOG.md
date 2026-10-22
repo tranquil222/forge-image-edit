@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.24 beta — repair partial backend installations
+
+- Repair verified mixtures of original and already-patched backend files after
+  a Forge update, restoring missing `fibo2` registration and Qwen editing hooks.
+  Only exact known file hashes are accepted; customized files are not overwritten.
+- Keep already-patched files intact and back up only files changed by a repair.
+  Check-only remains read-only; applying again is a no-op.
+- Distinguish incomplete files on disk from a fully patched backend awaiting a
+  process restart. Avoid telling users that repeated restarts fix missing setup.
+- Verify installation/repair against current Neo `6b3a78d` as well as the three
+  earlier supported bases. Qwen 2.1 Turbo remains supported with its 8-step preset.
+- This is an installation-only hotfix; pending reference-editor work is excluded.
+
 ## 0.5.23 beta — sampling choices and saved-image imports
 
 - Show all registered Forge samplers and schedules for every supported edit model.

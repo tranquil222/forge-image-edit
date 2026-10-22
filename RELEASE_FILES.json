@@ -1,5 +1,5 @@
 {
-  "version": "0.5.23",
+  "version": "0.5.24",
   "files": [
     {
       "path": ".gitattributes",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".github/workflows/checks.yml",
-      "bytes": 2104,
-      "sha256": "1c364f6da95b81e4f17d886d02ada639cccfa65394700d2746af0608b30d6f2d"
+      "bytes": 2227,
+      "sha256": "ac8a9b339bca7295990ffc9fed4f50d1342f17c2ad9875df9049d142f72d00b2"
     },
     {
       "path": ".gitignore",
@@ -23,13 +23,13 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 19361,
-      "sha256": "b7bbf466507e4b9df3de8761c41abbdb108fcf690112ccacd02b73ee4f88f075"
+      "bytes": 20207,
+      "sha256": "0060bc574c2481fea43855f6d64ed4819a5a9e356da2ce62d6c07d3183b32a14"
     },
     {
       "path": "COMPATIBILITY.md",
-      "bytes": 7184,
-      "sha256": "4184756938aedbde5f7061262d8223313f29c3b9e1b104928ef77efe9ce7913a"
+      "bytes": 8171,
+      "sha256": "e2cbb29bec84318cd48a649de53fcb9f906fafb7a74fd83f9ac2c8f8ee928074"
     },
     {
       "path": "LICENSE",
@@ -49,17 +49,17 @@
     {
       "path": "README.md",
       "bytes": 33311,
-      "sha256": "28af9d988af3d64aed1d734b235462fd5438009283dcf00eb6c396f61b08e08e"
+      "sha256": "bc1e24c23287676fa27df286c36c6d4b973bab983c9b0034ba563cc048c7bdf2"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 55443,
-      "sha256": "bf5171ebae826c460efb278f9f5424696c8e6fbdd9c45a9f3a366cddcb0af11f"
+      "bytes": 56509,
+      "sha256": "6880bfea60bf0fe64c9159b1dc7f7da806a2d0bc7f42cbc6fb1ae025baaae4f7"
     },
     {
       "path": "WORKLOG.md",
-      "bytes": 35261,
-      "sha256": "6a30e02a84d3dcecad3fb82921b09d2565f6dd9626e6642351df97fb184bbd0d"
+      "bytes": 37450,
+      "sha256": "f6ef84dce38e609a665cbc790e3fb25b20fcbb24b5e1aed442c0d38d2de67d25"
     },
     {
       "path": "backend-support/image-edit-2c24de1.patch",
@@ -94,7 +94,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "714004af7a984a098fc5de00d411365bed75280b01a8eb48957298efe5cd1b4e"
+      "sha256": "dbd262b3eab88f9ca166b8519a92e0f4b12f60d866009f5380277cb7708eb8aa"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -138,8 +138,8 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 19140,
-      "sha256": "87916dea0fe2326398f4b9eb43f62f07fd7b92a51b4d4cf8a7f749305066e640"
+      "bytes": 20616,
+      "sha256": "915e750a928e79ab35854cb387303d5e105785fd35a49d2f903940b7f34767b3"
     },
     {
       "path": "forge_qwen_edit/model_switch.py",
@@ -302,6 +302,11 @@
       "sha256": "02053aa936e034c7d5a2b9fe4ae5c446803637edb6d05f3016767942514d7cc7"
     },
     {
+      "path": "tests/check_backend_repair.py",
+      "bytes": 3496,
+      "sha256": "83dfdf7468693abd4e96310020ed2698a923a689cae599d50c5a006dd8e4c0b7"
+    },
+    {
       "path": "tests/curves.test.cjs",
       "bytes": 2943,
       "sha256": "2ecaba8120489d905f7912fcfb8dab444c453a4acffa7514513e0b601f4ba124"
@@ -368,8 +373,8 @@
     },
     {
       "path": "tests/test_installer.py",
-      "bytes": 6011,
-      "sha256": "62b1e10bb9cd4c94b931c12e906c856d4827a4828ba0274217cbebb601b3a382"
+      "bytes": 7617,
+      "sha256": "dd93a780e94d712163437ecc9ddeac90290d99f4a1c37319ad58d207ad90f1cd"
     },
     {
       "path": "tests/test_isolation.py",
@@ -408,8 +413,8 @@
     },
     {
       "path": "tests/test_portability.py",
-      "bytes": 7601,
-      "sha256": "47c0b262f26e9a2ec9689eb913ba558e03b47b232fcd2d285ae76a22e27ba828"
+      "bytes": 7819,
+      "sha256": "dffa7a2fcdd418d8f531644eb33600a0980b60a27ff84e7645d3394d095d470a"
     },
     {
       "path": "tests/test_prompt_metadata.py",
@@ -453,8 +458,8 @@
     },
     {
       "path": "tools/backend_support.py",
-      "bytes": 5780,
-      "sha256": "ed897493655d6f4fb773dde711243a5c4e7609db8b8b3a5e835a253335a67ddd"
+      "bytes": 6781,
+      "sha256": "c822435647de43ba89fe392ef866ddfe23e37028f2f32fd37ed1076968283886"
     },
     {
       "path": "tools/models.py",

@@ -43,6 +43,7 @@ def resolve_selection(value, modules, allow_custom=False, custom_vae=None):
 
 
 def ensure_backend(adapter):
+    import ast
     from backend.args import dynamic_args
     from modules_forge.presets import PresetArch
     root = Path(shared.script_path)
@@ -51,7 +52,28 @@ def ensure_backend(adapter):
         raise ValueError("Backend setup required. Native model support is missing; this is not a checkpoint-folder problem. "
                          "Update Image Edit, fully close the Forge console and relaunch your normal launcher. "
                          "If this remains, run the setup check in the guide; your Forge build may need a newer backend patch.")
-    if not hasattr(dynamic_args, adapter.flag) or not hasattr(dynamic_args, "qwen21_prefix_cache") or adapter.key not in PresetArch.__members__:
+    flags = (adapter.flag, "qwen21_auto_shift", "qwen21_prefix_cache")
+    if any(not hasattr(dynamic_args, flag) for flag in flags) or adapter.key not in PresetArch.__members__:
+        def declared_fields(relative, class_name):
+            try:
+                tree = ast.parse((root / relative).read_text(encoding="utf-8-sig"))
+            except (OSError, SyntaxError, UnicodeError):
+                return set()
+            fields = set()
+            for node in tree.body:
+                if not isinstance(node, ast.ClassDef) or node.name != class_name:
+                    continue
+                for statement in node.body:
+                    targets = statement.targets if isinstance(statement, ast.Assign) else (
+                        [statement.target] if isinstance(statement, ast.AnnAssign) and statement.value is not None else [])
+                    fields.update(target.id for target in targets if isinstance(target, ast.Name))
+            return fields
+        on_disk = declared_fields("backend/args.py", "dynamic_args")
+        presets_on_disk = declared_fields("modules_forge/presets.py", "PresetArch")
+        if not set(flags).issubset(on_disk) or adapter.key not in presets_on_disk:
+            raise ValueError("Backend setup required. Backend files are only partly installed. "
+                             "Update Image Edit, fully stop Forge and relaunch your normal launcher to repair setup. "
+                             "If installation is skipped or this remains, run the setup check/apply commands in the guide; restarting alone will not repair missing integration.")
         raise ValueError("Backend setup required. Native files exist, but model registration is not loaded. "
                          "Fully close the Forge console and relaunch your normal launcher, not just Reload UI. "
                          "If this remains, run the setup check in the guide.")

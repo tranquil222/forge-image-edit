@@ -2,6 +2,36 @@
 
 Updated: 2026-10-22. This file is the handoff record for ongoing local work.
 
+## Emergency hotfix — 0.5.24 backend-registration repair
+
+- User explicitly requested an immediate separate GitHub fix for a Reddit user
+  seeing "Native files exist, but model registration is not loaded" with Qwen
+  2.1 Turbo BF16. Their follow-up confirms the top-left `fibo2` preset disappeared.
+  Their exact file state/startup log is unavailable; a partial backend overwrite
+  is consistent with the screenshots, not confirmed remotely.
+- Current public Neo `6b3a78d7384a46ccea43129b7af808b8d621eb44` has exactly the
+  affected-file signature already supported by the MOSS patch. The uncovered bug
+  is refusal to repair a mix of known original and known patched files, including
+  registration files restored by an update while added model files remain.
+- Installer now checks complete before/after signatures and applies only missing
+  pieces. Unknown/customized partial files remain untouched. Complete customized
+  integrations are preserved when their required features are present. Backups
+  record only changed files; repeat application is a no-op.
+- Runtime setup feedback distinguishes incomplete on-disk registrations from
+  complete files awaiting a full process restart. No model-ready bypass or fake
+  preset was added. Actual generation and backend patches are unchanged.
+- Qwen 2.1 Turbo support confirmed in adapter/preset checks, including the exact
+  reported subfolder/BF16 filename. This is not a new BF16 GPU quality benchmark.
+- Local checks: 162 Python tests and 35 JavaScript tests passed. Actual clean
+  install plus sparse/all-tracked partial repair passed on 41359cd, dc01455,
+  2c24de1 and current 6b3a78d, including all final hashes, check-only immutability,
+  scoped backups, idempotency and custom-file protection. CI runs those same cases.
+  No new GPU jobs or changes to the user's personal Forge backend for this fix.
+- Built from published 0.5.23 in an isolated worktree. Pending reference colors,
+  crops, clean-source masking and layout/help edits are NOT included in the hotfix.
+- User's personal Forge processes 97496/92288 were stopped at their request and
+  port 7860 verified free. Do not restart it automatically; the user will relaunch.
+
 ## Current update — 0.5.23
 
 - Base is published 0.5.22 commit `daa420063d7e8b53121d03212c68a63aec519aca`.

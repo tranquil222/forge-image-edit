@@ -52,6 +52,9 @@ class PortabilityTests(unittest.TestCase):
     def test_turbo_never_offers_base_quality_presets(self):
         adapter = get_adapter("Qwen Image 2.1")
         self.assertEqual(profiles_for(adapter, "qwen_image_2.1_turbo.safetensors"), ["Turbo (8 steps)"])
+        reported = r"Qwen2\qwen_image_2.1_turbo_bf16.safetensors"
+        self.assertEqual(adapter_for_checkpoint(reported).key, "qwen21")
+        self.assertEqual(profiles_for(adapter, reported), ["Turbo (8 steps)"])
         self.assertNotIn("Turbo (8 steps)", profiles_for(adapter, "qwen_image_2.1.safetensors"))
 
     def test_smaller_quants_keep_selected_encoder_and_turbo_schedule(self):
