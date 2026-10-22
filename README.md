@@ -2,7 +2,7 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.22 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.23 beta**. No ComfyUI server or cloud image service.
 
 **Missing `fibo2` in UI Preset after installing?** Version 0.5.21 fixes setup on
 the newer MOSS-enabled Forge Neo build. Update Image Edit, then **fully close the
@@ -152,11 +152,15 @@ Exact tested combinations and memory-limit methodology are in [VALIDATION.json](
 | Model | Default | Other options |
 | --- | --- | --- |
 | Qwen 2.1 base | Normal: 12 steps | Quick 8; High 16; Extra high 40; Custom |
-| Qwen 2.1 Turbo | 8 steps, official schedule, CFG 1 | Custom; official schedule requires 8 Euler steps |
+| Qwen 2.1 Turbo | 8 Euler steps, official schedule, CFG 1 | Custom samplers, schedules and step counts |
 | Fibo Edit Turbo | 4 Euler / Simple steps, CFG 1 | Custom step counts are experimental, not quality upgrades |
 | Fibo Dev | 50 Euler / Simple steps, CFG 5 | Preview 30; Custom steps and CFG |
 
 Quality presets never resize the image or secretly switch base/Turbo weights.
+**Sampling settings** offers every sampler and schedule registered in Forge for
+all supported edit models. Changing these marks quality as Custom; selecting a
+quality preset restores its recommended values. Saved PNG recipes retain custom
+choices. Availability does not imply equal quality for every combination.
 The resolution value is approximate square pixel-area equivalence, not a forced
 square crop; 0 uses native size. References are scaled proportionally and edge-padded
 to the model's 32-pixel grid. Only that padding is removed from the output, so
@@ -461,13 +465,25 @@ original and subsequent edits; it is not a tamper-proof provenance system.
 
 ## Image browser and PNG import
 
-Two import buttons sit beside **Crop / outpaint**, with question-mark help:
+Three compact import buttons sit beside **Crop / outpaint**, with one shared **?**:
 
 - **Import from txt2img** uses the selected result (orange-bordered thumbnail
-  shown in the large preview), not the first image in a batch.
+  shown in the large preview) first. Further presses import the newest saved
+  image, then step backward through older images. An empty gallery starts with
+  the newest saved image. A different gallery selection or import folder resets
+  the sequence. At the end, a notice appears and the current source stays intact.
 - **Import from Infinite Image Browser** uses the image open in IIB's lightbox.
   Leave the lightbox open, switch to Image Edit, then click Import. This button
   appears when IIB is installed; no IIB menus, files or settings are changed.
+- **Import random** picks a random readable saved txt2img image without advancing
+  the history sequence. IIB remains a single-lightbox-image import on every press.
+
+Saved-image imports include subfolders and use modification time (with filename
+as a stable tie-breaker), skipping incomplete or unreadable images. Under
+**Import settings from a generated PNG**, expand **Advanced** to set an optional
+**txt2img import folder**. Blank uses Forge's configured txt2img output directory
+(or its global output override). This affects history and random imports only;
+selected gallery images and IIB are unchanged.
 
 Both transfer original file bytes, preserving embedded metadata for **Get prompt
 from metadata** and **Keep original metadata**. The [integration](integrations/README.md)
@@ -493,7 +509,7 @@ From the extension directory:
 
 ```sh
 python -m unittest discover -s tests -v
-node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs tests/output_size.test.cjs tests/iib.test.cjs tests/reuse.test.cjs
+node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs tests/output_size.test.cjs tests/iib.test.cjs tests/imports.test.cjs tests/reuse.test.cjs
 python -m compileall -q forge_qwen_edit tools
 ```
 

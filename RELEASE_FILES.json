@@ -1,5 +1,5 @@
 {
-  "version": "0.5.22",
+  "version": "0.5.23",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,8 +23,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 17905,
-      "sha256": "3db38fdaf0d7f7a87bae320e1166c3fd2067229c41ca17494b60b81cd321e835"
+      "bytes": 19361,
+      "sha256": "b7bbf466507e4b9df3de8761c41abbdb108fcf690112ccacd02b73ee4f88f075"
     },
     {
       "path": "COMPATIBILITY.md",
@@ -48,18 +48,18 @@
     },
     {
       "path": "README.md",
-      "bytes": 32103,
-      "sha256": "31cd7acfbc16e7b7fb1fc07afdc3512b39cc56241fdf49bfb18b245cf0c11c87"
+      "bytes": 33311,
+      "sha256": "28af9d988af3d64aed1d734b235462fd5438009283dcf00eb6c396f61b08e08e"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 52108,
-      "sha256": "08d697d178ca9bd4446d2da19471280dcfe39d741c6e5bb87936c98b341666ec"
+      "bytes": 55195,
+      "sha256": "21156ae438a7c00e7a0331f2b8e343002a92eddc1a0644592890d1e4102844c8"
     },
     {
       "path": "WORKLOG.md",
-      "bytes": 30714,
-      "sha256": "80a4343b2444715ddd97acbcb092bb47a5d3baeef73aa6e1403d357b23e1c7ac"
+      "bytes": 34870,
+      "sha256": "d0450ecbfac902dd943ca762bf6a8fc60cea1188de0dbf8402f0b812b072a42a"
     },
     {
       "path": "backend-support/image-edit-2c24de1.patch",
@@ -94,7 +94,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "03d586e1e81d2a028644452e67ccb080d2bb0521424ad31c1f41621e00e57ec9"
+      "sha256": "714004af7a984a098fc5de00d411365bed75280b01a8eb48957298efe5cd1b4e"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -138,8 +138,8 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 18599,
-      "sha256": "ef52f5ca7774c1e1f791290724c6c9218b90296d9f84fe04553fb981fe272e1b"
+      "bytes": 19140,
+      "sha256": "87916dea0fe2326398f4b9eb43f62f07fd7b92a51b4d4cf8a7f749305066e640"
     },
     {
       "path": "forge_qwen_edit/model_switch.py",
@@ -148,8 +148,8 @@
     },
     {
       "path": "forge_qwen_edit/native.py",
-      "bytes": 28538,
-      "sha256": "c2f255752b934609e308bb51a3f99941133fcac514b6238b4cef4d0f3dc19fa2"
+      "bytes": 28241,
+      "sha256": "a4a300aa98add145ccddd15b99c9fb0a3b960ac231055a4343694393633dff6a"
     },
     {
       "path": "forge_qwen_edit/outpaint.py",
@@ -177,19 +177,24 @@
       "sha256": "840b393bc9e44646941708ae3ed4f1d109902ae1065fee05e3eb448100339128"
     },
     {
+      "path": "forge_qwen_edit/source_imports.py",
+      "bytes": 4437,
+      "sha256": "024f4ca1335054cde383d78efc8e49989ea467a66eb323fedb9dd9d13620ca24"
+    },
+    {
       "path": "forge_qwen_edit/tone.py",
       "bytes": 4075,
       "sha256": "a4059af596f1e24dc65c13e8ddb68a630bdb61f70f97bd4f94b8f63bec1e2ee0"
     },
     {
       "path": "forge_qwen_edit/ui.py",
-      "bytes": 51948,
-      "sha256": "7baa9709c3b5110564469e81abaf70738d56da05830277c298292182fabbb2a4"
+      "bytes": 54625,
+      "sha256": "4b01603e7f70b6798b4d8271dc3efcdf349837692d8e910c481009371a2a6dbb"
     },
     {
       "path": "forge_qwen_edit/workflow.py",
-      "bytes": 11159,
-      "sha256": "a179b840ed8fb0d06fc4f9850c173183ddcb1afcabf5cf97ee1ea52fd773bfd4"
+      "bytes": 11329,
+      "sha256": "55f74bdf2d20f482d2127c19dc2584d452b333d1e9dc672da5b0b2e31fe59f42"
     },
     {
       "path": "install.py",
@@ -198,8 +203,8 @@
     },
     {
       "path": "integrations/README.md",
-      "bytes": 2419,
-      "sha256": "8f9e6498142ada41070c4a5fcfffe883f072ab39d0c1e038bbcd10813e7590bb"
+      "bytes": 3237,
+      "sha256": "298a29f9071c43be98da5aa30876fa76a45c9e55c43207ca6a5a439fefbd9005"
     },
     {
       "path": "integrations/iib-menu.patch",
@@ -218,8 +223,8 @@
     },
     {
       "path": "javascript/image_edit_help.js",
-      "bytes": 5089,
-      "sha256": "0402f0b261ad61c42aceef87d980918aaf72e7c1f7a7aa6d1a47842c011fee71"
+      "bytes": 4501,
+      "sha256": "7e88708d1e6b1753b615db7e9d6268caae1f6c570430a4c4a0a38419bae3506e"
     },
     {
       "path": "javascript/image_edit_iib.js",
@@ -228,8 +233,8 @@
     },
     {
       "path": "javascript/image_edit_imports.js",
-      "bytes": 5573,
-      "sha256": "50fb5f4b08433dd61d1967774b0bc3f3973deb58c5d35f6cdf617f0b0e02aced"
+      "bytes": 8850,
+      "sha256": "6d75e2ba9e4be6cde6955798fb04f463ad65cdb2cbf4b518cac83b3c9d6fc2c4"
     },
     {
       "path": "javascript/image_edit_outpaint.js",
@@ -288,13 +293,13 @@
     },
     {
       "path": "scripts/qwen_edit_tab.py",
-      "bytes": 743,
-      "sha256": "4e1b041f2a04429e3d78cfee66eec4923860f6d4b420f3cd8b45c126caa24c02"
+      "bytes": 777,
+      "sha256": "ece88dff1380205beab34640b5f192f8ece1bf0a649a550ef514fa171cd072bc"
     },
     {
       "path": "style.css",
-      "bytes": 17819,
-      "sha256": "8d2fdfc669d7d3b31170624cedee3d24aeef49015ecebf553f064283c452fdad"
+      "bytes": 17817,
+      "sha256": "02053aa936e034c7d5a2b9fe4ae5c446803637edb6d05f3016767942514d7cc7"
     },
     {
       "path": "tests/curves.test.cjs",
@@ -313,8 +318,8 @@
     },
     {
       "path": "tests/imports.test.cjs",
-      "bytes": 2912,
-      "sha256": "4c0e356a2c6f06c1741847986cf7d871cebb199776f599d927d1e5c387399279"
+      "bytes": 7033,
+      "sha256": "0f04c0020094ce6558319c79a3ee90e49e18cc1c65dfc26dabc4cac9dbb00b5b"
     },
     {
       "path": "tests/lightbox.test.cjs",
@@ -388,13 +393,13 @@
     },
     {
       "path": "tests/test_model_switch.py",
-      "bytes": 12527,
-      "sha256": "7ae0d9e170306fd1a6ea91b67c63bf1d942eea3cfb91edfef7f811b398bb6ead"
+      "bytes": 13332,
+      "sha256": "709475c872d8e6f5df85e66f85a31c94e9b81e4021b6ed58f373091273be7005"
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 26399,
-      "sha256": "b7c1d80e9487736dc2e5db39e100188cfb3b18b0a2e0576cdd1dcd8173b4ac2f"
+      "bytes": 27212,
+      "sha256": "4d6985999ff08ffabb07ce7fe8960e5f0fe2b7e43602db30139862a1c5b06e0e"
     },
     {
       "path": "tests/test_outpaint.py",
@@ -425,6 +430,16 @@
       "path": "tests/test_sampling.py",
       "bytes": 4190,
       "sha256": "bbdacc92a7994006e70c8650bbe99333eb1dba4b8cdc1e2f016a29d6e1564b31"
+    },
+    {
+      "path": "tests/test_sampling_choices.py",
+      "bytes": 2759,
+      "sha256": "68e3986c348709ea911b1c652355459ad5b5f654c369460fd2c88534d61a4f9f"
+    },
+    {
+      "path": "tests/test_source_imports.py",
+      "bytes": 8654,
+      "sha256": "0d43a177dac0b3958f1649afa6577d51ae75b1a4bccf9088b53ac37ee059ac3f"
     },
     {
       "path": "tests/test_tone.py",

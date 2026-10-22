@@ -2,6 +2,63 @@
 
 Updated: 2026-10-22. This file is the handoff record for ongoing local work.
 
+## Current update — 0.5.23
+
+- Base is published 0.5.22 commit `daa420063d7e8b53121d03212c68a63aec519aca`.
+  Its 150 Python tests, 31 JavaScript tests and all five GitHub CI jobs passed.
+- User explicitly authorized pushing this next update immediately after testing.
+  Scope includes unrestricted sampler/scheduler fields and all follow-up import
+  changes below. Separate Krea plugin and future requests remain out of scope.
+- Every supported edit family now uses live Forge sampler/scheduler registries.
+  Existing defaults and Speed / quality presets are unchanged. Runtime and PNG
+  import checks require installed choices, not model-family allowlists. Custom
+  steps/samplers can also use the official Turbo grid. Qwen's special Shift
+  transform remains limited to the two fixed grids, avoiding missing inner-model
+  arguments or an Automatic scheduler with no function.
+- Txt2img imports selected gallery image first; repeated presses walk the saved
+  folder newest to oldest. Empty gallery starts with newest. Selection/folder
+  changes reset history. A stable modification-time/name cursor avoids repeats
+  if newer files arrive or earlier files disappear. Failed transfers do not
+  advance the cursor; exhaustion leaves the source unchanged.
+- Import random uses readable images from the same folder tree and does not
+  advance/reset history. IIB is unchanged: its current open lightbox image only,
+  even on repeated presses. Original file bytes and embedded metadata are kept.
+- A collapsed Advanced section below PNG settings import supplies an optional
+  txt2img import-folder override; blank uses Forge's configured output directory.
+  Both saved-history and random imports include subfolders, skipping incomplete
+  or corrupt files. This does not change Forge's output setting or IIB's folder.
+- Import buttons are 28px tall (previously 34px), with one succinct shared help
+  tooltip for crop/outpaint and all three import actions. Feedback stays out of
+  normal layout; the row does not grow on success or errors.
+- Pre-change backup: `C:/CODEX/forge-image-edit-backups/20261022-122724-sampling-latest-import`.
+- Validation: 161 Python tests and 35 JavaScript tests passed; compileall and
+  whitespace checks passed. Live headless Edge checks on port 7860 confirmed
+  selected-image priority, newest-to-oldest imports, exact original bytes and
+  metadata extraction, random/history isolation, custom folder, end-of-history
+  source preservation, and selectable Heun/Beta (80 samplers, 23 schedules in
+  this install). No GPU generation or global model change was submitted.
+- Layout checks: one shared tooltip, 28px row, aligned centers, feedback adds
+  no height, and no overflow at an 800px viewport. Artifacts are in
+  `C:/CODEX/image-edit-browser-qa/artifacts/sampling-imports-0523/`.
+- Installed while Forge was idle, with backup
+  `C:/CODEX/forge-image-edit-backups/20261022-124012-cumulative-0522`.
+- User reported Generate disabled in a tab still showing the old import row
+  after the UI reload. Stale source-readiness/session state is suspected, not
+  confirmed; direct Canary inspection was unavailable. User will refresh and
+  report if it recurs. No speculative button-state change is included in 0.5.23.
+- User reconfirmed finishing and pushing this update after that report.
+- Follow-up before publication: user reported multi-second txt2img imports,
+  including repeated clicks. Measured 31,954 image files: old full scan took
+  3.537s; API requests took 3.746s and 3.588s. Replaced per-file double stats
+  with scandir metadata, a sorted 30-second/four-folder cache, and binary cursor
+  lookup. New local lookup measured 0.1893s initially and 0.0018/0.0022s for the
+  next images, excluding transfer/rendering. New sequences force a fresh scan;
+  Random never mutates the sorted history index. Added cache reuse, freshness,
+  expiry and eviction coverage; all 161 Python tests pass after this change.
+- Live API after the performance fix: 0.2441s first import, then 0.0145s and
+  0.0143s, excluding browser transfer/display. Installed idle backup:
+  `C:/CODEX/forge-image-edit-backups/20261022-125316-cumulative-0522`.
+
 ## Publication rule — current user instruction
 
 Separate local project added 2026-10-22: **Krea 2 Style Reference** lives at

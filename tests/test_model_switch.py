@@ -187,13 +187,25 @@ class ModelSwitchTests(unittest.TestCase):
             namespace = dict(__package__='forge_qwen_edit', gr=self.gr, read_recipe=lambda _: recipe,
                              EDIT_MODELS=EDIT_MODELS, ensure_backend=Mock(), sd_models=self.models,
                              main_entry=entry, shared=self.shared, profiles_for=profiles_for,
-                             validate_components=validate_components)
+                             validate_components=validate_components,
+                             sampling_choices=lambda: (['Euler', 'Heun'], ['Simple', 'Beta']))
             exec(compile(ast.Module(body=functions, type_ignores=[]), str(path), 'exec'), namespace)
             restored = namespace['import_recipe']('recipe.png', QWEN, [])
             self.assertEqual(len(restored), 35)
             self.assertEqual(restored[8], [encoder, vae])
             self.assertEqual(restored[-2:], (True, dict(choices=[encoder, vae], value=vae, visible=True)))
             entry._load_presets.assert_called_once_with(FIBO, [encoder, vae], 'Automatic', 'fibo2')
+            recipe.update(sampler='Heun', schedule='Beta')
+            restored = namespace['import_recipe']('recipe.png', QWEN, [])
+            self.assertEqual(restored[5]['value'], 'Heun')
+            self.assertEqual(restored[6]['value'], 'Beta')
+            recipe['sampler'] = 'Not installed'
+            with self.assertRaisesRegex(ValueError, 'sampler is not installed'):
+                namespace['import_recipe']('recipe.png', QWEN, [])
+            recipe.update(sampler='Euler', schedule='Missing schedule')
+            with self.assertRaisesRegex(ValueError, 'schedule is not installed'):
+                namespace['import_recipe']('recipe.png', QWEN, [])
+            recipe['schedule'] = 'Simple'
             recipe.pop('custom_components')
             with self.assertRaisesRegex(ValueError, 'Missing'):
                 namespace['import_recipe']('recipe.png', QWEN, [])

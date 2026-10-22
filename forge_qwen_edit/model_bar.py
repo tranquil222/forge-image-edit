@@ -17,6 +17,13 @@ bar = {}
 bound = False
 
 
+def sampling_choices():
+    """Use Forge's live registry, including samplers added by other extensions."""
+    from modules import sd_samplers, sd_schedulers
+    return (list(dict.fromkeys(item.name for item in sd_samplers.all_samplers)),
+            list(dict.fromkeys(item.label for item in sd_schedulers.schedulers_map.values())))
+
+
 def resolve_checkpoint(value):
     matches = [checkpoint for checkpoint in sd_models.checkpoints_list.values()
                if value in (*checkpoint.ids, checkpoint.short_title, checkpoint.filename)]
@@ -102,10 +109,11 @@ def observe_checkpoint(value, modules, previous, allow_custom=False, custom_vae=
                if adapter.key == "fibo2" else f"**{default} · {preset['steps']} steps.** Resolution is independent.")
     if adapter.guidance > 1:
         summary = "**Fibo Dev · 50 steps · CFG 5 · Euler / Simple.** Preview uses 30 steps. Resolution is independent."
+    samplers, schedules = sampling_choices()
     return (adapter.label, gr.update(choices=[*profiles, "Custom"], **({"value": default} if changed else {})),
             preset["steps"] if changed else gr.update(),
-            gr.update(choices=list(adapter.samplers), **({"value": preset["sampler"]} if changed else {})),
-            gr.update(choices=list(adapter.schedules), **({"value": preset["schedule"]} if changed else {})),
+            gr.update(choices=samplers, interactive=True, **({"value": preset["sampler"]} if changed else {})),
+            gr.update(choices=schedules, interactive=True, **({"value": preset["schedule"]} if changed else {})),
             gr.update(interactive=adapter.prefix_cache, **({"value": preset["prefix_cache"]} if changed else {})),
             summary if changed else gr.update(), status, enabled, checkpoint.name, adapter.guidance if changed else gr.update())
 
@@ -172,8 +180,11 @@ def import_recipe(file, current_checkpoint, modules):
         family = recipe.get("model_family", "Qwen Image 2.1")
         adapter = EDIT_MODELS[family]
         ensure_backend(adapter)
-        if recipe["sampler"] not in adapter.samplers or recipe["schedule"] not in adapter.schedules:
-            raise ValueError("The recipe's sampling settings do not match its edit model.")
+        samplers, schedules = sampling_choices()
+        if recipe["sampler"] not in samplers:
+            raise ValueError(f"Recipe sampler is not installed in Forge: {recipe['sampler']}.")
+        if recipe["schedule"] not in schedules:
+            raise ValueError(f"Recipe schedule is not installed in Forge: {recipe['schedule']}.")
         candidates = [checkpoint for checkpoint in sd_models.checkpoints_list.values() if adapter.accepts(checkpoint.name)]
         requested = recipe.get("model")
         if requested:
@@ -212,8 +223,8 @@ def import_recipe(file, current_checkpoint, modules):
     main_entry._load_presets(choice, [encoder, vae], dtype, adapter.key)
     resize = recipe.get("output_resize") or {}
     return (recipe["prompt"], recipe.get("negative_prompt", ""), recipe["resolution"], recipe["steps"], recipe["seed"],
-            gr.update(choices=list(adapter.samplers), value=recipe["sampler"]),
-            gr.update(choices=list(adapter.schedules), value=recipe["schedule"]), choice, [encoder, vae], adapter.key, dtype,
+            gr.update(choices=samplers, value=recipe["sampler"], interactive=True),
+            gr.update(choices=schedules, value=recipe["schedule"], interactive=True), choice, [encoder, vae], adapter.key, dtype,
             note, gr.update(choices=[*profiles_for(adapter, checkpoint.name), "Custom"], value="Custom"), "Imported edit recipe.", family,
             gr.update(value=bool(recipe.get("prefix_cache", adapter.prefix_cache)) and adapter.prefix_cache, interactive=adapter.prefix_cache),
             recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], False, gr.update(choices=modes, value=mode),

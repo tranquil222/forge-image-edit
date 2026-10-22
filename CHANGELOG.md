@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.23 beta — sampling choices and saved-image imports
+
+- Show all registered Forge samplers and schedules for every supported edit model.
+  Keep existing quality-preset defaults; preserve custom choices in PNG recipes.
+  Remove model-family and official-Turbo sampler/step restrictions. Missing
+  registered implementations still report an error before generation.
+- Keep Qwen's fixed-grid Shift adjustment limited to CyberZit Quality and the
+  official Qwen Turbo schedule; other schedules use Forge's normal dispatch.
+- Import from txt2img now uses the selected gallery image first, then browses
+  saved images newest-to-oldest on repeated clicks. An empty gallery starts with
+  the newest saved image, including after a Forge restart.
+- Add Import random for saved txt2img images. Preserve metadata, leave history
+  unchanged after random/IIB imports, and keep IIB limited to its open lightbox.
+- Add Advanced below PNG settings import, with an optional txt2img import-folder
+  override. Blank uses Forge's configured output folder. Include subfolders and
+  skip unreadable/incomplete images; do not clear the source at the end of history.
+- Reduce import buttons to 28px tall and combine crop/import help into one tooltip.
+- Speed up large saved-image folders with directory-entry metadata and a short-lived,
+  bounded file index. Repeated imports no longer rescan every image; starting a
+  new history sequence refreshes the index immediately.
+
 ## 0.5.22 beta — cumulative editing and import update
 
 - Treat unchanged, unpainted Crop / outpaint canvases as normal prompt edits.

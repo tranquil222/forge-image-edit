@@ -172,8 +172,11 @@ def validate_recipe(recipe):
     for key in ("prompt", "negative_prompt"):
         if not isinstance(recipe.get(key, ""), str):
             raise ValueError(f"The {key} is linked to another node; a literal value is required.")
-    if recipe.get("sampler") not in SAMPLERS.values() or recipe.get("schedule") not in SCHEDULES:
-        raise ValueError("Unsupported sampler or schedule in this recipe.")
+    # Recipes may name any installed Forge sampler/schedule. Check availability
+    # at UI import / generation, not against a fixed model-family allowlist.
+    for key in ("sampler", "schedule"):
+        if not isinstance(recipe.get(key), str) or not recipe[key].strip():
+            raise ValueError(f"The recipe must contain a {key} name.")
     cfg = float(recipe.get("cfg", 1))
     if not 1 <= cfg <= 15 or (recipe.get("model_family") != "Fibo 2.0 Dev" and cfg != 1):
         raise ValueError("CFG must be 1 for Turbo/Qwen, or between 1 and 15 for Fibo Dev.")

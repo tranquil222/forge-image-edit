@@ -33,12 +33,12 @@
 #image_edit_download_data { display: none !important; }
 #image_edit_previews { align-items: flex-start; }
 #image_edit_canvas_toolbar { align-items: flex-start; gap: 8px 12px; }
-#image_edit_canvas_toolbar #image_edit_canvas_enabled { display: flex; align-items: center; flex: 0 0 auto; min-width: 150px; height: 34px; margin: 0; }
+#image_edit_canvas_toolbar #image_edit_canvas_enabled { display: flex; align-items: center; flex: 0 0 auto; min-width: 130px; height: 28px; margin: 0; }
 #image_edit_source_imports { padding: 0; min-height: 0; min-width: 0; flex: 1 1 420px; }
-#image_edit_source_imports .qe-source-import-row { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; }
+#image_edit_source_imports .qe-source-import-row { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
 #image_edit_source_imports .qe-source-import-control { display: inline-flex; align-items: center; gap: 6px; }
 #image_edit_source_imports .qe-source-import-control > span { display: inline-flex; align-items: center; }
-#image_edit_source_imports .qe-source-import-control > button { display: inline-flex; align-items: center; justify-content: center; height: 34px; box-sizing: border-box; margin: 0; padding: 6px 12px; border: 1px solid var(--button-secondary-border-color, #515b6b); border-radius: 7px; background: var(--button-secondary-background-fill, #414b59); color: var(--button-secondary-text-color, #fff); font: inherit; font-size: 13px; line-height: 1.2; white-space: nowrap; cursor: pointer; }
+#image_edit_source_imports .qe-source-import-control > button { display: inline-flex; align-items: center; justify-content: center; height: 28px; box-sizing: border-box; margin: 0; padding: 4px 9px; border: 1px solid var(--button-secondary-border-color, #515b6b); border-radius: 6px; background: var(--button-secondary-background-fill, #414b59); color: var(--button-secondary-text-color, #fff); font: inherit; font-size: 12px; line-height: 1.2; white-space: nowrap; cursor: pointer; }
 #image_edit_source_imports .qe-source-import-control > button:hover { background: var(--button-secondary-background-fill-hover, #505c6c); }
 #image_edit_source_imports button:disabled { opacity: .6; cursor: wait; }
 #image_edit_source_imports button:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }

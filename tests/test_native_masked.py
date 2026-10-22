@@ -135,7 +135,14 @@ class NativeMaskedTests(unittest.TestCase):
             with self.subTest(family=family):
                 self.check_masked_job("Camera angle", family, custom_components=True)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None, qwen_shift_mode="Manual", qwen_shift=.69, qwen_rope=False, custom_components=False):
+    def test_registered_sampling_choices_reach_every_model_and_recipe(self):
+        for family in ('Fibo 2.0 Edit Turbo', 'Fibo 2.0 Dev', 'Qwen Image 2.1'):
+            for schedule in ('Automatic', 'Beta', 'Normal', 'Flux2', 'Qwen 2.1 Turbo (official)'):
+                with self.subTest(family=family, schedule=schedule):
+                    self.check_masked_job('Camera angle', family, sampler_override='Heun',
+                        schedule_override=schedule, qwen_shift=1.15)
+
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None, qwen_shift_mode="Manual", qwen_shift=.69, qwen_rope=False, custom_components=False, sampler_override=None, schedule_override=None):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -157,8 +164,9 @@ class NativeMaskedTests(unittest.TestCase):
                 return SimpleNamespace(images=[Image.new("RGBA", (p.width, p.height), (180, 20, 50, 255))], infotexts=["test sampler"])
 
             fibo = family.startswith("Fibo")
-            model_name = "fibo2_edit_turbo_int8_convrot.safetensors" if fibo else "qwen_image_2.1.safetensors"
-            schedule = "Simple" if fibo else "CyberZit Quality"
+            model_name = adapter.defaults[0]
+            sampler = sampler_override or ("Euler" if fibo else "Res Multistep")
+            schedule = schedule_override or ("Simple" if fibo else "CyberZit Quality")
             def native_save(image, path, basename, **kwargs):
                 self.assertNotIn("Author", image.info)
                 self.assertEqual(Path(path), root / "user-img2img")
@@ -211,7 +219,7 @@ class NativeMaskedTests(unittest.TestCase):
                 extras[1].info[UPLOAD_DIGEST] = 'b' * 64
                 curves = [json.dumps(payload('a' * 64)), json.dumps(payload('b' * 64))]
             output, filename, seed, message = namespace["generate"](
-                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves, fibo_shift_mode=fibo_shift_mode, fibo_shift=fibo_shift, fibo_rope=fibo_rope, output_resize=output_resize, qwen_shift_mode=qwen_shift_mode, qwen_shift=qwen_shift, qwen_rope=qwen_rope, custom_components=custom_components)
+                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", sampler, schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves, fibo_shift_mode=fibo_shift_mode, fibo_shift=fibo_shift, fibo_rope=fibo_rope, output_resize=output_resize, qwen_shift_mode=qwen_shift_mode, qwen_shift=qwen_shift, qwen_rope=qwen_rope, custom_components=custom_components)
             expected_shift = resolve_fibo_shift(fibo_shift_mode, fibo_shift, calls[0].width, calls[0].height) if fibo else resolve_qwen_shift(qwen_shift_mode, qwen_shift, calls[0].width, calls[0].height)
             self.assertEqual(calls[0].distilled_cfg_scale, expected_shift)
             self.assertEqual(calls[0].edit_fibo_rope, fibo and fibo_rope)
@@ -221,6 +229,8 @@ class NativeMaskedTests(unittest.TestCase):
             self.assertEqual(sampling_recipe['custom_components'], custom_components)
             self.assertEqual(sampling_recipe['encoder'], encoder_name)
             self.assertEqual(sampling_recipe['vae'], vae_name)
+            self.assertEqual((calls[0].sampler_name, calls[0].scheduler), (sampler, schedule))
+            self.assertEqual((sampling_recipe['sampler'], sampling_recipe['schedule']), (sampler, schedule))
             if fibo:
                 self.assertEqual(sampling_recipe['fibo_shift_effective'], expected_shift)
                 self.assertEqual(sampling_recipe['fibo_shift_mode'], fibo_shift_mode)
@@ -232,7 +242,7 @@ class NativeMaskedTests(unittest.TestCase):
                 self.assertNotIn('fibo_rope', sampling_recipe)
                 self.assertEqual(sampling_recipe['qwen_shift_effective'], expected_shift)
                 self.assertEqual(sampling_recipe['qwen_rope'], qwen_rope)
-                if expected_shift != .69:
+                if expected_shift != .69 and schedule in ('CyberZit Quality', 'Qwen 2.1 Turbo (official)'):
                     self.assertTrue(callable(calls[0].sampler_noise_scheduler_override))
                     self.assertNotEqual(calls[0].sampler_noise_scheduler_override(8)[4], .5)
                 else:

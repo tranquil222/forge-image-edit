@@ -1,5 +1,5 @@
 {
-  "version": "0.5.22",
+  "version": "0.5.23",
   "status": "tested beta",
   "date": "2026-10-22",
   "environment": {
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 150,
-    "javascript_tests": 31,
+    "extension_python_tests": 161,
+    "javascript_tests": 35,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -688,6 +688,68 @@
       "qwen_outpaint": "Prior local failing-seed production check filled both side borders with the shorter green-replacement instruction and preserved pixels outside seam blending. Multi-seed/four-edge follow-up was not run; no blanket success claim.",
       "backend_installation": "Backend patches and installer are unchanged from 0.5.21. Existing three-base CI checks remain enabled.",
       "current_live_check": "Separate headless Edge page on idle port 7860; no generation, model changes or Canary interaction in the final fallback check."
+    },
+    "sampling_imports_0_5_23": {
+      "base_commit": "daa420063d7e8b53121d03212c68a63aec519aca",
+      "scope": "Image Edit only. Separate Krea plugin and local Forge/IIB changes excluded.",
+      "python": "161 tests passed, including all supported edit families with custom sampler/scheduler choices, native processing/recipe dispatch, saved history, random imports, folder defaults and overrides, unreadable files, stable cursor ordering, exact metadata bytes, catalog reuse/freshness/expiry/eviction.",
+      "javascript": "35 tests passed, including selected gallery priority, history advancement only on successful import, selection/folder resets, exhaustion preserving source, and random/IIB history isolation.",
+      "compile_and_whitespace": "compileall and git diff --check passed.",
+      "live_ui": {
+        "empty_gallery_history": true,
+        "selected_gallery_first": true,
+        "exact_metadata_bytes": true,
+        "prompt_extraction": true,
+        "random_from_saved_folder": true,
+        "random_does_not_advance_history": true,
+        "history_end_preserves_source": true,
+        "custom_folder": true,
+        "blank_default": true,
+        "one_help_button": true,
+        "row_height": 28,
+        "centerline_spread": 0,
+        "feedback_no_layout_change": true,
+        "narrow_no_overflow": true,
+        "sampler_choices": 80,
+        "scheduler_choices": 23,
+        "custom_heun_beta_selectable": true,
+        "generation_submitted": false
+      },
+      "saved_import_performance": {
+        "folder_image_count_before": 31954,
+        "before_api_seconds": [
+          3.746,
+          3.588
+        ],
+        "before_scan_seconds": 3.537,
+        "after_local_lookup_seconds": [
+          0.1893,
+          0.0018,
+          0.0022
+        ],
+        "after_api": [
+          {
+            "click": 1,
+            "seconds": 0.2441,
+            "bytes": 1725532
+          },
+          {
+            "click": 2,
+            "seconds": 0.0145,
+            "bytes": 1708777
+          },
+          {
+            "click": 3,
+            "seconds": 0.0143,
+            "bytes": 1725780
+          }
+        ],
+        "scope": "File discovery and local API response, excluding browser image transfer/display; no generation."
+      },
+      "live_environment": "Separate headless Edge page on port 7860, installed while idle. No GPU generation, global model changes or Canary interaction in this check.",
+      "sampling_limits": "All live registered samplers/schedulers are selectable; defaults remain unchanged. CPU stand-ins verify selected parameters reach native processing and recipes. No GPU quality comparison or claim that every combination is equally suitable.",
+      "backend_installation": "Installer and backend patches unchanged. Existing public-base compatibility CI checks remain enabled.",
+      "reported_disabled_button": "User saw disabled Generate in an old tab after a UI reload. Stale session/readiness state suspected but not confirmed; user will refresh and retest. No speculative readiness change in this update."
     }
   },
   "limitations": [

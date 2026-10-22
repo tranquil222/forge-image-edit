@@ -170,6 +170,36 @@ def select_metadata_prompt(choices, selected, family):
     return gr.update(), gr.update()
 
 
+def txt2img_output_folder(override=""):
+    folder = str(override or "").strip()
+    if len(folder) >= 2 and folder[0] == folder[-1] and folder[0] in ('"', "'"):
+        folder = folder[1:-1].strip()
+    folder = folder or shared.opts.outdir_samples or shared.opts.outdir_txt2img_samples
+    if not folder:
+        raise gr.Error("No txt2img output folder is configured in Forge.")
+    root = Path(folder).expanduser()
+    if not root.is_absolute():
+        root = Path(shared.script_path) / root
+    return root
+
+
+def recent_txt2img_file(before="", folder=""):
+    from .source_imports import recent_image
+    try:
+        path, cursor = recent_image(txt2img_output_folder(folder), before)
+        return str(path), cursor
+    except ValueError as error:
+        raise gr.Error(str(error)) from error
+
+
+def random_txt2img_file(folder=""):
+    from .source_imports import random_image
+    try:
+        return str(random_image(txt2img_output_folder(folder)))
+    except ValueError as error:
+        raise gr.Error(str(error)) from error
+
+
 def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=False, shrink_by=1, resolution=768, model_ready=True,
                     resize_enabled=False, resize_mode="Resize to", output_width=1024, output_height=1024, output_scale=1):
     enabled = bool(enabled and size and min(size) > 0)
@@ -398,12 +428,19 @@ def create_tab():
                                 apply_crop = gr.Button("Apply crop", variant="primary", elem_id="image_edit_apply_crop", scale=3, visible=False)
                                 cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
                             with gr.Row(elem_id="image_edit_canvas_toolbar"):
-                                canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled", scale=0, min_width=150)
+                                canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled", scale=0, min_width=130)
                                 gr.HTML('<div class="qe-source-import-row"><span class="qe-source-import-control">'
-                                        '<button type="button" id="image_edit_txt2img_import">Import from txt2img</button><span id="image_edit_txt2img_help"></span></span>'
+                                        '<button type="button" id="image_edit_txt2img_import">Import from txt2img</button></span>'
                                         '<span class="qe-source-import-control" id="image_edit_iib_control" hidden><button type="button" id="image_edit_iib_import">Import from Infinite Image Browser</button>'
-                                        '<span id="image_edit_iib_help"></span></span><span id="image_edit_import_status" role="status" aria-live="polite" hidden></span></div>',
+                                        '</span><span class="qe-source-import-control"><button type="button" id="image_edit_random_import">Import random</button>'
+                                        '<span id="image_edit_import_help"></span></span><span id="image_edit_import_status" role="status" aria-live="polite" hidden></span></div>',
                                         elem_id="image_edit_source_imports")
+                            # Repeated imports browse saved files; gr.File serves
+                            # their original bytes, retaining embedded metadata.
+                            latest_import = gr.Button(visible=False)
+                            latest_file = gr.File(visible=False)
+                            import_cursor = gr.Textbox(value="", visible=False)
+                            random_import = gr.Button(visible=False)
                             canvas_source_size = gr.State([0, 0])
                             # Both sections stay mounted. CSS switches them from the checkbox
                             # in one frame, without queued visibility updates or moving the toggle.
@@ -528,12 +565,13 @@ def create_tab():
                 reference3_curves = gr.Textbox(value="", visible=False)
                 for component in (reference2_curves, reference3_curves):
                     component.do_not_save_to_config = True
-            with gr.Accordion("Sampling settings", open=False):
+            with gr.Accordion("Sampling settings", open=False, elem_id="image_edit_sampling_settings"):
                 feather = gr.Slider(0, 64, value=8, step=1, label="Painted edge blending", interactive=False, info="Only used with a painted area. Softens its inside edge; pixels outside the painting stay untouched.")
                 with gr.Row():
                     steps = gr.Slider(1, 150, value=12, step=1, label="Steps")
-                    sampler = gr.Dropdown(["Res Multistep", "Euler"], value="Res Multistep", label="Sampler")
-                    schedule = gr.Dropdown(list(SCHEDULES), value=SCHEDULES[0], label="Schedule")
+                    available_samplers, available_schedules = model_bar.sampling_choices()
+                    sampler = gr.Dropdown(available_samplers, value="Res Multistep", label="Sampler", interactive=True, elem_id="image_edit_sampler")
+                    schedule = gr.Dropdown(available_schedules, value=SCHEDULES[0], label="Schedule", interactive=True, elem_id="image_edit_schedule")
                     guidance = gr.Slider(1, 15, value=1, step=0.1, label="CFG", interactive=False)
                 prefix_cache = gr.Checkbox(value=True, label="Cache reference attention between steps", info="Turn off to save VRAM; recommended for 12–16 GB cards.")
                 negative = gr.Textbox(value="", label="Negative prompt (inactive at CFG 1)", interactive=False, lines=1, info="Not used by these CFG 1 editing modes. Express exclusions in the edit instruction.")
@@ -544,6 +582,14 @@ def create_tab():
                 recipe_file = gr.File(file_types=[".png"], type="filepath", label="Generated PNG")
                 import_button = gr.Button("Import recipe", size="sm")
                 import_status = gr.Markdown()
+            with gr.Accordion("Advanced", open=False, elem_id="image_edit_advanced"):
+                import_folder = gr.Textbox(value="", label="txt2img import folder", elem_id="image_edit_import_folder",
+                    placeholder="Leave blank to use Forge's txt2img output folder",
+                    info="Used by saved-image history and Import random. Includes subfolders. Selected gallery images and IIB are unchanged.")
+            latest_import.click(recent_txt2img_file, inputs=[import_cursor, import_folder], outputs=[latest_file, import_cursor],
+                queue=False, show_progress="hidden", api_name="image_edit_recent_txt2img")
+            random_import.click(random_txt2img_file, inputs=[import_folder], outputs=[latest_file],
+                queue=False, show_progress="hidden", api_name="image_edit_random_txt2img")
             handoff = MetadataImage(visible=False, numpy=False, elem_id="image_edit_handoff")
             curves_payload = gr.Textbox(visible=False, elem_id="image_edit_curves_request")
             curves_receipt = gr.Textbox(visible=False)

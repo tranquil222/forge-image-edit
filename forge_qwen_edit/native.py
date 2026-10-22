@@ -226,12 +226,10 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
             instruction = "Transfer the expression from the first additional reference to the person in the source image."
     if not instruction or not instruction.strip():
         raise ValueError("Enter an edit instruction.")
-    if sampler not in adapter.samplers or sd_samplers.find_sampler_config(sampler) is None:
+    if not isinstance(sampler, str) or not sampler or sd_samplers.find_sampler_config(sampler) is None:
         raise ValueError("Required sampler is unavailable in this Forge build.")
-    if schedule not in sd_schedulers.schedulers_map:
+    if not isinstance(schedule, str) or schedule not in sd_schedulers.schedulers_map:
         raise ValueError("The selected schedule is unavailable. Reload Forge after installing the extension.")
-    if schedule not in adapter.schedules:
-        raise ValueError(f"That schedule is not compatible with {adapter.label}. Select its speed / quality preset.")
     if not 1 <= int(steps) <= 150:
         raise ValueError("Steps must be between 1 and 150.")
     checkpoint = next((c for c in sd_models.checkpoints_list.values() if c.name == model_name), None)
@@ -241,10 +239,6 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         raise ValueError(f"The selected checkpoint is not supported by {adapter.label}.")
     validate_components(adapter, [encoder_name, vae_name], main_entry.module_list, custom_components, vae_name)
     prefix_cache = bool(prefix_cache) and adapter.prefix_cache
-    if schedule == "Qwen 2.1 Turbo (official)" and "turbo" not in checkpoint.name.lower():
-        raise ValueError("The Official Turbo schedule requires Turbo weights. Choose your Turbo checkpoint.")
-    if schedule == "Qwen 2.1 Turbo (official)" and (int(steps) != 8 or sampler != "Euler"):
-        raise ValueError("Official Turbo uses exactly 8 steps and Euler. Select the Turbo preset to set these together.")
     modules = []
     for name in (encoder_name, vae_name):
         path = main_entry.module_list.get(name)
@@ -371,7 +365,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     else:
         recipe.update(qwen_shift_mode=qwen_shift_mode, qwen_shift=qwen_shift,
                       qwen_shift_effective=effective_shift, qwen_rope=qwen_rope)
-        if schedule != "Simple":
+        if schedule in ("CyberZit Quality", "Qwen 2.1 Turbo (official)"):
             recipe["qwen_schedule_shift_delta"] = effective_shift - DEFAULT_QWEN_SHIFT
         if qwen_rope:
             recipe["qwen_rope_scale"] = {"x": QWEN_ROPE_X, "y": QWEN_ROPE_Y}
@@ -418,7 +412,9 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
                                               "Fibo high-resolution RoPE": fibo_rope})
         else:
             p.extra_generation_params.update({"Qwen Shift mode": qwen_shift_mode, "Qwen Shift": effective_shift, "Qwen RoPE adjustment": qwen_rope})
-            if schedule != "Simple" and effective_shift != DEFAULT_QWEN_SHIFT:
+            # Only these fixed grids bypass the predictor's shift. Other
+            # schedulers need Forge's normal inner-model/dimensions dispatch.
+            if schedule in ("CyberZit Quality", "Qwen 2.1 Turbo (official)") and effective_shift != DEFAULT_QWEN_SHIFT:
                 p.sampler_noise_scheduler_override = qwen_schedule_override(sd_schedulers.schedulers_map[schedule].function, effective_shift)
                 p.extra_generation_params["Qwen schedule shift delta"] = effective_shift - DEFAULT_QWEN_SHIFT
         p.edit_family = model_family
