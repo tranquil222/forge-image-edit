@@ -1,5 +1,5 @@
 {
-  "version": "0.5.20",
+  "version": "0.5.21",
   "status": "tested beta",
   "date": "2026-10-21",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 123,
+    "extension_python_tests": 125,
     "javascript_tests": 16,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -572,6 +572,17 @@
       "interactions": "Keyboard Enter toggles Settings. Opening/closing both retains seed 12345, custom size, Shift 0.85 and RoPE. Outpaint remains operable when both are closed; 2:1 expanded canvas updates 500-square custom size to 1000x500. Generate stays immediately below source and does not move on expansion.",
       "javascript_errors": "No Image Edit errors. Unrelated existing extension errors excluded.",
       "checks": "Python compile and git diff whitespace check passed. No new inference tests needed for a reversible layout-only change; existing suites run in CI."
+    },
+    "installation_hotfix": {
+      "version": "0.5.21",
+      "forge_commit": "2c24de162d08a70829cd56bf6cd4bb4f60258b68",
+      "reproduced": "0.5.20 installer declines current Neo: five affected files differ after upstream MOSS support.",
+      "clean_install": "Normal install.py check/apply succeeded on a second clean checkout. All 18 output hashes verified. Subsequent helper check reports installed support.",
+      "preservation": "MOSS/Qwen3.5 loader, detector and preset registrations preserved; MOSS=14 and Fibo=15 are distinct enum entries.",
+      "startup": "Isolated clean checkout plus only Image Edit extension started on port 7862 using existing Python environment. /config contains both fibo2 and moss presets and the Image Edit tab. No model weights loaded or downloaded.",
+      "tests": "125 Python, 16 JavaScript and 6 relevant Fibo CPU tests passed. Personal Turbo-helper test excluded because it is not shipped in the extension or backend patch.",
+      "scope": "Backend integration/installation and troubleshooting only; model implementations match the previously validated backend patch. No new GPU generation or dependency-install claim.",
+      "ci": "Three-base patch check/apply matrix (41359cd, dc01455, 2c24de1); Windows and Linux extension suites."
     }
   },
   "limitations": [

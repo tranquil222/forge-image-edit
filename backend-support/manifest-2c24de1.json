@@ -1,0 +1,98 @@
+{
+  "base_commit": "2c24de162d08a70829cd56bf6cd4bb4f60258b68",
+  "base_repository": "https://github.com/Haoming02/sd-webui-forge-classic",
+  "patch": "image-edit-2c24de1.patch",
+  "patch_sha256": "46d141950573ea17508656b3b2e005befc8e5e3989e966b495620b7eecd36f04",
+  "files": [
+    {
+      "path": "backend/args.py",
+      "before_sha256": "08c8a8f800699de45753035716b5a2c266828ce9213e99a8bba67bdfe705dac3",
+      "after_sha256": "24c262efe9534bbd3620d678c59b2cdd93a9f7d66f7a378623bf59bf336ed1f4"
+    },
+    {
+      "path": "backend/diffusion_engine/base.py",
+      "before_sha256": "ec108de0bdc83e7437c63361dfc42b98414aad8a2cd812e9f7c5842aa53bf617",
+      "after_sha256": "448c43d7733469e76dfea44ee5095fdad04c6ccb1bf5bd263b09c5b78d523b8d"
+    },
+    {
+      "path": "backend/diffusion_engine/fibo2.py",
+      "before_sha256": null,
+      "after_sha256": "1a9160a335acffe9d985aded556813d0341f06a0e8723a6d57bad0e5a74ecf3a"
+    },
+    {
+      "path": "backend/diffusion_engine/qwen21.py",
+      "before_sha256": "e02e7a0668a5f5b380a99936f3acc4b6f75406cc8923dc28babb4a75729ff216",
+      "after_sha256": "9a1ca259fcf35470243ce61dcba34be9bb38136817c1ea767b2441877a5fed3e"
+    },
+    {
+      "path": "backend/huggingface/briaai/Fibo-2.0-edit-turbo/model_index.json",
+      "before_sha256": null,
+      "after_sha256": "275c195dd29fc72440aa127d93fcae86c3f39bfffa1d40bc6b049d20837f1946"
+    },
+    {
+      "path": "backend/huggingface/briaai/Fibo-2.0-edit-turbo/text_encoder/config.json",
+      "before_sha256": null,
+      "after_sha256": "1a1006851200920f53ab7e17ca14a8b3d1b91075dfbbff493307ba894cab0abb"
+    },
+    {
+      "path": "backend/huggingface/briaai/Fibo-2.0-edit-turbo/vae/config.json",
+      "before_sha256": null,
+      "after_sha256": "0d6dfb69ae95a5e2ac9836284bbb63d8b38ce67b25ba2dff380752b2a10ab948"
+    },
+    {
+      "path": "backend/loader.py",
+      "before_sha256": "49b9a95d501279d0a6addb3d16b2ea46c8ac624000806b4fcd8187ed70ead1d9",
+      "after_sha256": "237af8a4160917e64e3f7739b001d8ec6bc03b91cb895a69a1db2020faa48c33"
+    },
+    {
+      "path": "backend/nn/fibo2.py",
+      "before_sha256": null,
+      "after_sha256": "ffd15693454855129e07cf7cbe710ba6cf81015b722744792a28f5ddd6447d03"
+    },
+    {
+      "path": "backend/nn/qwen21.py",
+      "before_sha256": "84edc94f50b0bea1ee61584729c94c4a71a837505a90900ad680e758df9fc32c",
+      "after_sha256": "578b7a8f2881aa0fd09ab30e7f91c382263f8c12b9a69d8ca63b86158f6955c0"
+    },
+    {
+      "path": "backend/patcher/vae.py",
+      "before_sha256": "34725bf5cb070facba9f218bb238f3f39172b43fcc715af52f0166311549c788",
+      "after_sha256": "4953b59ad55310e676eafab9cd4563cd1a6609c950c84fdcf5ab18a3d8bae98e"
+    },
+    {
+      "path": "backend/sampling/condition.py",
+      "before_sha256": "2af585f8eb82456e17eed9be8558355d5c015d630b278c545b3712b2db8f6feb",
+      "after_sha256": "478b34d8933ed2c045591763558f1a69ecd6db7c810a34f73c179c10e46f389f"
+    },
+    {
+      "path": "backend/text_processing/fibo2_engine.py",
+      "before_sha256": null,
+      "after_sha256": "7be442790b1f261d6e5e1dfbbb38df7498b30a3c1363673d89dffcfcc99fac48"
+    },
+    {
+      "path": "backend/text_processing/qwen21_engine.py",
+      "before_sha256": null,
+      "after_sha256": "5001fe345b010cc54138bd393ea8f5348d8d4077c12c51d544a9b1f91f762693"
+    },
+    {
+      "path": "modules_forge/main_entry.py",
+      "before_sha256": "a3aec780380a858b0797d27c70766d91e97ed47a4a47d004b9b75bbbe2af31da",
+      "after_sha256": "6d8b8883a8098c2114dee093de509eb7a97b1793809b797f9be143ce47850720"
+    },
+    {
+      "path": "modules_forge/packages/huggingface_guess/detection.py",
+      "before_sha256": "c0582bf3fcc3943366d259815ce79028862df79316798098eae58408f5125462",
+      "after_sha256": "30d37d6bc6392370e3c363b1fcb546baaf4ec1ffeefbd36b491b31bb4f8446f1"
+    },
+    {
+      "path": "modules_forge/packages/huggingface_guess/model_list.py",
+      "before_sha256": "daefc2f83897023270edac50bdce405af4cab2b0544e42cb348ad3669ab5453e",
+      "after_sha256": "900a182a9fd986d8da0e97043a303e57ca6ff9c8d4ec83f3e300c24dfa7859ec"
+    },
+    {
+      "path": "modules_forge/presets.py",
+      "before_sha256": "ccc32a9d8e9b23b29580cb443e670d69e3907d3a89f430dbf7a4f8649d892752",
+      "after_sha256": "c0c4e8cbebb752e541add6f70e71c314bf36592994a87a8d420fa676b419e54f"
+    }
+  ]
+}

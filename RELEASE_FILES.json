@@ -1,5 +1,5 @@
 {
-  "version": "0.5.20",
+  "version": "0.5.21",
   "files": [
     {
       "path": ".gitattributes",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".github/workflows/checks.yml",
-      "bytes": 1986,
-      "sha256": "bbefe9a8d687f3906d08829954eca52de52ee802f664a463c3c2635bd24310e0"
+      "bytes": 2041,
+      "sha256": "32091ada61887204b2f353cfb1921839a5e1eb5f638f583a84a07d8c98ba90dc"
     },
     {
       "path": ".gitignore",
@@ -23,13 +23,13 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 14512,
-      "sha256": "eb74b31bd721f30c121673afec368329528b32aedca7e4d6fc150044bc69d879"
+      "bytes": 15297,
+      "sha256": "0bde264efcd53d3d2dbd4a5b3a4abe79cc7f2b064dd387a42e2a1f2c4aeb13f2"
     },
     {
       "path": "COMPATIBILITY.md",
-      "bytes": 3653,
-      "sha256": "887698ec16432bd4967953bc44c46f001f5175d040abe0f1fb9274e63dd1c950"
+      "bytes": 7184,
+      "sha256": "4184756938aedbde5f7061262d8223313f29c3b9e1b104928ef77efe9ce7913a"
     },
     {
       "path": "LICENSE",
@@ -48,13 +48,18 @@
     },
     {
       "path": "README.md",
-      "bytes": 29215,
-      "sha256": "b7c3522afd41c1f3e99caaa2e40c2b97ec7740b21a0e342684a340d98febc6be"
+      "bytes": 29544,
+      "sha256": "c0b11a5a4dab848186048384d6f4e30aa19d6f8fceac2a67e5b2a3f83a0f872f"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 46764,
-      "sha256": "571d7fa25259b1c3ab5fb2abb90ec2011ad44d83825c7acaed2ded3b5a8c96b2"
+      "bytes": 48054,
+      "sha256": "569ee4d0823e62804e3100d7225d8e26e7b0785faf56453ea789ee5d40186775"
+    },
+    {
+      "path": "backend-support/image-edit-2c24de1.patch",
+      "bytes": 88386,
+      "sha256": "46d141950573ea17508656b3b2e005befc8e5e3989e966b495620b7eecd36f04"
     },
     {
       "path": "backend-support/image-edit-backend.patch",
@@ -65,6 +70,11 @@
       "path": "backend-support/image-edit-dc01455.patch",
       "bytes": 88292,
       "sha256": "aa6b92893c3d5713dca47cceeec3a0710ec7fd7d70e440262f648dcf260f6126"
+    },
+    {
+      "path": "backend-support/manifest-2c24de1.json",
+      "bytes": 4300,
+      "sha256": "52edd4ea8aab328f43b953366ff4b17babe8e380dca0e1fc498c290250060b5f"
     },
     {
       "path": "backend-support/manifest-dc01455.json",
@@ -79,7 +89,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "942fd7279e45dd52174843959ee4c869a3fa9ceea49f319b3fd56da03532d606"
+      "sha256": "bc731d26a8cca52671dc20fae86db5a3fff0174c0478004b920bfafb6eaf7bde"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -123,8 +133,8 @@
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
-      "bytes": 15584,
-      "sha256": "df4d09441b0d155edbc7914be4c7716204e5b15abf3897ea421d3e892de73997"
+      "bytes": 16237,
+      "sha256": "b84a905a5176550de5372acef394aac5bb6e8f17a7d39edff7298832ca9fb509"
     },
     {
       "path": "forge_qwen_edit/native.py",
@@ -173,8 +183,8 @@
     },
     {
       "path": "install.py",
-      "bytes": 1843,
-      "sha256": "c3853f71fa8e2b3ad68595b12e8196289dba1abbfb485801807acff45e49d35b"
+      "bytes": 1855,
+      "sha256": "1d862e6d995d310e686858c96ed0f03163ea395d7af0905158fef2e0ff9e8565"
     },
     {
       "path": "integrations/README.md",
@@ -318,8 +328,8 @@
     },
     {
       "path": "tests/test_installer.py",
-      "bytes": 3615,
-      "sha256": "19020b3f74c75dba7420836e0619bd15335cb5ef510252def17b5b0b1e0cd593"
+      "bytes": 6011,
+      "sha256": "62b1e10bb9cd4c94b931c12e906c856d4827a4828ba0274217cbebb601b3a382"
     },
     {
       "path": "tests/test_isolation.py",
@@ -383,8 +393,8 @@
     },
     {
       "path": "tools/backend_support.py",
-      "bytes": 4879,
-      "sha256": "62a7091d16d60b247989ca336a12468b06d94f8018ab0d5ea5e789d89997a31a"
+      "bytes": 5780,
+      "sha256": "ed897493655d6f4fb773dde711243a5c4e7609db8b8b3a5e835a253335a67ddd"
     },
     {
       "path": "tools/models.py",

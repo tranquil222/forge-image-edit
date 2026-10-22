@@ -1,4 +1,5 @@
 import contextlib
+import ast
 import hashlib
 import importlib.util
 import io
@@ -8,6 +9,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,6 +68,37 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(run.call_count,1)
             self.assertNotIn('--apply',run.call_args.args[0])
             self.assertIn('No backend files changed',output.getvalue())
+
+    def test_setup_message_distinguishes_missing_files_from_pending_restart(self):
+        tree = ast.parse((ROOT/'forge_qwen_edit/model_bar.py').read_text(encoding='utf-8'))
+        function = next(n for n in tree.body if getattr(n, 'name', '') == 'ensure_backend')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            args = SimpleNamespace(dynamic_args=SimpleNamespace())
+            presets = SimpleNamespace(PresetArch=SimpleNamespace(__members__={}))
+            ns = dict(Path=Path, shared=SimpleNamespace(script_path=directory))
+            exec(compile(ast.Module(body=[function], type_ignores=[]), 'backend-check', 'exec'), ns)
+            with mock.patch.dict('sys.modules', {'backend.args': args, 'modules_forge.presets': presets}):
+                adapter = SimpleNamespace(key='fibo2', flag='fibo2')
+                with self.assertRaisesRegex(ValueError, 'Native model support is missing'):
+                    ns['ensure_backend'](adapter)
+                for name in ('backend/diffusion_engine/fibo2.py', 'backend/nn/fibo2.py', 'backend/text_processing/fibo2_engine.py'):
+                    path=root/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text('# fixture')
+                with self.assertRaisesRegex(ValueError, 'registration is not loaded'):
+                    ns['ensure_backend'](adapter)
+                args.dynamic_args.fibo2=False; args.dynamic_args.qwen21_prefix_cache=True
+                presets.PresetArch.__members__['fibo2']=15
+                ns['ensure_backend'](adapter)
+
+    def test_unknown_build_report_includes_revision_and_mismatched_paths(self):
+        helper = load('image_edit_backend_report', ROOT/'tools/backend_support.py')
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory)/'launch.py').write_text('# fixture')
+            with mock.patch.object(helper.subprocess,'check_output',return_value='1'*40), mock.patch('sys.argv',['backend_support.py','--forge-root',directory]), contextlib.redirect_stdout(io.StringIO()) as output:
+                with self.assertRaisesRegex(SystemExit,'repeated restarts will not fix'):
+                    helper.main()
+            self.assertIn('Forge revision: ' + '1'*40, output.getvalue())
+            self.assertIn('backend/args.py', output.getvalue())
 
 
 if __name__ == '__main__':

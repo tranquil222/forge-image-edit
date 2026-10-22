@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.21 beta — installation hotfix
+
+- Fix backend installation on MOSS-enabled Forge Neo (`2c24de1`). The previous
+  patch correctly refused changed files, but left users with the Image Edit tab
+  installed and no `fibo2` UI preset. Preserve upstream MOSS/Qwen3.5 support and
+  assign Fibo a distinct preset ID.
+- Keep support for both previously verified Neo bases. Add the new base to CI.
+- Report the Forge revision and mismatched files when setup cannot proceed.
+- Distinguish missing native files from unloaded model registration in the UI.
+- Replace vague setup guidance with exact update, full-restart, check/apply and
+  report steps. Checkpoint placement does not control preset availability.
+- Installation-only hotfix. No sampling, sizing or generation-default changes.
+
 ## 0.5.20 beta
 
 - Group Seed / Batch, Speed / quality, Resolution and output sizing inside a

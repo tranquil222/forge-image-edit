@@ -35,6 +35,7 @@ def main():
             return
         raise SystemExit("Partial backend integration found. No files changed. Review COMPATIBILITY.md for manual integration.")
     revision = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+    print(f"Forge revision: {revision}")
     manifests = [(path, json.loads(path.read_text())) for path in sorted(support.glob("manifest*.json"))]
     match = next(((path, data) for path, data in manifests if data["base_commit"] == revision), None)
     if match is None:
@@ -45,7 +46,16 @@ def main():
                              and digest(root / item["path"]) == item["before_sha256"]
                              for item in data["files"])), None)
     if match is None:
-        raise SystemExit("Backend setup required for this Forge build. No files changed. See COMPATIBILITY.md for supported backends.")
+        closest, differences = min(((data, [item["path"] for item in data["files"]
+            if digest(root / item["path"]) != item["before_sha256"]]) for _, data in manifests), key=lambda pair: len(pair[1]))
+        print(f"Closest supported base: {closest['base_commit']}")
+        print("Affected files that do not match:\n" + "\n".join(f"  {name}" for name in differences))
+        raise SystemExit("Backend setup required for this Forge build. No files changed. "
+                         "The extension UI is installed, but native model support was not applied. "
+                         "This installer targets Haoming02 Forge Neo (neo branch), not every Forge fork. "
+                         "Update Image Edit, fully stop and relaunch Forge, then run this check again. "
+                         "If it still fails, send this output and your Forge repository/branch; repeated restarts will not fix a file mismatch. "
+                         "See COMPATIBILITY.md for exact steps.")
     manifest_path, manifest = match
     patch = support / manifest["patch"]
     if digest(patch) != manifest["patch_sha256"]:

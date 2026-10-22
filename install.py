@@ -20,7 +20,7 @@ def main():
     command = [sys.executable, str(extension/'tools/backend_support.py'), '--forge-root', str(root)]
     checked = subprocess.run(command, capture_output=True, text=True)
     if checked.stdout:
-        print(checked.stdout.strip())
+        print(checked.stdout.strip(), flush=True)
     if checked.returncode:
         if checked.stderr:
             print(checked.stderr.strip())

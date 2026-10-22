@@ -40,8 +40,14 @@ def ensure_backend(adapter):
     from modules_forge.presets import PresetArch
     root = Path(shared.script_path)
     required = (f"backend/diffusion_engine/{adapter.key}.py", f"backend/nn/{adapter.key}.py", f"backend/text_processing/{adapter.key}_engine.py")
-    if not all((root / name).is_file() for name in required) or not hasattr(dynamic_args, adapter.flag) or not hasattr(dynamic_args, "qwen21_prefix_cache") or adapter.key not in PresetArch.__members__:
-        raise ValueError("Backend setup required. Fully close and relaunch Forge after installation. If this remains, see the setup guide.")
+    if not all((root / name).is_file() for name in required):
+        raise ValueError("Backend setup required. Native model support is missing; this is not a checkpoint-folder problem. "
+                         "Update Image Edit, fully close the Forge console and relaunch your normal launcher. "
+                         "If this remains, run the setup check in the guide; your Forge build may need a newer backend patch.")
+    if not hasattr(dynamic_args, adapter.flag) or not hasattr(dynamic_args, "qwen21_prefix_cache") or adapter.key not in PresetArch.__members__:
+        raise ValueError("Backend setup required. Native files exist, but model registration is not loaded. "
+                         "Fully close the Forge console and relaunch your normal launcher, not just Reload UI. "
+                         "If this remains, run the setup check in the guide.")
 
 
 def component_summary(checkpoint, encoder, vae):
@@ -68,8 +74,9 @@ def selection_status(value, modules):
         return message, True
     except ValueError as error:
         if str(error).startswith("Backend setup required"):
-            return ("**Backend setup required.** Fully close and relaunch Forge after installation. "
-                    "[Setup guide](https://github.com/tranquil222/forge-image-edit/blob/main/COMPATIBILITY.md)."), False
+            detail = html.escape(str(error).removeprefix("Backend setup required. "))
+            return ("**Backend setup required.** " + detail + " "
+                    "[Step-by-step setup guide](https://github.com/tranquil222/forge-image-edit/blob/main/COMPATIBILITY.md#fibo2-is-missing-from-ui-preset-or-backend-setup-required)."), False
         requirements = component_summary(checkpoint.filename, *adapter.defaults[1:])
         return (requirements + "\n\n**Required files above.** Select the encoder and VAE in the top model bar, or use the matching-components button. "
                 "[Downloads](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), False

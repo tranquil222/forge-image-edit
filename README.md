@@ -2,7 +2,12 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.20 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.21 beta**. No ComfyUI server or cloud image service.
+
+**Missing `fibo2` in UI Preset after installing?** Version 0.5.21 fixes setup on
+the newer MOSS-enabled Forge Neo build. Update Image Edit, then **fully close the
+Forge console and relaunch** (not just Reload UI).
+[Step-by-step setup and diagnostics](COMPATIBILITY.md#fibo2-is-missing-from-ui-preset-or-backend-setup-required).
 
 ## Main controls, Fibo Shift and RoPE
 
