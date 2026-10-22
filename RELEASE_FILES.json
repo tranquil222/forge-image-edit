@@ -1,5 +1,5 @@
 {
-  "version": "0.5.24",
+  "version": "0.5.25",
   "files": [
     {
       "path": ".gitattributes",
@@ -23,13 +23,13 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 20207,
-      "sha256": "0060bc574c2481fea43855f6d64ed4819a5a9e356da2ce62d6c07d3183b32a14"
+      "bytes": 20873,
+      "sha256": "6f0feda637360942fc7763e009505deca19e3de868de019ed7adf00815ed11f5"
     },
     {
       "path": "COMPATIBILITY.md",
-      "bytes": 8171,
-      "sha256": "e2cbb29bec84318cd48a649de53fcb9f906fafb7a74fd83f9ac2c8f8ee928074"
+      "bytes": 8404,
+      "sha256": "93ee6d3804e6be657be179204ea4eb18fae68d52da0f3f38451e0811e6f107da"
     },
     {
       "path": "LICENSE",
@@ -49,17 +49,17 @@
     {
       "path": "README.md",
       "bytes": 33311,
-      "sha256": "bc1e24c23287676fa27df286c36c6d4b973bab983c9b0034ba563cc048c7bdf2"
+      "sha256": "d11702bf0eeea0abd20ba246a30a81d42d8ee5f058bfb604cf7f826f49711756"
     },
     {
       "path": "VALIDATION.json",
-      "bytes": 56757,
-      "sha256": "3bebf3ec5b3ae7fef4d8cd2044a56d2fa753b677a5a37d7065b1a53409e938d5"
+      "bytes": 57848,
+      "sha256": "4dcae588cae568fb28463fafd88a3304e2710355d1b809fecc62a91dca54d8c9"
     },
     {
       "path": "WORKLOG.md",
-      "bytes": 37765,
-      "sha256": "892d928b33a2266fdd4fee0d818e833c02df64ebb53baaa2698621245b4275cb"
+      "bytes": 39484,
+      "sha256": "a0032881904d04972c701da72b31b278202e1234231fd4064a62bb84c631ce7c"
     },
     {
       "path": "backend-support/image-edit-2c24de1.patch",
@@ -94,7 +94,7 @@
     {
       "path": "forge_qwen_edit/__init__.py",
       "bytes": 78,
-      "sha256": "dbd262b3eab88f9ca166b8519a92e0f4b12f60d866009f5380277cb7708eb8aa"
+      "sha256": "a098440ee69740900f67dd9bddc7d52752740606adfa11c755cad0c4aeeccf16"
     },
     {
       "path": "forge_qwen_edit/adapters.py",
@@ -133,8 +133,8 @@
     },
     {
       "path": "forge_qwen_edit/metadata.py",
-      "bytes": 3200,
-      "sha256": "709b50661437dc21f1a98476c3f01cb6e835c7b23cff2de095b20d0e3f2f916a"
+      "bytes": 4087,
+      "sha256": "99b5e138f7232d6d1dd8136bd86ec2b015e660c3a23141adf929061f688b981a"
     },
     {
       "path": "forge_qwen_edit/model_bar.py",
@@ -357,6 +357,11 @@
       "sha256": "6922ca3fef491a003f8257d5fe3a0c158517b9056a53b775b3e37508a4f5523b"
     },
     {
+      "path": "tests/test_camera_metadata.py",
+      "bytes": 4858,
+      "sha256": "c6bf91f10abe802bc991f51bbcba8b9aa12b8f9ddc33e30e5e79b7492f2c50df"
+    },
+    {
       "path": "tests/test_cancellation.py",
       "bytes": 3050,
       "sha256": "a5ed51d3139de13fa9df95b670eca8c1588aa7589fc4e1e8eac59adeb4567416"
@@ -403,8 +408,8 @@
     },
     {
       "path": "tests/test_native_masked.py",
-      "bytes": 27212,
-      "sha256": "4d6985999ff08ffabb07ce7fe8960e5f0fe2b7e43602db30139862a1c5b06e0e"
+      "bytes": 27976,
+      "sha256": "6cb3ad494e6e77617c288dc19e2f9c68ec92bc496a0cecaacc3d5946184eb02e"
     },
     {
       "path": "tests/test_outpaint.py",

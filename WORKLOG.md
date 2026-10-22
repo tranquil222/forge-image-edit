@@ -2,6 +2,31 @@
 
 Updated: 2026-10-22. This file is the handoff record for ongoing local work.
 
+## Emergency hotfix — 0.5.25 camera EXIF metadata
+
+- Follow-up: the Reddit user reports a full reset cleared backend setup, then
+  generation stopped with `TypeError: Object of type IFDRational is not JSON
+  serializable`, keeping zero completed edits. Exact remote traceback/file not
+  available; reproduced that exact exception locally in `build_metadata` using
+  actual JPEG/TIFF files containing EXIF rational resolution values.
+- Root cause: `source.info['dpi']` was copied directly into JSON edit history.
+  Pillow can decode it as `IFDRational`, not a built-in float. This save-stage
+  failure follows inference and affects both supported model families.
+- Normalize optional DPI to finite, positive PNG-representable floats for
+  history and binary saving. Invalid DPI is omitted; original EXIF/ICC bytes,
+  text, recipes and metadata-off behavior are preserved. No image pixels or
+  model inference changed. Do not use a blanket JSON `default=str` workaround.
+- Startup investigation also confirmed `launch -> cmd_args -> paths_internal`
+  imports `backend.args` before extension installers. A repair during startup
+  therefore needs one more full restart. Documented this; no speculative
+  runtime model-registration bypass/reload is being shipped.
+- Separate hotfix worktree based on published `4ca3d98`. Pending reference
+  colors/crops/masking/layout/help remain outside this release. Do not restart
+  the user's personal Forge; they requested to relaunch it themselves.
+- Validation: 165 Python tests passed; real JPEG/TIFF metadata roundtrips and
+  production save-path CPU stand-ins cover Qwen, Fibo Turbo and Fibo Dev with
+  preservation on/off. compileall and whitespace checks passed. No GPU job.
+
 ## Emergency hotfix — 0.5.24 backend-registration repair
 
 - User explicitly requested an immediate separate GitHub fix for a Reddit user

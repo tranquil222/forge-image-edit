@@ -1,5 +1,5 @@
 {
-  "version": "0.5.24",
+  "version": "0.5.25",
   "status": "tested beta",
   "date": "2026-10-22",
   "environment": {
@@ -13,7 +13,7 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 162,
+    "extension_python_tests": 165,
     "javascript_tests": 35,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
@@ -593,7 +593,7 @@
       "zero_edge_ui": {
         "zero_edges_enabled": true,
         "notice": "No crop or outpaint changes. Generate edit will apply your prompt to the whole image.",
-        "summary": "Output: 672 \u00c3\u0192\u00e2\u20ac\u201d 896 \u00c3\u201a\u00c2\u00b7 source: 432 \u00c3\u0192\u00e2\u20ac\u201d 576",
+        "summary": "Output: 672 Ãƒâ€” 896 Ã‚Â· source: 432 Ãƒâ€” 576",
         "expansion_label": true,
         "reset_restores_normal": true,
         "crop_only": true,
@@ -765,6 +765,15 @@
       "qwen_turbo": "Exact reported Qwen2/qwen_image_2.1_turbo_bf16.safetensors filename selects the Qwen adapter and Turbo (8 steps) preset.",
       "scope": "Installation-only hotfix. Existing backend patches and generation unchanged. No new GPU inference or claim of the remote user environment being reproduced exactly.",
       "windows_ci_followup": "Initial Windows unit fixture used an 8.3 root alias. Helper now resolves its root before containment checks; production main already normalized it. Initial Linux and all four backend installation/repair jobs passed."
+    },
+    "camera_metadata_hotfix": {
+      "version": "0.5.25",
+      "date": "2026-10-22",
+      "reproduction": "Actual JPEG and TIFF EXIF resolution fields decode to Pillow IFDRational; the old history serializer raises the exact reported TypeError.",
+      "tests": "165 Python tests passed. Real JPEG/TIFF-to-PNG roundtrips cover rational DPI, unchanged output pixels, original EXIF/ICC/text, repeated history and preservation off. Production generation/save path with CPU inference stand-ins saves completed edits for Qwen, Fibo Turbo and Fibo Dev. Invalid/nonfinite/out-of-range DPI is omitted without discarding an edit.",
+      "compile_and_whitespace": "compileall and git diff --check passed.",
+      "scope": "Metadata/save-stage fix only. No backend patch or inference changes; no new GPU run. Existing JavaScript is unchanged. Pending reference-editor work excluded.",
+      "startup_followup": "User reports full reset cleared setup. Code inspection confirms backend.args is imported before extension installers; guide now explains the additional full restart after a startup repair. No speculative live-registration patch."
     }
   },
   "limitations": [

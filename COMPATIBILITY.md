@@ -25,6 +25,9 @@ Moving the checkpoint cannot add the missing `fibo2` preset.
 3. **Fully stop Forge**, including its console/process, then start it with your
    normal launcher. Closing the browser, refreshing, or **Reload UI** is not a
    full restart. The installer runs during startup unless installation is skipped.
+   If that startup **repairs backend files**, stop and start Forge once more:
+   Forge imports backend settings before running installers, so the repair can
+   restore the preset while the current process still has the old settings.
 4. Check **UI Preset** for `fibo2`. Choose the checkpoint in the top model bar,
    select its encoder/VAE and use **Image Edit → Check model setup**. Checkpoints belong in
    `models/Stable-diffusion`; encoders in `models/text_encoder`; VAEs in `models/VAE`.

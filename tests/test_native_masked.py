@@ -13,6 +13,7 @@ import unittest
 import numpy as np
 from PIL import Image, ImageDraw
 from PIL.PngImagePlugin import PngInfo
+from PIL.TiffImagePlugin import IFDRational
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from forge_qwen_edit.masking import canonical_image, composite_patch, context_box, editor_value, extract_mask, location_guide, scoped_instruction, fibo_masked_reference, fibo_masked_instruction, camera_angle_instruction
@@ -50,6 +51,13 @@ class NativeMaskedTests(unittest.TestCase):
 
     def test_masked_output_drops_original_metadata_when_disabled(self):
         self.check_masked_job("Replace / remove", "Fibo 2.0 Edit Turbo", False)
+
+    def test_camera_dpi_does_not_discard_completed_edits(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo", "Fibo 2.0 Dev"):
+            for keep in (True, False):
+                with self.subTest(family=family, keep=keep):
+                    self.check_masked_job("Replace / remove", family, keep,
+                        source_metadata={"dpi": (IFDRational(72, 1), IFDRational(72, 1))})
 
     def test_tone_option_keeps_mask_boundary_and_records_recipe(self):
         self.check_masked_job("Replace / remove", "Fibo 2.0 Edit Turbo", preserve_tone=True)
@@ -142,7 +150,7 @@ class NativeMaskedTests(unittest.TestCase):
                     self.check_masked_job('Camera angle', family, sampler_override='Heun',
                         schedule_override=schedule, qwen_shift=1.15)
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None, qwen_shift_mode="Manual", qwen_shift=.69, qwen_rope=False, custom_components=False, sampler_override=None, schedule_override=None):
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None, qwen_shift_mode="Manual", qwen_shift=.69, qwen_rope=False, custom_components=False, sampler_override=None, schedule_override=None, source_metadata=None):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
@@ -194,6 +202,7 @@ class NativeMaskedTests(unittest.TestCase):
             exec(compile(ast.Module(body=[function], type_ignores=[]), "production_generate", "exec"), namespace)
             source = Image.new("RGBA", (640, 420), (20, 40, 80, 200))
             source.info["Author"] = "original-author"
+            source.info.update(source_metadata or {})
             editor = editor_value(source)
             layer = Image.new("RGBA", source.size)
             ImageDraw.Draw(layer).rectangle((200, 100, 290, 220), fill=(0, 255, 0, 255))
@@ -363,6 +372,10 @@ class NativeMaskedTests(unittest.TestCase):
             self.assertGreaterEqual(int(seed), 0)
             with Image.open(filename) as saved:
                 self.assertEqual("Author" in saved.info, keep_metadata)
+                if source_metadata:
+                    self.assertEqual("dpi" in saved.info, keep_metadata)
+                    if keep_metadata:
+                        self.assertAlmostEqual(saved.info["dpi"][0], 72, delta=.02)
                 recipe = json.loads(saved.info["image_edit"])
                 self.assertEqual(recipe["model_family"], family)
                 self.assertEqual(recipe["preserve_tone"], preserve_tone)

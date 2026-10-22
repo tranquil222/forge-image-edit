@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.25 beta — camera-photo metadata saving fix
+
+- Fix `TypeError: Object of type IFDRational is not JSON serializable` when
+  editing camera JPEG/TIFF images. Convert EXIF-derived DPI values to plain
+  numbers before writing PNG history; preserve original EXIF and ICC data.
+- Ignore malformed optional DPI values rather than losing a completed edit.
+  Metadata preservation on/off and repeated edit history remain supported.
+- Clarify why a backend repair performed during startup can require one more
+  full restart: Forge imports its backend settings before extension installers.
+- No model inference changes. Pending reference-editor work is not included.
+
 ## 0.5.24 beta — repair partial backend installations
 
 - Repair verified mixtures of original and already-patched backend files after
