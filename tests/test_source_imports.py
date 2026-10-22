@@ -25,7 +25,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_newest_then_older_across_dated_subfolders_with_exact_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             older = self.make_image(root, '2026-10-21/older.PNG', 1000000000)
             newest = self.make_image(root, '2026-10-22/new ü #2.png', 3000000000)
             middle = self.make_image(root, 'middle.png', 2000000000)
@@ -43,7 +43,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_tied_times_deleted_files_and_new_arrivals_do_not_repeat_or_skip(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             a = self.make_image(root, 'a.png', 1000000000)
             b = self.make_image(root, 'b.png', 1000000000)
             c = self.make_image(root, 'c.png', 1000000000)
@@ -56,7 +56,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_skips_empty_corrupt_and_non_image_files(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             valid = self.make_image(root, 'valid.png', 1000000000)
             (root / 'empty.png').touch()
             (root / 'broken.png').write_text('not an image')
@@ -70,7 +70,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_folder_change_restarts_history_and_cursor_is_not_a_file_request(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             first = self.make_image(root / 'first', 'image.png', 1000000000)
             second = self.make_image(root / 'second', 'image.png', 2000000000)
             _, cursor = recent_image(first.parent)
@@ -88,7 +88,7 @@ class SavedSourceTests(unittest.TestCase):
         functions = [node for node in ast.parse(path.read_text(encoding='utf-8')).body
                      if getattr(node, 'name', '') in ('txt2img_output_folder', 'recent_txt2img_file', 'random_txt2img_file')]
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             usual = self.make_image(root / 'txt2img', 'usual.png', 1000000000)
             override = self.make_image(root / 'custom', 'override.png', 2000000000)
             opts = SimpleNamespace(outdir_samples='', outdir_txt2img_samples='txt2img')
@@ -106,7 +106,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_random_uses_readable_saved_files_without_modifying_them(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             one = self.make_image(root, 'one.png', 1000000000)
             two = self.make_image(root, 'dated/two.png', 2000000000)
             (root / 'broken.png').write_text('not an image')
@@ -121,7 +121,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_repeated_imports_reuse_catalog_and_restart_sees_new_files(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             older = self.make_image(root, 'older.png', 1000000000)
             newer = self.make_image(root, 'newer.png', 2000000000)
             with patch.object(source_imports, '_scan_images', wraps=source_imports._scan_images) as scan:
@@ -137,7 +137,7 @@ class SavedSourceTests(unittest.TestCase):
 
     def test_catalog_expiry_and_bounded_folder_cache(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             with patch.object(source_imports, '_catalogs', source_imports.OrderedDict()), \
                  patch.object(source_imports.time, 'monotonic', return_value=100) as clock, \
                  patch.object(source_imports, '_scan_images', wraps=source_imports._scan_images) as scan:

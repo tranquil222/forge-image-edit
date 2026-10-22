@@ -746,6 +746,7 @@
         ],
         "scope": "File discovery and local API response, excluding browser image transfer/display; no generation."
       },
+      "ci_path_normalization": "Initial Linux and three backend checks passed. Windows fixture roots used an 8.3 temporary-directory alias; tests now resolve those roots before comparing with canonical importer paths. No runtime behavior change.",
       "live_environment": "Separate headless Edge page on port 7860, installed while idle. No GPU generation, global model changes or Canary interaction in this check.",
       "sampling_limits": "All live registered samplers/schedulers are selectable; defaults remain unchanged. CPU stand-ins verify selected parameters reach native processing and recipes. No GPU quality comparison or claim that every combination is equally suitable.",
       "backend_installation": "Installer and backend patches unchanged. Existing public-base compatibility CI checks remain enabled.",

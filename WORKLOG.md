@@ -58,6 +58,11 @@ Updated: 2026-10-22. This file is the handoff record for ongoing local work.
 - Live API after the performance fix: 0.2441s first import, then 0.0145s and
   0.0143s, excluding browser transfer/display. Installed idle backup:
   `C:/CODEX/forge-image-edit-backups/20261022-125316-cumulative-0522`.
+- Initial push: `9306f98378cadb96bc907a5a3a56e52573a14f04`. Linux extension and
+  all three backend-base CI checks passed. Windows exposed a test-fixture path
+  comparison bug: its temporary folder used the 8.3 alias RUNNER~1 while the
+  importer correctly returned the resolved runneradmin path. Normalize fixture
+  roots before comparison; no runtime or import behavior change was needed.
 
 ## Publication rule — current user instruction
 
