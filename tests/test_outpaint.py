@@ -52,10 +52,26 @@ class OutpaintTests(unittest.TestCase):
         self.assertEqual(result['structured_caption'], original['structured_caption'])
         self.assertIn('neutral-grey', result['edit_instruction'])
         self.assertNotIn('green', result['edit_instruction'])
-        self.assertIn('bright green', outpaint_instruction('', False))
+        self.assertIn('green areas', outpaint_instruction('', False))
         result = json.loads(outpaint_instruction(json.dumps(original), True, painted=True))
         self.assertEqual(result['structured_caption'], original['structured_caption'])
         self.assertIn('painted areas', result['edit_instruction'])
+
+    def test_qwen_outpaint_leads_with_replacement_and_preserves_user_edit(self):
+        instruction = 'Continue the tiled floor using the pattern from <image2>.'
+        for painted in (False, True):
+            with self.subTest(painted=painted):
+                prompt = outpaint_instruction(instruction, False, painted)
+                self.assertTrue(prompt.startswith('Replace all the green areas'))
+                self.assertTrue(prompt.endswith(instruction))
+                self.assertEqual(prompt.count(instruction), 1)
+                self.assertNotIn('neutral-grey', prompt)
+                self.assertNotIn('framed picture', prompt)
+                if painted:
+                    self.assertIn('apply the requested edit to green areas inside', prompt)
+                    self.assertIn('unmasked content', prompt)
+                    self.assertNotIn('Keep the existing scene unchanged', prompt)
+        self.assertTrue(outpaint_instruction('  ', False).endswith('Extend the surrounding scene naturally.'))
 
     def test_paint_is_cropped_and_shifted_with_source_without_touching_source_pixels(self):
         source = Image.new('RGBA', (80, 60), (30, 60, 90, 170))

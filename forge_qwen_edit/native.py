@@ -17,6 +17,7 @@ from modules_forge import main_entry
 from . import __version__
 from .adapters import get_adapter
 from .sampling import validate_fibo_sampling, resolve_fibo_shift, fibo_rope_context, FIBO_ROPE_X, FIBO_ROPE_Y
+from .sampling import validate_qwen_sampling, resolve_qwen_shift, qwen_rope_context, qwen_schedule_override, DEFAULT_QWEN_SHIFT, QWEN_ROPE_X, QWEN_ROPE_Y
 from .workflow import output_resize_size, prepare_sized_reference
 from .workflow import QUALITY_PRESETS, fibo_result_prompt, image_digest, parse_seed, prepare_reference, reference_content_box
 from .masking import canonical_image, composite_patch, context_box, extract_mask, fibo_masked_instruction, fibo_masked_reference, location_guide, scoped_instruction
@@ -127,7 +128,9 @@ class EditProcessing(processing.StableDiffusionProcessingTxt2Img):
 
     def sample(self, *args, **kwargs):
         check_cancelled()
-        with fibo_rope_context(self.sd_model, getattr(self, "edit_fibo_rope", False)):
+        rope = (qwen_rope_context(self.sd_model, getattr(self, "edit_qwen_rope", False), dynamic_args.ref_latents, dynamic_args.image_slots)
+                if get_adapter(self.edit_family).key == "qwen21" else fibo_rope_context(self.sd_model, getattr(self, "edit_fibo_rope", False)))
+        with rope:
             samples = super().sample(*args, **kwargs)
         # Forge can return None when interrupted before its first denoising step.
         # Stop before the core tries to iterate/decode a missing or partial latent.
@@ -200,12 +203,15 @@ def isolated_options(checkpoint, modules, storage_dtype="Automatic"):
             setattr(dynamic_args, key, value)
 
 
-def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None, reference_curves=None, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None):
+def generate(source, reference2, reference3, instruction, negative, resolution, steps, seed, sampler, schedule, model_name, encoder_name, vae_name, prefix_cache, area_only=False, editor=None, feather=8, area_mode="Replace / remove", model_family="Qwen Image 2.1", result_description="", keep_original_metadata=True, storage_dtype="Automatic", guidance=None, preserve_tone=False, canvas_edges=None, reference_curves=None, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None, qwen_shift_mode="Manual", qwen_shift=.69, qwen_rope=False, custom_components=False):
     adapter = get_adapter(model_family)
     if adapter.key == "fibo2":
         fibo_shift_mode, fibo_shift, fibo_rope = validate_fibo_sampling(fibo_shift_mode, fibo_shift, fibo_rope)
     else:
         fibo_rope = False
+        qwen_shift_mode, qwen_shift, qwen_rope = validate_qwen_sampling(qwen_shift_mode, qwen_shift, qwen_rope)
+    if adapter.key != "qwen21":
+        qwen_rope = False
     guidance = adapter.guidance if guidance is None else float(guidance)
     if not 1 <= guidance <= 15 or (adapter.guidance == 1 and guidance != 1):
         raise ValueError("CFG must be 1 for Turbo/Qwen, or between 1 and 15 for Fibo Dev.")
@@ -233,7 +239,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         raise ValueError(f"Choose an installed {adapter.label} checkpoint in Forge's top model bar.")
     if not adapter.accepts(checkpoint.name):
         raise ValueError(f"The selected checkpoint is not supported by {adapter.label}.")
-    validate_components(adapter, [encoder_name, vae_name], main_entry.module_list)
+    validate_components(adapter, [encoder_name, vae_name], main_entry.module_list, custom_components, vae_name)
     prefix_cache = bool(prefix_cache) and adapter.prefix_cache
     if schedule == "Qwen 2.1 Turbo (official)" and "turbo" not in checkpoint.name.lower():
         raise ValueError("The Official Turbo schedule requires Turbo weights. Choose your Turbo checkpoint.")
@@ -328,7 +334,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
     reference_resolutions = [working_resolution] + [resolution] * (len(input_references) - 1)
     references = [prepare_sized_reference(im, custom_size) if index == 0 and custom_size else prepare_reference(im, res)
                   for index, (im, res) in enumerate(zip(input_references, reference_resolutions))]
-    effective_shift = resolve_fibo_shift(fibo_shift_mode, fibo_shift, *references[0].size) if adapter.key == "fibo2" else adapter.shift
+    effective_shift = (resolve_fibo_shift(fibo_shift_mode, fibo_shift, *references[0].size) if adapter.key == "fibo2"
+                       else resolve_qwen_shift(qwen_shift_mode, qwen_shift, *references[0].size))
     content_boxes = [reference_content_box(*im.size, res) for im, res in zip(input_references, reference_resolutions)]
     if custom_size:
         content_boxes[0] = reference_content_box(*custom_size, 0)
@@ -340,6 +347,7 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         "negative_prompt": negative, "resolution": int(resolution), "steps": int(steps),
         "cfg": guidance, "seed": str(seed), "sampler": sampler, "schedule": schedule,
         "model": checkpoint.name, "encoder": encoder_name, "vae": vae_name,
+        "custom_components": bool(custom_components),
         "prefix_cache": bool(prefix_cache),
         "result_description": result_description,
         "keep_original_metadata": bool(keep_original_metadata), "storage_dtype": storage_dtype,
@@ -360,6 +368,13 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
                       fibo_shift_effective=effective_shift, fibo_rope=fibo_rope)
         if fibo_rope:
             recipe["fibo_rope_scale"] = {"x": FIBO_ROPE_X, "y": FIBO_ROPE_Y}
+    else:
+        recipe.update(qwen_shift_mode=qwen_shift_mode, qwen_shift=qwen_shift,
+                      qwen_shift_effective=effective_shift, qwen_rope=qwen_rope)
+        if schedule != "Simple":
+            recipe["qwen_schedule_shift_delta"] = effective_shift - DEFAULT_QWEN_SHIFT
+        if qwen_rope:
+            recipe["qwen_rope_scale"] = {"x": QWEN_ROPE_X, "y": QWEN_ROPE_Y}
     if reference_adjustments:
         recipe["reference_adjustments"] = reference_adjustments
     if area_only:
@@ -375,6 +390,8 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         recipe["effective_prompt"] = effective_instruction
     recipe["quality_preset"] = next((name for name, values in adapter.profiles.items() if all(recipe[key] == value for key, value in values.items())), "Custom")
     if guidance != adapter.guidance or (adapter.key == "fibo2" and (fibo_shift_mode != "Manual" or fibo_shift != adapter.shift or fibo_rope)):
+        recipe["quality_preset"] = "Custom"
+    if adapter.key == "qwen21" and (qwen_shift_mode != "Manual" or qwen_shift != adapter.shift or qwen_rope):
         recipe["quality_preset"] = "Custom"
     output_dir = Path(shared.opts.outdir_samples or shared.opts.outdir_img2img_samples)
     with isolated_options(checkpoint, modules, storage_dtype):
@@ -395,9 +412,15 @@ def generate(source, reference2, reference3, instruction, negative, resolution, 
         )
         p.edit_references = references
         p.edit_fibo_rope = fibo_rope
+        p.edit_qwen_rope = qwen_rope
         if adapter.key == "fibo2":
             p.extra_generation_params.update({"Fibo Shift mode": fibo_shift_mode, "Fibo Shift": effective_shift,
                                               "Fibo high-resolution RoPE": fibo_rope})
+        else:
+            p.extra_generation_params.update({"Qwen Shift mode": qwen_shift_mode, "Qwen Shift": effective_shift, "Qwen RoPE adjustment": qwen_rope})
+            if schedule != "Simple" and effective_shift != DEFAULT_QWEN_SHIFT:
+                p.sampler_noise_scheduler_override = qwen_schedule_override(sd_schedulers.schedulers_map[schedule].function, effective_shift)
+                p.extra_generation_params["Qwen schedule shift delta"] = effective_shift - DEFAULT_QWEN_SHIFT
         p.edit_family = model_family
         p.edit_prefix_cache = bool(prefix_cache)
         p.edit_release_encoder = checkpoint.name.lower().endswith(".gguf")

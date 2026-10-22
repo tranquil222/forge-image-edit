@@ -130,32 +130,38 @@ def canvas_blend_mask(mask, plan):
 
 
 def outpaint_instruction(instruction, fibo, painted=False):
-    marker = "neutral-grey" if fibo else "bright green"
-    ref = "<image_1>" if fibo else "<image1>"
+    instruction = (instruction or "").strip() or "Extend the surrounding scene naturally."
+    if not fibo:
+        # Qwen can copy the coloured border with the longer Fibo-oriented rules.
+        # Lead with a direct replacement request; the green guide itself is valid.
+        rules = ("Replace all the green areas with a seamless continuation of the surrounding scene. "
+                 "Continue the visible content naturally to fill the entire image, matching its style, lighting and perspective. ")
+        if painted:
+            rules += ("Also apply the requested edit to green areas inside the original image. "
+                      "Keep the unmasked content unchanged.")
+        else:
+            rules += "Keep the existing scene unchanged."
+        return rules + "\n\n" + instruction
     # Calling the source a photograph can encourage a picture-on-background
     # interpretation, especially with artwork/collages and a sparse caption.
-    rules = (f"Extend the existing scene in {ref} outward into every {marker} masked area. "
+    rules = ("Extend the existing scene in <image_1> outward into every neutral-grey masked area. "
              "The grey pixels are missing scene content, not a background around a separate picture. "
              "Create one continuous edge-to-edge scene covering the entire canvas. Continue the actual objects, surfaces, colors, patterns and depth from the adjacent visible content into the missing area. "
              "Match its visual style, scale, lighting and perspective. Do not turn the original content into a print, poster, framed picture or object on a wall or floor. "
              "Do not add a rectangular outline, drop shadow, blank surround or new vignette at the old image boundary. Preserve the unmasked content.")
-    if not fibo:
-        rules = rules.replace("The grey pixels", "The bright green pixels")
     if painted:
         rules += (" Also replace the painted areas inside the original content with the requested content. "
                   "For object removal, reconstruct the surrounding background instead of continuing the covered object into the new border. "
                   "Preserve only the unpainted parts of the retained content.")
-    instruction = (instruction or "").strip() or "Extend the surrounding scene naturally."
-    if fibo:
-        try:
-            structured = json.loads(instruction)
-        except ValueError:
-            structured = None
-        if isinstance(structured, dict):
-            structured["edit_instruction"] = str(structured.get("edit_instruction", "")).strip() + "\n\n" + rules
-            return fibo_masked_instruction(json.dumps(structured, ensure_ascii=False))
+    try:
+        structured = json.loads(instruction)
+    except ValueError:
+        structured = None
+    if isinstance(structured, dict):
+        structured["edit_instruction"] = str(structured.get("edit_instruction", "")).strip() + "\n\n" + rules
+        return fibo_masked_instruction(json.dumps(structured, ensure_ascii=False))
     result = instruction + "\n\n" + rules
-    return fibo_masked_instruction(result) if fibo else result
+    return fibo_masked_instruction(result)
 
 
 def save_crop(source, edges, keep_metadata=True):

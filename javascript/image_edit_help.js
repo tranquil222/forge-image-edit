@@ -1,12 +1,14 @@
 // Move detailed help out of the layout without removing Gradio-managed content.
 (() => {
     const extras = {
-        image_edit_canvas_enabled: () => 'Positive edges add space; negative edges crop. The green outline is the final canvas. Paint over edge objects to replace them while extending the scene. Unpainted pixels outside seam blending are preserved.',
+        image_edit_canvas_enabled: () => 'Positive edges add space; negative edges crop. The green outline is the final canvas. Paint over edge objects to replace them while extending the scene. Unpainted pixels outside seam blending are preserved. With no edge, size or painted changes, Generate edit applies your prompt to the whole image as a normal edit.',
         image_edit_output_size_enabled: () => text('image_edit_output_hint'),
         qwen_edit_quality: () => text('qwen_edit_preset_summary'),
         qwen_edit_area_mode: () => 'Standard follows your instruction. Camera angle changes the viewpoint. Expression transfer uses the first additional reference for expression only.\n\n' + text('image_edit_camera_help') + '\n\n' + text('image_edit_mask_help'),
         image_edit_fibo_shift_mode: () => text('image_edit_shift_hint'),
         image_edit_fibo_rope: () => text('image_edit_rope_hint'),
+        image_edit_qwen_shift_mode: () => text('image_edit_qwen_shift_hint'),
+        image_edit_qwen_rope: () => text('image_edit_qwen_rope_hint'),
     };
     function text(id) { return document.getElementById(id)?.textContent.trim() || ''; }
     let active, popup;
@@ -49,6 +51,12 @@
             attach(component?.querySelector('[data-testid="block-info"]') || component?.querySelector('label'), content,
                 component?.querySelector('[data-testid="block-info"]')?.firstChild?.textContent || component?.querySelector('label span')?.textContent || 'Setting');
         }
+        attach(document.getElementById('image_edit_iib_help'),
+            () => 'Open an image in Infinite Image Browser’s lightbox and leave it open. Switch to the Image Edit tab, then press Import from Infinite Image Browser to load the original image and all its embedded metadata.\n\nUse Get prompt from metadata to extract its saved prompt.',
+            'Import from Infinite Image Browser');
+        attach(document.getElementById('image_edit_txt2img_help'),
+            () => 'In txt2img, select the image you want: its thumbnail has an orange border and it appears in the large preview. Switch to Image Edit, then press Import from txt2img. Only that image is imported, with all its embedded metadata.\n\nUse Get prompt from metadata to extract its saved prompt.',
+            'Import from txt2img');
         workspace.classList.add('qe-help-enabled');
     }
     document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });

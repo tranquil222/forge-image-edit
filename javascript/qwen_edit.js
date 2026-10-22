@@ -54,6 +54,61 @@ window.qwenEditLoadImage = async function (imageUrl, filename = "source.png") {
 };
 window.imageEditLoadImage = window.qwenEditLoadImage;
 
+// Reuse is a local source transfer, not a generation or recipe import. Avoid
+// queueing/reserializing gr.Image/gr.File outputs through another server event.
+window.imageEditUseResultAsSource = async function () {
+    const app = gradioApp(), button = app.querySelector("#image_edit_reuse_result");
+    const note = app.querySelector("#image_edit_reuse_error");
+    if (window.imageEditReusingResult) return;
+    window.imageEditReusingResult = true;
+    if (note) { note.hidden = true; note.textContent = ""; }
+    if (button) { button.disabled = true; button.textContent = "Loading source…"; }
+    try {
+        if (window.imageEditCurvesBusy) throw new Error("Wait for the curves adjustment to finish saving, then try again.");
+        const result = app.querySelector("#qwen_edit_result img");
+        // gr.Image displays the full PNG. Its URL follows the selected result
+        // immediately, unlike the download control's separate change callback.
+        const address = result?.src;
+        const canvas = window.qwenEditPaintCanvas;
+        if (!address || !result) throw new Error("Create an edit before using its result as the source.");
+        if (!canvas) throw new Error("The source canvas is not ready. Refresh Forge and try again.");
+        const url = new URL(address, window.location.href);
+        if (url.origin !== window.location.origin) throw new Error("The result must come from this Forge session.");
+        const response = await fetch(url.href, { credentials: "same-origin", signal: AbortSignal.timeout(30000) });
+        if (!response.ok) throw new Error(`Could not load the saved result (HTTP ${response.status}).`);
+        const blob = await response.blob();
+        if (!blob.type.startsWith("image/")) throw new Error("The saved result is not a supported image.");
+        const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("Could not read the saved result."));
+            reader.readAsDataURL(blob);
+        });
+        // Decode before touching the current source/painting, so a failed fetch
+        // or damaged image leaves the existing work intact.
+        const decoded = new Image();
+        decoded.src = data;
+        await decoded.decode();
+        canvas.loadImage(data, true); // Also clear paint/refit on repeated reuse.
+        // Gradio suppresses a source.change for identical bytes. Reset the
+        // scalar crop controls explicitly so repeated reuse cannot leave a
+        // visible old edge value after the canvas preview has reset.
+        for (const edge of ["left", "right", "top", "bottom"]) {
+            const input = app.querySelector(`#image_edit_canvas_${edge} input[type="number"]`);
+            if (input && Number(input.value) !== 0) {
+                input.value = "0";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        }
+    } catch (error) {
+        if (note) { note.textContent = error.message || "Could not load the result. Try again."; note.hidden = false; }
+    } finally {
+        window.imageEditReusingResult = false;
+        if (button) { button.disabled = false; button.textContent = "Use result as source"; }
+    }
+};
+
 // Local viewer and optional curves workspace. Viewing never runs a model.
 (() => {
     if (window.qwenEditLightboxInstalled) return;

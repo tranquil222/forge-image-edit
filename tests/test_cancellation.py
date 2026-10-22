@@ -4,7 +4,8 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
-from forge_qwen_edit.sampling import fibo_rope_context
+from forge_qwen_edit.sampling import fibo_rope_context, qwen_rope_context
+from forge_qwen_edit.adapters import get_adapter
 
 
 class CancellationTests(unittest.TestCase):
@@ -27,11 +28,14 @@ class CancellationTests(unittest.TestCase):
                     owner.state.interrupted = True
                 return owner.result
 
-        ns = dict(shared=SimpleNamespace(state=self.state), Base=Base, fibo_rope_context=fibo_rope_context)
+        ns = dict(shared=SimpleNamespace(state=self.state), Base=Base, fibo_rope_context=fibo_rope_context,
+                  qwen_rope_context=qwen_rope_context, get_adapter=get_adapter,
+                  dynamic_args=SimpleNamespace(ref_latents=[], image_slots=[]))
         module = ast.fix_missing_locations(ast.Module(body=[*nodes, wrapper], type_ignores=[]))
         exec(compile(module, "cancellation_boundary", "exec"), ns)
         self.processor = ns["EditProcessing"]()
         self.processor.sd_model = None
+        self.processor.edit_family = 'Qwen Image 2.1'
         self.cancelled = ns["EditCancelled"]
 
     def test_cancel_before_sample_never_calls_sampler(self):

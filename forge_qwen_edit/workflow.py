@@ -188,6 +188,10 @@ def validate_recipe(recipe):
         from .sampling import validate_fibo_sampling
         mode, shift, rope = validate_fibo_sampling(recipe.get("fibo_shift_mode", "Manual"), recipe.get("fibo_shift", 1.15), recipe.get("fibo_rope", False))
         recipe = {**recipe, "fibo_shift_mode": mode, "fibo_shift": shift, "fibo_rope": rope}
+    elif recipe.get("model_family", "Qwen Image 2.1") == "Qwen Image 2.1":
+        from .sampling import validate_qwen_sampling
+        mode, shift, rope = validate_qwen_sampling(recipe.get("qwen_shift_mode", "Manual"), recipe.get("qwen_shift", .69), recipe.get("qwen_rope", False))
+        recipe = {**recipe, "qwen_shift_mode": mode, "qwen_shift": shift, "qwen_rope": rope}
     return {**recipe, "steps": steps, "resolution": resolution, "seed": str(seed), "cfg": cfg}
 
 

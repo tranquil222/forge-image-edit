@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.22 beta — cumulative editing and import update
+
+- Treat unchanged, unpainted Crop / outpaint canvases as normal prompt edits.
+  Keep Generate edit enabled when the source and model are ready, show a clear
+  whole-image-edit notice, and report the actual normal-edit output size.
+- Keep Qwen/Fibo checkpoint selections in the correct saved preset; ignore
+  crossed-family saved entries and keep an already matching checkpoint selected.
+  Manual checkpoint selection synchronizes the layout without changing encoder/VAE.
+- Replace the mutating matching-components button with read-only **Check model
+  setup**. Image Edit readiness follows the checkpoint and its selected components.
+- Name missing encoder/VAE files in the setup status and check-button feedback.
+  Add an optional custom-filename override in Extras with explicit VAE selection;
+  save and restore the override and component roles in PNG recipes.
+- Transfer the full result PNG directly to the source canvas, preserving metadata
+  and current settings. Reusing an identical result clears paint and crop edges;
+  failed transfers show an error and leave the source intact.
+- Add **Import from txt2img** and **Import from Infinite Image Browser** beside
+  Crop / outpaint, with question-mark instructions. Follow the selected batch
+  result or open IIB lightbox after switching tabs. Preserve original file bytes
+  and metadata for prompt extraction. Do not inject controls into IIB.
+- Align the crop checkbox, import buttons and help icons. Keep import feedback
+  out of layout: brief button confirmation on success, filename on hover, and
+  temporary error popovers. No extra vertical gap for status text.
+- Give Qwen outpaint a concise, direct border-replacement instruction instead of
+  the longer Fibo guidance that could leave the green guide in the result.
+  Keep Qwen's green input, Fibo's grey input and original-pixel preservation.
+- Add Qwen Shift and experimental RoPE in the same Extras layout as Fibo.
+- Keep separate model values, defaults and help. Qwen defaults to Manual 0.69
+  with RoPE off; switching models does not carry Fibo's default into Qwen.
+- Apply Qwen Shift to fixed Normal/Quality and official Turbo schedules as a
+  delta from the unchanged default; Simple uses the model predictor directly.
+- Scale only Qwen image RoPE positions, preserving text and image-plane positions.
+  Clear prefix caches and remove job-scoped hooks even after cancellation.
+- Save and import Qwen controls in PNG recipes, with defaults for older recipes.
+- Add a durable work log for cumulative updates and validation history.
+
 ## 0.5.21 beta — installation hotfix
 
 - Fix backend installation on MOSS-enabled Forge Neo (`2c24de1`). The previous

@@ -20,6 +20,7 @@ from forge_qwen_edit.workflow import QUALITY_PRESETS, fibo_result_prompt, image_
 from forge_qwen_edit.workflow import output_resize_size, prepare_sized_reference
 from forge_qwen_edit.adapters import get_adapter
 from forge_qwen_edit.sampling import validate_fibo_sampling, resolve_fibo_shift, FIBO_ROPE_X, FIBO_ROPE_Y
+from forge_qwen_edit.sampling import validate_qwen_sampling, resolve_qwen_shift, qwen_schedule_override, DEFAULT_QWEN_SHIFT, QWEN_ROPE_X, QWEN_ROPE_Y
 from forge_qwen_edit.metadata import build_metadata, preserve_binary_metadata
 from forge_qwen_edit.selection import validate_components
 from forge_qwen_edit.tone import match_source_tone, tone_summary
@@ -123,11 +124,24 @@ class NativeMaskedTests(unittest.TestCase):
                     self.check_masked_job('Outpaint', family, canvas_paint=True, extra_refs=True, fibo_rope=True,
                         canvas_edges=dict(right=80, output_resize=resize))
 
-    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None):
+    def test_qwen_shift_and_rope_reach_global_painted_and_outpaint_jobs(self):
+        for mode in ('Camera angle', 'Replace / remove', 'Outpaint'):
+            for shift_mode in ('Manual', 'Image-size adjusted'):
+                with self.subTest(mode=mode, shift_mode=shift_mode):
+                    self.check_masked_job(mode, qwen_shift_mode=shift_mode, qwen_shift=.85, qwen_rope=True)
+
+    def test_custom_component_roles_reach_job_and_png_for_both_models(self):
+        for family in ("Qwen Image 2.1", "Fibo 2.0 Edit Turbo"):
+            with self.subTest(family=family):
+                self.check_masked_job("Camera angle", family, custom_components=True)
+
+    def check_masked_job(self, mode, family="Qwen Image 2.1", keep_metadata=True, preserve_tone=False, canvas_paint=False, canvas_edges=None, extra_refs=False, adjust_refs=False, expression_painted=False, reference_gap=False, fibo_shift_mode="Manual", fibo_shift=1.15, fibo_rope=False, output_resize=None, qwen_shift_mode="Manual", qwen_shift=.69, qwen_rope=False, custom_components=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             adapter = get_adapter(family)
             encoder_name, vae_name = adapter.defaults[1:]
+            if custom_components:
+                encoder_name, vae_name = 'custom-encoder.safetensors', 'custom-decoder.safetensors'
             for name in (encoder_name, vae_name):
                 (root / name).touch()
             calls = []
@@ -161,7 +175,7 @@ class NativeMaskedTests(unittest.TestCase):
                 apply_default=lambda image, key, area, recipe: apply_fibo_default(image, key, area, recipe, root / "curves.json"),
                 isolated_options=lambda *args: nullcontext(),
                 sd_samplers=SimpleNamespace(find_sampler_config=lambda name: True),
-                sd_schedulers=SimpleNamespace(schedulers_map={schedule: True}),
+                sd_schedulers=SimpleNamespace(schedulers_map={schedule: SimpleNamespace(function=lambda **kw: np.linspace(1, 0, kw['n']+1))}),
                 sd_models=SimpleNamespace(checkpoints_list={"model": SimpleNamespace(name=model_name)}),
                 main_entry=SimpleNamespace(module_list={name: root / name for name in (encoder_name, vae_name)}),
                 images=SimpleNamespace(save_image=native_save),
@@ -197,12 +211,16 @@ class NativeMaskedTests(unittest.TestCase):
                 extras[1].info[UPLOAD_DIGEST] = 'b' * 64
                 curves = [json.dumps(payload('a' * 64)), json.dumps(payload('b' * 64))]
             output, filename, seed, message = namespace["generate"](
-                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves, fibo_shift_mode=fibo_shift_mode, fibo_shift=fibo_shift, fibo_rope=fibo_rope, output_resize=output_resize)
-            expected_shift = resolve_fibo_shift(fibo_shift_mode, fibo_shift, calls[0].width, calls[0].height) if fibo else .69
+                source, *extras, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, expression_painted if expression else (not camera and (edges is None or canvas_paint)), editor, 8, mode, family, "", keep_metadata, preserve_tone=preserve_tone, canvas_edges=edges, reference_curves=curves, fibo_shift_mode=fibo_shift_mode, fibo_shift=fibo_shift, fibo_rope=fibo_rope, output_resize=output_resize, qwen_shift_mode=qwen_shift_mode, qwen_shift=qwen_shift, qwen_rope=qwen_rope, custom_components=custom_components)
+            expected_shift = resolve_fibo_shift(fibo_shift_mode, fibo_shift, calls[0].width, calls[0].height) if fibo else resolve_qwen_shift(qwen_shift_mode, qwen_shift, calls[0].width, calls[0].height)
             self.assertEqual(calls[0].distilled_cfg_scale, expected_shift)
             self.assertEqual(calls[0].edit_fibo_rope, fibo and fibo_rope)
+            self.assertEqual(calls[0].edit_qwen_rope, not fibo and qwen_rope)
             with Image.open(filename) as saved:
                 sampling_recipe = json.loads(saved.info['image_edit'])
+            self.assertEqual(sampling_recipe['custom_components'], custom_components)
+            self.assertEqual(sampling_recipe['encoder'], encoder_name)
+            self.assertEqual(sampling_recipe['vae'], vae_name)
             if fibo:
                 self.assertEqual(sampling_recipe['fibo_shift_effective'], expected_shift)
                 self.assertEqual(sampling_recipe['fibo_shift_mode'], fibo_shift_mode)
@@ -212,6 +230,13 @@ class NativeMaskedTests(unittest.TestCase):
                     self.assertEqual(sampling_recipe['fibo_rope_scale'], {'x': .85, 'y': .8})
             else:
                 self.assertNotIn('fibo_rope', sampling_recipe)
+                self.assertEqual(sampling_recipe['qwen_shift_effective'], expected_shift)
+                self.assertEqual(sampling_recipe['qwen_rope'], qwen_rope)
+                if expected_shift != .69:
+                    self.assertTrue(callable(calls[0].sampler_noise_scheduler_override))
+                    self.assertNotEqual(calls[0].sampler_noise_scheduler_override(8)[4], .5)
+                else:
+                    self.assertFalse(hasattr(calls[0], 'sampler_noise_scheduler_override'))
             if expression:
                 from forge_qwen_edit.workflow import read_recipe
                 recipe = read_recipe(filename)
@@ -279,6 +304,12 @@ class NativeMaskedTests(unittest.TestCase):
                     self.assertEqual(recipe['canvas_painted_area'], canvas_paint)
                     self.assertEqual(recipe['masked_edit']['feather'], 0)
                     self.assertEqual(recipe['masked_edit']['crop'], [0, 0, *plan['output_size']])
+                    if plan['expand']:
+                        expected_prompt = outpaint_instruction(instruction, fibo, canvas_paint)
+                        if extra_refs:
+                            expected_prompt = masked_reference_instruction(expected_prompt, fibo, 2)
+                        self.assertEqual(calls[0].prompt, expected_prompt)
+                        self.assertEqual(recipe['effective_prompt'], expected_prompt)
                     self.assertNotIn('fibo_global_curves', recipe)
                     _, selected, _ = result_context(filename, __import__('hashlib').sha256(Path(filename).read_bytes()).hexdigest())
                     np.testing.assert_array_equal(np.array(selected), np.array(border))
@@ -303,7 +334,7 @@ class NativeMaskedTests(unittest.TestCase):
                 with Image.open(filename) as saved:
                     self.assertNotIn(MASK_KEY, saved.info)
                 with self.assertRaisesRegex(ValueError, "whole scene"):
-                    namespace["generate"](source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, True, editor, 8, mode, family)
+                    namespace["generate"](source, None, None, instruction, "", 512, 4 if fibo else 8, "-1", "Euler" if fibo else "Res Multistep", schedule, model_name, encoder_name, vae_name, True, True, editor, 8, mode, family, custom_components=custom_components)
                 return
             self.assertEqual(output.size, source.size)
             outside = np.array(layer)[..., 3] == 0

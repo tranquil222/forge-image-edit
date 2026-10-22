@@ -2,14 +2,14 @@
 
 Native image-editing workspace for **Forge Neo**. Qwen Image 2.1 (base and
 Turbo), Fibo 2.0 Edit Turbo, and optional Fibo 2.0 Dev share one **Image Edit**
-tab. Version **0.5.21 beta**. No ComfyUI server or cloud image service.
+tab. Version **0.5.22 beta**. No ComfyUI server or cloud image service.
 
 **Missing `fibo2` in UI Preset after installing?** Version 0.5.21 fixes setup on
 the newer MOSS-enabled Forge Neo build. Update Image Edit, then **fully close the
 Forge console and relaunch** (not just Reload UI).
 [Step-by-step setup and diagnostics](COMPATIBILITY.md#fibo2-is-missing-from-ui-preset-or-backend-setup-required).
 
-## Main controls, Fibo Shift and RoPE
+## Main controls, Shift and RoPE
 
 Generate / Cancel sit directly below the source image, followed by **Crop / outpaint**.
 Its edge controls expand immediately beneath the toggle, outside the accordions.
@@ -40,9 +40,20 @@ backend differ from ComfyUI, so matching the RoPE trick does not promise identic
 images. Larger model images need more memory and time. The workflow targets
 high-resolution stretching; neither control is an established contrast fix.
 
-Both controls are saved in the PNG recipe. Older PNGs restore Manual 1.15 and
-RoPE off. Qwen ignores these Fibo-only controls. Existing 4-step Turbo defaults
-and low-resolution behavior are unchanged unless you enable a control.
+Both controls are saved in the PNG recipe. Older Fibo PNGs restore Manual 1.15
+and RoPE off. Existing 4-step Turbo defaults and low-resolution behavior are
+unchanged unless you enable a control.
+
+**Local, unreleased Qwen controls:** Qwen uses the same Extras layout, with its
+own **Manual Shift 0.69** default and independent values. Image-size adjusted
+uses Qwen's working-resolution formula (0.5–0.9). Normal/Quality and official
+Turbo have fixed schedules, so Shift adjusts those schedules relative to 0.69;
+the default preserves their original sampling steps. Simple uses model Shift
+directly. Qwen RoPE is experimental: X 0.85 / Y 0.80 scales only image positions,
+not text or image-order positions. It works in whole-image, painted and outpaint
+modes without resizing. RoPE starts off; improvement is not guaranteed.
+Qwen settings are saved/restored in PNG recipes; older Qwen PNGs use 0.69 / off.
+Switching models keeps each model's controls separate.
 
 Inside **Settings**, one shared **Custom output size** section is available in
 whole-image and crop/outpaint modes, outside the crop/outpaint expansion. **Resize to** provides
@@ -56,8 +67,10 @@ enlargement. Additional references still use Resolution. Sizes are limited to
 keeping the checkbox preference. Ordinary painted edits keep their original size
 and do not offer this override. Use Crop / outpaint to change the canvas shape.
 The **?** buttons show detailed help on hover, keyboard focus or click.
-An unchanged, unpainted canvas disables Generate and explains what to change.
-Painting still enables generation with every edge set to zero.
+With all edges at zero and no size or painted changes, Generate edit works as a
+normal whole-image edit even when Crop / outpaint remains checked. A notice below
+the edge controls explains this, and Output shows the normal edit dimensions.
+Painting still confines the edit when every edge is zero.
 
 ## Install
 
@@ -81,9 +94,18 @@ See [COMPATIBILITY.md](COMPATIBILITY.md) for supported builds and manual setup.
 3. Obtain one model set from [MODELS.md](MODELS.md). Weights are optional,
    downloaded separately, and never bundled or installed on startup.
 4. Fully close and relaunch Forge after installation. Refresh the top model list.
-5. Choose the checkpoint in Forge's **top Checkpoint** field. Open **Image Edit**
-   and click **Use matching encoder / VAE**. This fills an installed compatible
-   pair and sets `qwen21` or `fibo2` in **UI Preset**. It never changes the checkpoint.
+5. Choose the checkpoint in Forge's **top Checkpoint** field, then its matching
+   encoder and VAE in **VAE / Text Encoder**. Selecting a supported checkpoint
+   synchronizes **UI Preset** to `qwen21` or `fibo2` without replacing your files.
+   **Image Edit** detects the model automatically. **Check model setup** only
+   rechecks the selected files; it never changes them. Missing components are
+   named above the source image and when you press the check button.
+
+For renamed or fine-tuned component files, enable **Extras → Allow custom
+encoder / VAE filenames**, then choose which selected file is the VAE. The other
+file is the encoder. This bypasses filename matching only; both files must exist
+and their weights must work with the selected supported checkpoint. The override
+starts off and is saved with the component roles in generated PNG recipes.
 
 The installer never runs `git pull`, changes branches, installs Python dependencies,
 replaces personal settings, or modifies another extension.
@@ -98,9 +120,13 @@ compatible with a different Forge fork, GPU, or dependency set.
 3. Optionally paint an area or add reference images, then **Generate edit**.
 4. Use **Download PNG with settings** or **Use result as source**.
 
-**Generate/Cancel** sit on the left, with **Seed** and **Batch count** on the right; in a narrow window the
-buttons move together onto the next line. **🎲** sets `-1` (a fresh random seed
+**Generate/Cancel** sit below the source; **Seed** and **Batch count** are in Settings.
+**🎲** sets `-1` (a fresh random seed
 for every image). **♻️** copies the selected result's seed for prompt comparisons.
+
+**Use result as source** transfers the full PNG and its metadata without changing
+the prompt or model settings. It clears old painting and crop edges, including
+when reusing the same result. A failed transfer shows an error and keeps the source.
 
 Set **Batch count** to 1–64 for sequential variations of the submitted source,
 mask and instruction. This is not a chain of edits or a larger GPU batch size.
@@ -282,6 +308,8 @@ model-grid padding that is removed from the saved result. With it unchecked,
 The green outline is a persistent preview of the final canvas, not a green
 overlay. Fibo receives RGB **128, 128, 128** only in the added border; Qwen uses
 its own green replacement guide. The outline never enters either model input.
+Qwen receives a short instruction to replace that guide with a continuation of
+the scene; it does not use Fibo's longer automatic outpaint prompt.
 The original image is not resized or overwritten by the controls. Painting stays
 available: cover edge objects you want replaced before the scene is extended.
 The added border and painted areas form one edit region. Strokes remain aligned
@@ -433,11 +461,22 @@ original and subsequent edits; it is not a tamper-proof provenance system.
 
 ## Image browser and PNG import
 
-The optional [IIB integration](integrations/README.md) labels its action
-**Send to Image Edit**. It transfers original file bytes, then loads an
+Two import buttons sit beside **Crop / outpaint**, with question-mark help:
+
+- **Import from txt2img** uses the selected result (orange-bordered thumbnail
+  shown in the large preview), not the first image in a batch.
+- **Import from Infinite Image Browser** uses the image open in IIB's lightbox.
+  Leave the lightbox open, switch to Image Edit, then click Import. This button
+  appears when IIB is installed; no IIB menus, files or settings are changed.
+
+Both transfer original file bytes, preserving embedded metadata for **Get prompt
+from metadata** and **Keep original metadata**. The [integration](integrations/README.md)
+also loads an
 `image_edit` or legacy `qwen_edit` recipe when present. Ordinary images do not
 change generation settings. Missing recipe models give a clear error; no model
-is downloaded and no saved workflow path is opened. Sending never generates.
+is downloaded and no saved workflow path is opened. Importing never generates.
+Success briefly changes the button to **Imported ✓** without expanding the row;
+the filename is available on hover. Drag-and-drop from Explorer remains available.
 
 The manual PNG importer supports this extension's recipes and simple Qwen 2.1
 Comfy PNGs with one encoder and one sampler. Complex graphs are not executed.
@@ -454,7 +493,7 @@ From the extension directory:
 
 ```sh
 python -m unittest discover -s tests -v
-node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs
+node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs tests/output_size.test.cjs tests/iib.test.cjs tests/reuse.test.cjs
 python -m compileall -q forge_qwen_edit tools
 ```
 

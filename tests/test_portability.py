@@ -43,7 +43,7 @@ class PortabilityTests(unittest.TestCase):
             pair = suggested_components(adapter, [], available)
             self.assertEqual(validate_components(adapter, pair, available), adapter.defaults[1:])
             for invalid in (pair + ["qwen_image_vae.safetensors"], [pair[0], "qwen_image_vae.safetensors"], ["qwen3vl_8b_bf16.safetensors", pair[1]]):
-                with self.assertRaisesRegex(ValueError, "Required"):
+                with self.assertRaisesRegex(ValueError, "top VAE / Text Encoder"):
                     validate_components(adapter, invalid, available)
             Path(available[pair[1]]).unlink()
             with self.assertRaisesRegex(ValueError, "Missing vae"):
@@ -68,7 +68,7 @@ class PortabilityTests(unittest.TestCase):
             selected = ["qwen3vl_8b_w4a8.safetensors", adapter.defaults[2]]
             self.assertEqual(suggested_components(adapter, selected, available), selected)
             self.assertEqual(validate_components(adapter, selected, available), tuple(selected))
-            with self.assertRaisesRegex(ValueError, "Required"):
+            with self.assertRaisesRegex(ValueError, "top VAE / Text Encoder"):
                 validate_components(adapter, ["qwen3vl_4b_int8_convrot.safetensors", selected[1]], available)
 
     def test_qwen_texture_fix_selection_is_retained_and_rejected_for_fibo(self):
@@ -84,7 +84,7 @@ class PortabilityTests(unittest.TestCase):
             selected = [qwen.defaults[1], fixed]
             self.assertEqual(suggested_components(qwen, selected, available), selected)
             self.assertEqual(validate_components(qwen, selected, available), tuple(selected))
-            with self.assertRaisesRegex(ValueError, "Required"):
+            with self.assertRaisesRegex(ValueError, "top VAE / Text Encoder"):
                 validate_components(fibo, [fibo.defaults[1], fixed], available)
 
     def test_dev_uses_separate_guidance_defaults_and_recipe_validation(self):

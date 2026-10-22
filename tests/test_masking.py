@@ -64,6 +64,22 @@ class MaskingTests(unittest.TestCase):
                 'Manual', .85, True, True, 'Resize by', 1024, 1024, 2)
             self.assertEqual(submitted[-4:-1], ('Manual', .85, True))
             self.assertEqual(submitted[-1], None if expected else dict(mode='Resize by', width=1024, height=1024, scale=2))
+            current = ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', [], 'Automatic', False,
+                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, False, 0, 0, 0, 0, 32, 1, 1, '', '',
+                'Manual', .85, True, True, 'Resize by', 1024, 1024, 2, 'Image-size adjusted', .69, True)
+            self.assertEqual(current[:-3], submitted)
+            self.assertEqual(current[-3:], ('Image-size adjusted', .69, True))
+            from unittest.mock import Mock
+            runner = Mock(return_value='custom job')
+            resolver = Mock(return_value=(SimpleNamespace(name='checkpoint'), SimpleNamespace(label='Fibo'), 'encoder', 'vae'))
+            ns.update(run_edit=runner, model_bar=SimpleNamespace(resolve_selection=resolver))
+            self.assertEqual(ns['run_canvas_edit']('task', *([None] * 10), 'checkpoint', ['vae', 'encoder'], 'Automatic', False,
+                old_flag, foreground, 8, 'Replace / remove', '', True, 1, False, False, 0, 0, 0, 0, 32, 1, 1, '', '',
+                'Manual', .85, True, True, 'Resize by', 1024, 1024, 2, 'Image-size adjusted', .69, True, True, 'vae'), 'custom job')
+            resolver.assert_called_once_with('checkpoint', ['vae', 'encoder'], True, 'vae')
+            self.assertEqual(runner.call_args.args, current)
+            self.assertEqual(runner.call_args.kwargs, dict(batch_count=1, custom_components=True))
+            ns.update(run_edit=lambda *args, **kwargs: args)
 
     def setUp(self):
         rng = np.random.default_rng(7)

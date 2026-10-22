@@ -48,8 +48,8 @@ window.qwenEditInitCanvas = function (uuid, consistentBrush = false) {
             // Original file bytes retain PNG/EXIF metadata on unmodified Forge.
             this.background_gradio_bind.set_value(this.img || "");
         }
-        loadImage(value) {
-            if (value && value === this.img) return;
+        loadImage(value, force = false) {
+            if (!force && value && value === this.img) return;
             const enabled = !!window.imageEditCanvasEdges?.enabled;
             window.imageEditCanvasEdges = {enabled, left: 0, right: 0, top: 0, bottom: 0};
             this.no_scribbles = false;

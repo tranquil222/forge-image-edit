@@ -17,6 +17,8 @@
 #qwen_edit_result img { cursor: zoom-in; }
 #qwen_edit_result_actions { flex-grow: 0; align-items: flex-start; }
 #qwen_edit_result_actions button { min-height: 40px; }
+#image_edit_reuse_message:has([hidden]) { display: none !important; }
+#image_edit_reuse_error { font-size: 13px; color: var(--body-text-color); }
 #qwen_edit_download { min-height: 40px; }
 #image_edit_download_column { gap: 4px; flex: 1 1 200px; }
 #image_edit_save_note p, #image_edit_prompt_note p { font-size: 12px; opacity: .75; margin: 0; }
@@ -30,6 +32,20 @@
 #qwen_edit_workspace .qe-prompt-tokens button:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
 #image_edit_download_data { display: none !important; }
 #image_edit_previews { align-items: flex-start; }
+#image_edit_canvas_toolbar { align-items: flex-start; gap: 8px 12px; }
+#image_edit_canvas_toolbar #image_edit_canvas_enabled { display: flex; align-items: center; flex: 0 0 auto; min-width: 150px; height: 34px; margin: 0; }
+#image_edit_source_imports { padding: 0; min-height: 0; min-width: 0; flex: 1 1 420px; }
+#image_edit_source_imports .qe-source-import-row { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; }
+#image_edit_source_imports .qe-source-import-control { display: inline-flex; align-items: center; gap: 6px; }
+#image_edit_source_imports .qe-source-import-control > span { display: inline-flex; align-items: center; }
+#image_edit_source_imports .qe-source-import-control > button { display: inline-flex; align-items: center; justify-content: center; height: 34px; box-sizing: border-box; margin: 0; padding: 6px 12px; border: 1px solid var(--button-secondary-border-color, #515b6b); border-radius: 7px; background: var(--button-secondary-background-fill, #414b59); color: var(--button-secondary-text-color, #fff); font: inherit; font-size: 13px; line-height: 1.2; white-space: nowrap; cursor: pointer; }
+#image_edit_source_imports .qe-source-import-control > button:hover { background: var(--button-secondary-background-fill-hover, #505c6c); }
+#image_edit_source_imports button:disabled { opacity: .6; cursor: wait; }
+#image_edit_source_imports button:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
+#qwen_edit_workspace #image_edit_source_imports .qe-help-button { margin: 0; }
+#image_edit_import_status { position: absolute; z-index: 100; top: calc(100% + 5px); left: 0; max-width: 100%; box-sizing: border-box; padding: 7px 10px; border: 1px solid #a77; border-radius: 6px; background: #2b2020; color: #fff; font-size: 12px; overflow-wrap: anywhere; }
+#image_edit_import_status[data-kind="success"] { width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); }
+#image_edit_source_imports [hidden] { display: none !important; }
 #image_edit_settings_row { align-items: flex-start; }
 #image_edit_settings_row > .gradio-column { min-height: 0; }
 #qwen_edit_workspace .qe-main-accordion { flex-grow: 0; }
@@ -46,7 +62,7 @@
 #image_edit_seed_controls .tool { flex: 0 0 40px; width: 40px; height: 44px; margin-bottom: 1px; }
 #image_edit_batch_count { max-width: 110px; }
 #image_edit_batch_gallery { flex-grow: 0; }
-#image_edit_fibo_sampling { flex-grow: 0; padding-top: 8px; }
+#image_edit_fibo_sampling, #image_edit_qwen_sampling { flex-grow: 0; padding-top: 8px; }
 #image_edit_canvas_run_help p, #qwen_edit_preset_summary p { font-size: 12px; line-height: 1.5; margin: 0; }
 #image_edit_output_settings { margin-top: 4px; }
 @media (max-width: 800px) {
@@ -69,7 +85,7 @@
 #qwen_edit_workspace:has(#image_edit_canvas_enabled input:checked:not(:disabled)) #image_edit_standard_controls { display: none; }
 #image_edit_canvas_horizontal, #image_edit_canvas_vertical { gap: 16px; }
 #image_edit_canvas_reset { flex-grow: 0; align-self: flex-start; min-width: 110px; max-width: 140px; }
-#qwen_edit_workspace.qe-help-enabled :is(.qe-help-detail, #qwen_edit_preset_summary, #image_edit_camera_help, #image_edit_mask_help, #image_edit_shift_hint, #image_edit_rope_hint, #image_edit_output_hint) { display: none !important; }
+#qwen_edit_workspace.qe-help-enabled :is(.qe-help-detail, #qwen_edit_preset_summary, #image_edit_camera_help, #image_edit_mask_help, #image_edit_shift_hint, #image_edit_rope_hint, #image_edit_qwen_shift_hint, #image_edit_qwen_rope_hint, #image_edit_output_hint) { display: none !important; }
 #qwen_edit_workspace .qe-help-button { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; min-width: 18px; padding: 0; margin-left: 7px; border: 1px solid #6e859b; border-radius: 50%; background: transparent; color: inherit; font: 12px sans-serif; cursor: help; vertical-align: middle; }
 #qwen_edit_workspace .qe-help-button:focus-visible { outline: 2px solid #79c6e2; outline-offset: 2px; }
 #image_edit_help_popup { position: fixed; z-index: 10000; max-width: min(380px, calc(100vw - 32px)); padding: 10px 12px; border: 1px solid #6e859b; border-radius: 6px; background: #202a36; color: #f3f6fa; box-shadow: 0 4px 16px #0008; font: 13px/1.5 sans-serif; white-space: pre-line; pointer-events: none; }

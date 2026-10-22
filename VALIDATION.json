@@ -1,7 +1,7 @@
 {
-  "version": "0.5.21",
+  "version": "0.5.22",
   "status": "tested beta",
-  "date": "2026-10-21",
+  "date": "2026-10-22",
   "environment": {
     "os": "Windows",
     "python": "3.13.1",
@@ -13,8 +13,8 @@
     "pillow": "12.3.0"
   },
   "checks": {
-    "extension_python_tests": 125,
-    "javascript_tests": 16,
+    "extension_python_tests": 150,
+    "javascript_tests": 31,
     "fibo_backend_cpu_tests": 7,
     "qwen_backend_cpu_tests": 20,
     "backend_patch": "Check-only and apply passed against public commit 41359cd4b8b89212b3dbad8c9af719160a12ed63. All 28 affected file hashes verified. Clean checkout started successfully with only this extension, using the existing Python environment.",
@@ -52,7 +52,7 @@
     },
     "painted_edit": "Live Fibo Turbo neutral-grey mask; original dimensions and exact outside-mask RGBA preservation verified. Painted hat region changed from red to blue.",
     "metadata": "Original text preservation, numbered history, latest recipe import, IIB handoff API, binary PNG metadata roundtrip, preservation-off and native img2img save integration passed.",
-    "model_bar": "Generation event reads native checkpoint, modules and dtype components directly. Wrong components rejected; matching installed components and UI preset correction verified.",
+    "model_bar": "Checkpoint and preset families stay synchronized. Check model setup is read-only and names missing files. Explicit custom filename override assigns encoder/VAE roles. Live UI checks and regression tests cover switching, readiness and recipe restoration.",
     "ci": "See the GitHub Actions checks for this revision: https://github.com/tranquil222/forge-image-edit/actions",
     "current_public_base": {
       "commit": "dc0145513e4fe9274e71bc3fd3ea2cb97a5bd8c9",
@@ -583,6 +583,111 @@
       "tests": "125 Python, 16 JavaScript and 6 relevant Fibo CPU tests passed. Personal Turbo-helper test excluded because it is not shipped in the extension or backend patch.",
       "scope": "Backend integration/installation and troubleshooting only; model implementations match the previously validated backend patch. No new GPU generation or dependency-install claim.",
       "ci": "Three-base patch check/apply matrix (41359cd, dc01455, 2c24de1); Windows and Linux extension suites."
+    },
+    "cumulative_0_5_22": {
+      "base_commit": "4b0d3979dde9caaee6628bb009a4d9763af60378",
+      "scope": "Image Edit only; separate Krea Style Reference plugin and local Forge/IIB modifications excluded.",
+      "python": "150 tests passed on 2026-10-22, including fallback dispatch equivalence for Fibo Turbo/Dev and Qwen, legacy/current arguments, model validation, painting and crop-only routing.",
+      "javascript": "31 tests passed on 2026-10-22.",
+      "compile_and_whitespace": "compileall and git diff --check passed.",
+      "zero_edge_ui": {
+        "zero_edges_enabled": true,
+        "notice": "No crop or outpaint changes. Generate edit will apply your prompt to the whole image.",
+        "summary": "Output: 672 Ã— 896 Â· source: 432 Ã— 576",
+        "expansion_label": true,
+        "reset_restores_normal": true,
+        "crop_only": true,
+        "invalid_geometry_disabled": true,
+        "normal_toggle_off": true,
+        "generation_submitted": false
+      },
+      "source_import_live_ui": [
+        {
+          "variant": "Live Forge txt2img selected batch import",
+          "passed": true,
+          "source_size": [
+            700,
+            350
+          ],
+          "exact_original_bytes": true,
+          "prompt_extracted": true,
+          "tooltips": true
+        },
+        {
+          "variant": "Live Forge IIB lightbox import after tab switch",
+          "passed": true,
+          "source_size": [
+            432,
+            576
+          ],
+          "exact_original_bytes": true,
+          "prompt_extracted": true,
+          "generation_submitted": false
+        }
+      ],
+      "source_import_layout": {
+        "centerline_spread": 0,
+        "row_height": 34,
+        "unchanged_during_import": true,
+        "unchanged_on_success": true,
+        "unchanged_on_error": true,
+        "long_filename_no_expansion": true,
+        "narrow_no_overflow": true
+      },
+      "iib_compatibility": [
+        {
+          "variant": "upstream-old",
+          "passed": true,
+          "checks": [
+            "hidden host tab",
+            "current preview after next",
+            "original bytes",
+            "failure/retry",
+            "closed lightbox",
+            "no injected menu"
+          ]
+        },
+        {
+          "variant": "xl-old",
+          "passed": true,
+          "checks": [
+            "hidden host tab",
+            "current preview after next",
+            "original bytes",
+            "failure/retry",
+            "closed lightbox",
+            "no injected menu"
+          ]
+        },
+        {
+          "variant": "upstream",
+          "passed": true,
+          "checks": [
+            "hidden host tab",
+            "current preview after next",
+            "original bytes",
+            "failure/retry",
+            "closed lightbox",
+            "no injected menu"
+          ]
+        },
+        {
+          "variant": "xl",
+          "passed": true,
+          "checks": [
+            "hidden host tab",
+            "current preview after next",
+            "original bytes",
+            "failure/retry",
+            "closed lightbox",
+            "no injected menu"
+          ]
+        }
+      ],
+      "qwen_sampling": "Prior local four-job GPU check verified changed pixels for Shift and RoPE, and exact baseline equality after toggling back. This is wiring/isolation evidence, not a quality claim. Details in WORKLOG.md.",
+      "qwen_outpaint": "Prior local failing-seed production check filled both side borders with the shorter green-replacement instruction and preserved pixels outside seam blending. Multi-seed/four-edge follow-up was not run; no blanket success claim.",
+      "backend_installation": "Backend patches and installer are unchanged from 0.5.21. Existing three-base CI checks remain enabled.",
+      "current_live_check": "Separate headless Edge page on idle port 7860; no generation, model changes or Canary interaction in the final fallback check."
     }
   },
   "limitations": [

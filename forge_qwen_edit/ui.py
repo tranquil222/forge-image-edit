@@ -2,6 +2,7 @@
 
 import html
 import json
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from PIL import Image
@@ -21,7 +22,7 @@ from .adapters import DEFAULT_FAMILY, EDIT_MODELS, get_adapter
 from .batching import run_batch, validate_count
 from .outpaint import EDGES, canvas_plan, canvas_images, canvas_reference_resolution, save_crop
 from .prompt_metadata import original_prompts
-from .sampling import FIBO_SHIFT_MODES, DEFAULT_FIBO_SHIFT
+from .sampling import FIBO_SHIFT_MODES, DEFAULT_FIBO_SHIFT, DEFAULT_QWEN_SHIFT
 from .workflow import output_resize_size
 
 
@@ -64,7 +65,7 @@ def model_controls(family, area_only=False, mode=AREA_MODES[0], canvas_enabled=F
                       info="Dev uses a trained null caption when empty. Negative conditioning is text-only." if dev else "Not used at CFG 1. Express exclusions in the edit instruction."),
             gr.update(interactive=dev, info="Dev default: 5." if dev else "Fixed at 1 for this editing model."),
             gr.update(visible=fibo), gr.update(visible=canvas_enabled or not area_only), gr.update(visible=fibo),
-            gr.update(visible=canvas_enabled or not area_only))
+            gr.update(visible=canvas_enabled or not area_only), gr.update(visible=family == "Qwen Image 2.1"))
 
 
 def canvas_model_controls(family, area_only, mode, enabled):
@@ -172,7 +173,7 @@ def select_metadata_prompt(choices, selected, family):
 def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=False, shrink_by=1, resolution=768, model_ready=True,
                     resize_enabled=False, resize_mode="Resize to", output_width=1024, output_height=1024, output_scale=1):
     enabled = bool(enabled and size and min(size) > 0)
-    crop = expanded = valid = False
+    crop = expanded = valid = normal_edit = False
     crop_label = "Apply crop"
     message, action = "Load a source image.", ""
     if size and min(size) > 0:
@@ -186,10 +187,13 @@ def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=Fal
             width, height = plan["output_size"]
             message = f"Output: **{width} × {height}** · canvas: {plan['canvas_size'][0]} × {plan['canvas_size'][1]}"
             if not plan["changed"] and not painted:
-                action = "Nothing to change yet. Adjust an edge, resize, or paint an area."
+                normal_edit = True
+                action = "No crop or outpaint changes. Generate edit will apply your prompt to the whole image."
+                x0, y0, x1, y1 = reference_content_box(*size, 0 if resize_enabled else resolution)
+                message = f"Output: **{x1-x0} × {y1-y0}** · source: {size[0]} × {size[1]}"
             if plan["output_size"] != plan["canvas_size"]:
                 crop_label = "Apply crop / resize" if any(plan["edges"].values()) else "Apply resize"
-            if not crop:
+            if not crop and not normal_edit:
                 working = 0 if plan.get("output_resize") else canvas_reference_resolution((width, height), resolution, plan["shrink_by"])
                 x0, y0, x1, y1 = reference_content_box(width, height, working)
                 if (x1-x0, y1-y0) != (width, height):
@@ -199,7 +203,7 @@ def canvas_feedback(size, enabled, left, right, top, bottom, family, painted=Fal
             message = action = str(error)
     return (message,
             gr.update(visible=not (enabled and crop), value="Generate outpaint" if enabled and expanded else "Generate edit",
-                      interactive=bool(model_ready and size and min(size) > 0 and (not enabled or (valid and (expanded or painted))))),
+                      interactive=bool(model_ready and size and min(size) > 0 and (not enabled or (valid and (expanded or painted or normal_edit))))),
             gr.update(visible=enabled and crop, value=crop_label, interactive=valid),
             gr.update(value=action, visible=enabled and bool(action)))
 
@@ -232,6 +236,13 @@ def run_canvas_edit(task_id, *args):
     # Keep old direct/API callers compatible; append controls so JS image slots
     # and reference-curve payload positions do not move.
     fibo_shift_mode, fibo_shift, fibo_rope = "Manual", 1.15, False
+    qwen_sampling = []
+    allow_custom_components, custom_vae = False, None
+    if len(args) == 45:
+        *args, allow_custom_components, custom_vae = args
+    if len(args) == 43:
+        *args, qwen_shift_mode, qwen_shift, qwen_rope = args
+        qwen_sampling = [qwen_shift_mode, qwen_shift, qwen_rope]
     output_resize = None
     if len(args) == 40:
         *args, resize_enabled, resize_mode, output_width, output_height, output_scale = args
@@ -247,8 +258,6 @@ def run_canvas_edit(task_id, *args):
     # Read the submitted strokes directly; the UI's paint flag is asynchronous.
     enabled = has_painted_area(foreground)
     canvas_resize = output_resize if canvas_enabled else None
-    if enabled or canvas_enabled:
-        output_resize = None  # Normal painted edits retain their source canvas.
     editor = {"background": base[0], "layers": [foreground] if foreground is not None else []}
     canvas_edges = {**dict(zip(EDGES, (left, right, top, bottom))), "seam_blend": seam_blend, "shrink_by": shrink_by} if canvas_enabled else None
     if canvas_enabled:
@@ -260,15 +269,21 @@ def run_canvas_edit(task_id, *args):
         paint = extract_mask(base[0], editor) if enabled else None
         retained_paint = paint is not None and paint.crop(plan["source_box"]).getbbox() is not None
         if not plan["changed"] and not retained_paint:
-            raise gr.Error("Nothing to change yet. Adjust an edge, resize, or paint an area.")
-        if not plan["expand"] and not retained_paint:
+            # Leaving the toggle checked must not block a normal prompt edit.
+            # Omit the canvas payload entirely: an empty outpaint mask would
+            # preserve every source pixel and discard the generated changes.
+            canvas_enabled, canvas_edges = False, None
+        elif not plan["expand"] and not retained_paint:
             return run_canvas_crop(base[0], True, left, right, top, bottom, keep_metadata, foreground, shrink_by,
                                    bool(canvas_resize), **({"resize_mode": canvas_resize["mode"], "output_width": canvas_resize["width"],
                                        "output_height": canvas_resize["height"], "output_scale": canvas_resize["scale"]} if canvas_resize else {}))
-    checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules)
+    if enabled or canvas_enabled:
+        output_resize = None  # Normal painted edits retain their source canvas.
+    checkpoint, adapter, encoder, vae = model_bar.resolve_selection(checkpoint_value, modules, allow_custom_components, custom_vae)
     return run_edit(task_id, *base, checkpoint.name, encoder, vae, cache, enabled, editor, feather, mode,
                     adapter.label, result_description, keep_metadata, dtype, guidance, preserve_tone, canvas_edges,
-                    (reference2_curves, reference3_curves), fibo_shift_mode, fibo_shift, fibo_rope, output_resize, batch_count=batch_count)
+                    (reference2_curves, reference3_curves), fibo_shift_mode, fibo_shift, fibo_rope, output_resize, *qwen_sampling, batch_count=batch_count,
+                    **({"custom_components": True} if allow_custom_components else {}))
 
 
 def custom_settings(family=DEFAULT_FAMILY):
@@ -278,9 +293,11 @@ def custom_settings(family=DEFAULT_FAMILY):
                       if family in EDIT_MODELS and get_adapter(family).key == "fibo2" else "Custom sampling settings. Quality presets leave resolution unchanged.")
 
 
-def run_edit(task_id, *args, batch_count=1):
+def run_edit(task_id, *args, batch_count=1, custom_components=False):
     global _active
     from .native import generate
+    if custom_components:
+        generate = partial(generate, custom_components=True)
     _active = True
     try:
         result = main_thread.run_and_wait_result(run_batch, generate, args, batch_count, shared.state)
@@ -322,15 +339,6 @@ def cancel_edit():
         shared.state.interrupt()
         return "<p>Cancelling… waiting for the current operation to finish.</p>"
     return gr.update()
-
-
-def reuse_result(image, saved_path=None):
-    if image is None:
-        raise gr.Error("Generate an edit before using its result as the source.")
-    if saved_path and Path(saved_path).is_file():
-        with Image.open(saved_path) as saved:
-            return saved.copy()
-    return image
 
 
 def curves_request(payload, saved_path, keep_metadata):
@@ -375,7 +383,7 @@ def create_tab():
             selection_signature = gr.State("")
             with gr.Row(elem_id="image_edit_model_row"):
                 backend_label = gr.Markdown("Select your edit checkpoint in Forge's top model bar.", elem_id="image_edit_model_status")
-                correct_components = gr.Button("Use matching encoder / VAE", size="sm", scale=0, min_width=220, elem_id="image_edit_correct_components")
+                correct_components = gr.Button("Check model setup", size="sm", scale=0, min_width=180, elem_id="image_edit_correct_components")
             with gr.Row(equal_height=False, elem_id="image_edit_previews"):
                 with gr.Column(scale=1, min_width=350, elem_id="image_edit_source_column"):
                     mask_editor = EditCanvas()
@@ -389,7 +397,13 @@ def create_tab():
                                 generate = gr.Button("Generate edit", variant="primary", elem_id="qwen_edit_generate", scale=3, interactive=False)
                                 apply_crop = gr.Button("Apply crop", variant="primary", elem_id="image_edit_apply_crop", scale=3, visible=False)
                                 cancel = gr.Button("Cancel", elem_id="qwen_edit_cancel", scale=1)
-                            canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled")
+                            with gr.Row(elem_id="image_edit_canvas_toolbar"):
+                                canvas_enabled = gr.Checkbox(value=False, label="Crop / outpaint", interactive=False, elem_id="image_edit_canvas_enabled", scale=0, min_width=150)
+                                gr.HTML('<div class="qe-source-import-row"><span class="qe-source-import-control">'
+                                        '<button type="button" id="image_edit_txt2img_import">Import from txt2img</button><span id="image_edit_txt2img_help"></span></span>'
+                                        '<span class="qe-source-import-control" id="image_edit_iib_control" hidden><button type="button" id="image_edit_iib_import">Import from Infinite Image Browser</button>'
+                                        '<span id="image_edit_iib_help"></span></span><span id="image_edit_import_status" role="status" aria-live="polite" hidden></span></div>',
+                                        elem_id="image_edit_source_imports")
                             canvas_source_size = gr.State([0, 0])
                             # Both sections stay mounted. CSS switches them from the checkbox
                             # in one frame, without queued visibility updates or moving the toggle.
@@ -411,10 +425,11 @@ def create_tab():
                     with gr.Column(scale=1, min_width=350, elem_id="qwen_edit_result_container"):
                         result = gr.Image(label="Edited result · click to enlarge", type="pil", image_mode="RGBA", format="png", interactive=False, height=420, elem_id="qwen_edit_result")
                         with gr.Row(elem_id="qwen_edit_result_actions"):
-                            reuse = gr.Button("Use result as source", size="sm")
+                            reuse = gr.Button("Use result as source", size="sm", interactive=False, elem_id="image_edit_reuse_result")
                             with gr.Column(min_width=200, elem_id="image_edit_download_column"):
                                 download_button = gr.DownloadButton("Download PNG with settings", size="sm", interactive=False, elem_id="qwen_edit_download")
                                 gr.Markdown("Auto-saved to your img2img output folder.", elem_id="image_edit_save_note")
+                        gr.HTML('<div id="image_edit_reuse_error" role="alert" hidden></div>', elem_id="image_edit_reuse_message")
                         # Retain the full native saved-file path for reuse and curves.
                         download = gr.File(label="Edited PNG", interactive=False, elem_id="image_edit_download_data")
                         batch_gallery = gr.Gallery(label="Batch results · select to review", columns=4, rows=1, height=220,
@@ -466,6 +481,17 @@ def create_tab():
                                 fibo_rope = gr.Checkbox(value=False, label="RoPE adjustment", elem_id="image_edit_fibo_rope",
                                     info=None)
                                 gr.Markdown("X 0.85 / Y 0.80. Can affect contrast, texture and detail at any resolution, including painted edits and outpaint. Does not resize the image.", elem_id="image_edit_rope_hint")
+                            with gr.Group(visible=False, elem_id="image_edit_qwen_sampling") as qwen_sampling:
+                                with gr.Row():
+                                    qwen_shift_mode = gr.Dropdown(list(FIBO_SHIFT_MODES), value="Manual", label="Shift mode", min_width=160, scale=1, elem_id="image_edit_qwen_shift_mode")
+                                    qwen_shift = gr.Slider(.1, 5, value=DEFAULT_QWEN_SHIFT, step=.01, label="Shift", min_width=220, scale=2, elem_id="image_edit_qwen_shift")
+                                gr.Markdown("Qwen default: **0.69**. Changes the sampling schedule, which can affect contrast and texture. Image-size adjusted uses Qwen's resolution-aware shift (0.5–0.9). Normal/Quality and official Turbo schedules are adjusted relative to 0.69; leaving the default preserves their original steps. Qwen and Fibo keep separate settings.", elem_id="image_edit_qwen_shift_hint")
+                                qwen_rope = gr.Checkbox(value=False, label="RoPE adjustment", elem_id="image_edit_qwen_rope")
+                                gr.Markdown("Experimental Qwen adjustment: X 0.85 / Y 0.80 for image positions only. Text and image-order positions are unchanged. Works with whole-image, painted and outpaint edits; does not resize the image. Off keeps the original behavior. Quality improvement is not guaranteed.", elem_id="image_edit_qwen_rope_hint")
+                            qwen_shift_mode.change(lambda mode: gr.update(interactive=mode == "Manual"), [qwen_shift_mode], [qwen_shift], queue=False, show_progress="hidden", api_name=False)
+                            allow_custom_components = gr.Checkbox(value=False, label="Allow custom encoder / VAE filenames", elem_id="image_edit_custom_components")
+                            custom_vae = gr.Dropdown([], value=None, label="Which selected file is the VAE?", visible=False,
+                                info="The other selected file is the text encoder. Bypasses filename checks only; the files must still be compatible with your checkpoint.", elem_id="image_edit_custom_vae")
             last_seed = gr.Textbox(value="", visible=False, elem_id="qwen_edit_last_seed")
             status = gr.HTML(elem_id="qwen_edit_status")
             instruction = gr.Textbox(label="Edit instruction", placeholder="Remove the stray object and reconstruct the background. Or: give this person a subtle, natural smile while keeping their identity.", lines=3, elem_id="qwen_edit_instruction")
@@ -548,9 +574,11 @@ def create_tab():
                 js="(...args) => window.ImageEditOutputSize?.cropSubmit(args) || args", api_name="image_edit_crop")
             for component in (family, result_description, profile, resolution, steps, sampler, schedule, guidance, prefix_cache, keep_metadata, preserve_tone, model_ready, area_only, area_mode, mask_editor.block, mask_editor.background, mask_editor.foreground, feather, curves_payload, curves_receipt, batch_count, batch_gallery, batch_source, batch_selection, last_seed, fibo_shift_mode, fibo_shift, fibo_rope):
                 component.do_not_save_to_config = True
-            for component in (output_size_enabled, output_size_mode, output_width, output_height, output_scale):
+            for component in (output_size_enabled, output_size_mode, output_width, output_height, output_scale, qwen_shift_mode, qwen_shift, qwen_rope):
                 component.do_not_save_to_config = True
-            for component in (steps, sampler, schedule, guidance, prefix_cache, fibo_shift_mode, fibo_shift, fibo_rope):
+            for component in (allow_custom_components, custom_vae):
+                component.do_not_save_to_config = True
+            for component in (steps, sampler, schedule, guidance, prefix_cache, fibo_shift_mode, fibo_shift, fibo_rope, qwen_shift_mode, qwen_shift, qwen_rope):
                 component.input(custom_settings, [family], outputs=[profile, profile_summary], show_progress="hidden")
             mask_editor.foreground.change(has_painted_area, [mask_editor.foreground], [area_only], show_progress="hidden", api_name=False)
             for component in (source, resolution, area_only, area_mode, output_size_enabled, output_size_mode, output_width, output_height, output_scale):
@@ -562,13 +590,13 @@ def create_tab():
             for component in (family, area_only, area_mode):
                 event = component.input if component is area_mode else component.change
                 event(model_controls, [family, area_only, area_mode, canvas_enabled],
-                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance, fibo_sampling, output_size_section, fibo_rope_options, output_settings],
+                    [result_description, reference_help, reference2, reference3, area_mode, mask_help, steps, resolution, feather, negative, guidance, fibo_sampling, output_size_section, fibo_rope_options, output_settings, qwen_sampling],
                     js="(family, enabled, mode, canvas) => { qwenEditSetModel(family); return [family, enabled, mode, canvas]; }" if component is family else None,
                     queue=False, show_progress="hidden", api_name="image_edit_controls" if component is family else False)
-            reuse.click(reuse_result, [result, download], [source])
+            reuse.click(None, [], [], js="async () => { await window.imageEditUseResultAsSource(); return []; }", queue=False, show_progress="hidden", api_name=False)
             get_prompt.click(get_metadata_prompt, [source, family], [instruction, result_description, prompt_choices, prompt_items, prompt_note], show_progress="hidden", api_name=False)
             prompt_choices.input(select_metadata_prompt, [prompt_items, prompt_choices, family], [instruction, result_description], show_progress="hidden", api_name=False)
-            download.change(lambda path: gr.update(value=path, interactive=bool(path)), [download], [download_button], show_progress="hidden", api_name=False)
+            download.change(lambda path: (gr.update(value=path, interactive=bool(path)), gr.update(interactive=bool(path))), [download], [download_button, reuse], show_progress="hidden", api_name=False)
             random_seed.click(lambda: "-1", outputs=[seed], queue=False, show_progress="hidden")
             reuse_seed.click(lambda last: last or gr.update(), [last_seed], [seed], queue=False, show_progress="hidden")
             # Send only a thumbnail index. Gradio 4 SelectData rejects Forge's

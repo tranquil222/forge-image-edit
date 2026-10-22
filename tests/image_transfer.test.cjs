@@ -74,7 +74,7 @@ test("generation submits current reference curves in input slots, not appended o
         document: {addEventListener() {}}, randomId: () => 'task(test)',
         gradioApp: () => ({querySelector: () => ({src: '/source.png'}), getElementById: () => null})};
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../javascript/qwen_edit.js'), 'utf8'), context);
-    const values = Array.from({length: 40}, (_, i) => `value-${i}`);
+    const values = Array.from({length: 44}, (_, i) => `value-${i}`);
     const submitted = Array.from(context.qwenEditSubmit(...values));
     assert.equal(submitted[0], 'task(test)');
     assert.deepEqual(submitted.slice(1, 31), values.slice(1, 31));

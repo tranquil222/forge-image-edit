@@ -24,7 +24,7 @@ jobs:
           node-version: '22'
       - run: python -m pip install numpy pillow
       - run: python -m unittest discover -s tests -v
-      - run: node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs tests/output_size.test.cjs
+      - run: node --test tests/image_transfer.test.cjs tests/lightbox.test.cjs tests/curves.test.cjs tests/outpaint.test.cjs tests/output_size.test.cjs tests/iib.test.cjs tests/imports.test.cjs tests/reuse.test.cjs
       - run: python -m compileall -q forge_qwen_edit tools
   backend-patch:
     runs-on: ubuntu-latest

@@ -25,12 +25,12 @@ def resolve_checkpoint(value):
     return matches[0]
 
 
-def resolve_selection(value, modules):
+def resolve_selection(value, modules, allow_custom=False, custom_vae=None):
     checkpoint = resolve_checkpoint(value)
     adapter = adapter_for_checkpoint(checkpoint)
     if adapter is None:
         raise ValueError("Unsupported checkpoint for Image Edit. Choose Qwen Image 2.1 (base/Turbo) or Fibo 2.0 (Edit Turbo/Dev) in the top Checkpoint field.")
-    encoder, vae = validate_components(adapter, modules, main_entry.module_list)
+    encoder, vae = validate_components(adapter, modules, main_entry.module_list, allow_custom, custom_vae)
     ensure_backend(adapter)
     return checkpoint, adapter, encoder, vae
 
@@ -57,7 +57,7 @@ def component_summary(checkpoint, encoder, vae):
         for kind, name in files) + '</div>'
 
 
-def selection_status(value, modules):
+def selection_status(value, modules, allow_custom=False, custom_vae=None):
     try:
         checkpoint = resolve_checkpoint(value)
         adapter = adapter_for_checkpoint(checkpoint)
@@ -67,9 +67,11 @@ def selection_status(value, modules):
         return ("Choose a **Qwen Image 2.1** or **Fibo 2.0** checkpoint in the top model bar. "
                 "[Exact model files](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), False
     try:
-        checkpoint, adapter, encoder, vae = resolve_selection(value, modules)
+        checkpoint, adapter, encoder, vae = resolve_selection(value, modules, allow_custom, custom_vae)
         message = component_summary(checkpoint.filename, encoder, vae)
-        if adapter.key == "qwen21" and basename(vae).lower() != "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors":
+        if allow_custom:
+            message += "\n\nCustom filenames allowed. Actual compatibility is checked when the model loads."
+        elif adapter.key == "qwen21" and basename(vae).lower() != "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors":
             message += "\n\nFine checkerboard? [Optional Qwen texture-fix VAE](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md#qwen-21-texture-fix-vae)."
         return message, True
     except ValueError as error:
@@ -78,17 +80,17 @@ def selection_status(value, modules):
             return ("**Backend setup required.** " + detail + " "
                     "[Step-by-step setup guide](https://github.com/tranquil222/forge-image-edit/blob/main/COMPATIBILITY.md#fibo2-is-missing-from-ui-preset-or-backend-setup-required)."), False
         requirements = component_summary(checkpoint.filename, *adapter.defaults[1:])
-        return (requirements + "\n\n**Required files above.** Select the encoder and VAE in the top model bar, or use the matching-components button. "
+        return ("**Model setup needs attention.** " + html.escape(str(error)) + "\n\n" + requirements + "\n\n"
                 "[Downloads](https://github.com/tranquil222/forge-image-edit/blob/main/MODELS.md)."), False
 
 
-def observe_checkpoint(value, modules, previous):
+def observe_checkpoint(value, modules, previous, allow_custom=False, custom_vae=None):
     try:
         checkpoint = resolve_checkpoint(value)
         adapter = adapter_for_checkpoint(checkpoint)
     except ValueError:
         checkpoint, adapter = None, None
-    status, enabled = selection_status(value, modules)
+    status, enabled = selection_status(value, modules, allow_custom, custom_vae)
     if adapter is None:
         return ("", *[gr.update() for _ in range(6)], status, enabled, "", gr.update())
     profiles = profiles_for(adapter, checkpoint.name)
@@ -108,20 +110,42 @@ def observe_checkpoint(value, modules, previous):
             summary if changed else gr.update(), status, enabled, checkpoint.name, adapter.guidance if changed else gr.update())
 
 
-def apply_components(checkpoint_value, selected, dtype):
+def check_model_setup(checkpoint_value, selected, allow_custom=False, custom_vae=None):
+    """Refresh installed-file detection and validate, never change a selector."""
     main_entry.refresh_models()
-    checkpoint = resolve_checkpoint(checkpoint_value)
-    adapter = adapter_for_checkpoint(checkpoint)
+    status, ready = selection_status(checkpoint_value, selected, allow_custom, custom_vae)
+    if ready:
+        gr.Info("Custom file selection is complete. Compatibility is checked when the model loads. No selections changed." if allow_custom else "Model setup is ready. No selections changed.")
+    else:
+        try:
+            resolve_selection(checkpoint_value, selected, allow_custom, custom_vae)
+        except ValueError as error:
+            gr.Warning(str(error))
+    return status, ready
+
+
+def custom_vae_choices(enabled, selected, current):
+    names = [basename(value) for value in selected or []]
+    vaes = [name for name in names if 'vae' in name.lower()]
+    value = current if current in names else vaes[0] if len(vaes) == 1 else None
+    return gr.update(choices=names, value=value, visible=bool(enabled))
+
+
+def sync_checkpoint_preset(value):
+    """A manual checkpoint selection updates the layout, not the other model fields."""
+    try:
+        adapter = adapter_for_checkpoint(resolve_checkpoint(value))
+    except ValueError:
+        adapter = None
     if adapter is None:
-        raise gr.Error("Choose a Qwen Image 2.1 or Fibo 2.0 checkpoint first. This button never changes your checkpoint.")
+        return gr.update()
     try:
         ensure_backend(adapter)
-        modules = suggested_components(adapter, selected, main_entry.module_list)
-    except ValueError as error:
-        raise gr.Error(str(error)) from error
+    except ValueError:
+        return gr.update()
     shared.opts.set("forge_preset", adapter.key)
-    main_entry._load_presets(checkpoint_value, modules, dtype, adapter.key)
-    return gr.update(choices=sorted(main_entry.module_list), value=modules), adapter.key
+    shared.opts.save(shared.config_filename)
+    return adapter.key
 
 
 def apply_profile(profile, checkpoint_value):
@@ -142,7 +166,7 @@ def import_recipe(file, current_checkpoint, modules):
     try:
         recipe = read_recipe(file)
         if recipe.get("operation") == "canvas_crop":
-            values = [gr.update() for _ in range(30)]
+            values = [gr.update() for _ in range(35)]
             values[11] = "This PNG is a canvas crop with no model settings. The crop is already in its pixels."
             return tuple(values)
         family = recipe.get("model_family", "Qwen Image 2.1")
@@ -166,7 +190,7 @@ def import_recipe(file, current_checkpoint, modules):
         components = [recipe.get("encoder"), recipe.get("vae")]
         if not all(components):
             components = suggested_components(adapter, modules, main_entry.module_list)
-        encoder, vae = validate_components(adapter, components, main_entry.module_list)
+        encoder, vae = validate_components(adapter, components, main_entry.module_list, recipe.get("custom_components", False), recipe.get("vae"))
     except (KeyError, TypeError, ValueError, OSError) as error:
         raise gr.Error(str(error)) from error
     note = "Edit recipe loaded. The displayed source is used for the next edit."
@@ -193,15 +217,20 @@ def import_recipe(file, current_checkpoint, modules):
             note, gr.update(choices=[*profiles_for(adapter, checkpoint.name), "Custom"], value="Custom"), "Imported edit recipe.", family,
             gr.update(value=bool(recipe.get("prefix_cache", adapter.prefix_cache)) and adapter.prefix_cache, interactive=adapter.prefix_cache),
             recipe.get("result_description", ""), bool(recipe.get("keep_original_metadata", True)), checkpoint.name, recipe["cfg"], False, gr.update(choices=modes, value=mode),
-            recipe.get("fibo_shift_mode", "Manual") if adapter.key == "fibo2" else "Manual",
-            gr.update(value=recipe.get("fibo_shift", 1.15) if adapter.key == "fibo2" else 1.15, interactive=recipe.get("fibo_shift_mode", "Manual") == "Manual" or adapter.key != "fibo2"),
-            recipe.get("fibo_rope", False) if adapter.key == "fibo2" else False,
-            bool(resize), resize.get("mode", "Resize to"), resize.get("width", gr.update()), resize.get("height", gr.update()), resize.get("scale", 1))
+            recipe.get("fibo_shift_mode", "Manual") if adapter.key == "fibo2" else gr.update(),
+            gr.update(value=recipe.get("fibo_shift", 1.15), interactive=recipe.get("fibo_shift_mode", "Manual") == "Manual") if adapter.key == "fibo2" else gr.update(),
+            recipe.get("fibo_rope", False) if adapter.key == "fibo2" else gr.update(),
+            bool(resize), resize.get("mode", "Resize to"), resize.get("width", gr.update()), resize.get("height", gr.update()), resize.get("scale", 1),
+            recipe.get("qwen_shift_mode", "Manual") if adapter.key == "qwen21" else gr.update(),
+            gr.update(value=recipe.get("qwen_shift", .69), interactive=recipe.get("qwen_shift_mode", "Manual") == "Manual") if adapter.key == "qwen21" else gr.update(),
+            recipe.get("qwen_rope", False) if adapter.key == "qwen21" else gr.update(),
+            bool(recipe.get("custom_components", False)),
+            gr.update(choices=[encoder, vae], value=vae, visible=bool(recipe.get("custom_components", False))))
 
 
 def import_handoff(image, checkpoint, modules):
     if image is None or not any(key in image.info for key in ("image_edit", "qwen_edit")):
-        return tuple(gr.update() for _ in range(30))
+        return tuple(gr.update() for _ in range(35))
     # read_recipe accepts PIL images as well as uploaded paths; no stored paths opened.
     return import_recipe(image, checkpoint, modules)
 
@@ -225,15 +254,22 @@ def after_component(component, **kwargs):
 def bind(ui, controls):
     from modules.call_queue import wrap_gradio_gpu_call
     from .ui import run_canvas_edit
+    from . import model_switch
+    model_switch.install(main_entry, shared, sd_models, gr)
     checkpoint, modules, preset, dtype = [controls[key] for key in ("checkpoint", "modules", "preset", "dtype")]
     outputs = [ui.family, ui.profile, ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.backend_label, ui.model_ready, ui.selection_signature, ui.guidance]
-    checkpoint.change(observe_checkpoint, [checkpoint, modules, ui.selection_signature], outputs, show_progress="hidden", api_name="image_edit_selection")
-    modules.change(selection_status, [checkpoint, modules], [ui.backend_label, ui.model_ready], show_progress="hidden", api_name="image_edit_validate")
-    Context.root_block.load(observe_checkpoint, [checkpoint, modules, ui.selection_signature], outputs, show_progress="hidden")
-    ui.correct_components.click(apply_components, [checkpoint, modules, dtype], [modules, preset], show_progress="hidden", api_name="image_edit_correct_components")
+    custom = [ui.allow_custom_components, ui.custom_vae]
+    checkpoint.change(observe_checkpoint, [checkpoint, modules, ui.selection_signature, *custom], outputs, show_progress="hidden", api_name="image_edit_selection")
+    checkpoint.input(sync_checkpoint_preset, [checkpoint], [preset], queue=False, show_progress="hidden", api_name=False)
+    for component in (modules, *custom):
+        component.change(selection_status, [checkpoint, modules, *custom], [ui.backend_label, ui.model_ready], show_progress="hidden", api_name="image_edit_validate" if component is modules else False)
+    for component in (modules, ui.allow_custom_components):
+        component.change(custom_vae_choices, [ui.allow_custom_components, modules, ui.custom_vae], [ui.custom_vae], show_progress="hidden", api_name=False)
+    Context.root_block.load(observe_checkpoint, [checkpoint, modules, ui.selection_signature, *custom], outputs, show_progress="hidden")
+    ui.correct_components.click(check_model_setup, [checkpoint, modules, *custom], [ui.backend_label, ui.model_ready], show_progress="hidden", api_name="image_edit_check_model")
     ui.profile.input(apply_profile, [ui.profile, checkpoint], [ui.steps, ui.sampler, ui.schedule, ui.prefix_cache, ui.profile_summary, ui.guidance], show_progress="hidden", api_name="image_edit_preset")
     recipe_outputs = [ui.instruction, ui.negative, ui.resolution, ui.steps, ui.seed, ui.sampler, ui.schedule, checkpoint, modules, preset, dtype,
-                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone, ui.area_mode, ui.fibo_shift_mode, ui.fibo_shift, ui.fibo_rope, ui.output_size_enabled, ui.output_size_mode, ui.output_width, ui.output_height, ui.output_scale]
+                      ui.import_status, ui.profile, ui.profile_summary, ui.family, ui.prefix_cache, ui.result_description, ui.keep_metadata, ui.selection_signature, ui.guidance, ui.preserve_tone, ui.area_mode, ui.fibo_shift_mode, ui.fibo_shift, ui.fibo_rope, ui.output_size_enabled, ui.output_size_mode, ui.output_width, ui.output_height, ui.output_scale, ui.qwen_shift_mode, ui.qwen_shift, ui.qwen_rope, *custom]
     ui.import_button.click(import_recipe, [ui.recipe_file, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_import")
     ui.handoff.change(import_handoff, [ui.handoff, checkpoint, modules], recipe_outputs, show_progress="hidden", api_name="image_edit_handoff")
     ui.generate.click(wrap_gradio_gpu_call(run_canvas_edit, extra_outputs=[gr.update() for _ in range(6)]),
@@ -242,5 +278,5 @@ def bind(ui, controls):
          ui.feather, ui.area_mode, ui.result_description, ui.keep_metadata, ui.guidance, ui.preserve_tone,
          ui.canvas_enabled, ui.canvas_left, ui.canvas_right, ui.canvas_top, ui.canvas_bottom, ui.seam_blend, ui.canvas_shrink, ui.batch_count,
          ui.reference2_curves, ui.reference3_curves, ui.fibo_shift_mode, ui.fibo_shift, ui.fibo_rope,
-         ui.output_size_enabled, ui.output_size_mode, ui.output_width, ui.output_height, ui.output_scale],
+         ui.output_size_enabled, ui.output_size_mode, ui.output_width, ui.output_height, ui.output_scale, ui.qwen_shift_mode, ui.qwen_shift, ui.qwen_rope, *custom],
         [ui.result, ui.download, ui.last_seed, ui.batch_gallery, ui.batch_items, ui.batch_source, ui.status], js="qwenEditSubmit", api_name="image_edit_generate")

@@ -19,16 +19,33 @@ def required_components(adapter):
     return "Qwen Image 2.1 base/Turbo checkpoint + Qwen3-VL 8B encoder + Qwen Image 2.1 VAE"
 
 
-def validate_components(adapter, selected, available):
-    """Require exactly one compatible encoder and VAE; reject stale extras."""
+def validate_components(adapter, selected, available, allow_custom=False, custom_vae=None):
+    """Validate known filenames, or an explicitly assigned custom encoder/VAE pair."""
     names = [basename(value) for value in selected or []]
-    requirement = required_components(adapter)
-    if any(name not in available or not Path(available[name]).is_file() for name in names):
-        raise ValueError(f"A selected component is missing. Refresh the model list. Required: {requirement}.")
+    missing_files = [name for name in names if name not in available or not Path(available[name]).is_file()]
+    if missing_files:
+        raise ValueError(f"Selected file not found: {', '.join(missing_files)}. Install it and refresh the top model list.")
+    if allow_custom:
+        if len(names) != 2 or len(set(names)) != 2:
+            raise ValueError("Custom setup needs two selected files: one text encoder and one VAE in the top VAE / Text Encoder field.")
+        vae = basename(custom_vae) if custom_vae else None
+        if vae not in names:
+            raise ValueError("In Extras, choose which selected file is the VAE. The other file is used as the text encoder.")
+        return next(name for name in names if name != vae), vae
     encoders = [name for name in names if adapter.accepts(name, "encoder")]
     vaes = [name for name in names if adapter.accepts(name, "vae")]
     if len(names) != 2 or len(encoders) != 1 or len(vaes) != 1 or len(set(names)) != 2:
-        raise ValueError(f"Incorrect VAE / Text Encoder selection. Required: {requirement}. Select only its encoder and VAE.")
+        problems = []
+        if not encoders:
+            problems.append(f"Missing text encoder: {adapter.defaults[1]}.")
+        if not vaes:
+            problems.append(f"Missing VAE: {adapter.defaults[2]}.")
+        if len(encoders) > 1 or len(vaes) > 1 or len(set(names)) != len(names):
+            problems.append("Select just one compatible text encoder and one VAE.")
+        extras = [name for name in names if name not in encoders + vaes]
+        if extras:
+            problems.append(f"Unrecognized for this model: {', '.join(extras)}. For custom files, enable Allow custom encoder / VAE filenames in Extras.")
+        raise ValueError(' '.join(problems) + " Set these in the top VAE / Text Encoder field.")
     return encoders[0], vaes[0]
 
 
